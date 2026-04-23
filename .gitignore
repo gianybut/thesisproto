@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Node
+frontend/node_modules/
+
+# ML artifacts (too large for GitHub)
+ml/datasets/
+ml/runs/
+ml/pothole_rdd2022.zip
+ml/yolov8n.pt
+
+# Database
+backend/pothole_detection.db
+
+# Uploads & processed videos
+backend/uploads/
+backend/processed/
+backend/snapshots/
+
+# System
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
