@@ -12,7 +12,7 @@ export default function Navbar({ user, onLogout }) {
     <nav className="navbar">
       <NavLink to="/" className="navbar-brand">
         <div className="logo-icon">🛣️</div>
-        <h1>RoadScan AI</h1>
+        <h1>Bantay Kalsada</h1>
       </NavLink>
 
       <div className="navbar-nav">
