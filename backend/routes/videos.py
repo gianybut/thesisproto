@@ -167,7 +167,7 @@ def delete_video(video_id):
 
 @videos_bp.route('/<int:video_id>/stream', methods=['GET'])
 def stream_original_video(video_id):
-    """Stream the original uploaded video."""
+    """Stream the original uploaded video with range request support."""
     video = Video.query.get(video_id)
     if not video:
         return jsonify({'error': 'Video not found'}), 404
@@ -176,12 +176,49 @@ def stream_original_video(video_id):
     if not os.path.exists(file_path):
         return jsonify({'error': 'Video file not found'}), 404
 
-    return send_file(file_path, mimetype='video/mp4')
+    # Determine MIME type based on file extension
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_type_map = {
+        '.mp4': 'video/mp4',
+        '.avi': 'video/x-msvideo',
+        '.mov': 'video/quicktime',
+        '.mkv': 'video/x-matroska',
+        '.webm': 'video/webm'
+    }
+    mime_type = mime_type_map.get(ext, 'video/mp4')
+
+    file_size = os.path.getsize(file_path)
+    range_header = request.headers.get('Range')
+
+    if range_header:
+        # Parse range header
+        range_str = range_header.replace('bytes=', '').split('-')
+        start = int(range_str[0]) if range_str[0] else 0
+        end = int(range_str[1]) if range_str[1] else file_size - 1
+
+        if start > end or end >= file_size:
+            return jsonify({'error': 'Invalid range'}), 416
+
+        # Return 206 Partial Content
+        with open(file_path, 'rb') as f:
+            f.seek(start)
+            data = f.read(end - start + 1)
+            response = current_app.response_class(data, 206, mimetype=mime_type)
+            response.headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+            response.headers['Content-Length'] = len(data)
+            response.headers['Accept-Ranges'] = 'bytes'
+            return response
+    else:
+        # Full file response
+        response = current_app.response_class(open(file_path, 'rb'), 200, mimetype=mime_type)
+        response.headers['Content-Length'] = file_size
+        response.headers['Accept-Ranges'] = 'bytes'
+        return response
 
 
 @videos_bp.route('/<int:video_id>/processed', methods=['GET'])
 def stream_processed_video(video_id):
-    """Stream the processed video with bounding boxes."""
+    """Stream the processed video with bounding boxes and range request support."""
     video = Video.query.get(video_id)
     if not video:
         return jsonify({'error': 'Video not found'}), 404
@@ -193,7 +230,44 @@ def stream_processed_video(video_id):
     if not os.path.exists(file_path):
         return jsonify({'error': 'Processed video file not found'}), 404
 
-    return send_file(file_path, mimetype='video/mp4')
+    # Determine MIME type based on file extension
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_type_map = {
+        '.mp4': 'video/mp4',
+        '.avi': 'video/x-msvideo',
+        '.mov': 'video/quicktime',
+        '.mkv': 'video/x-matroska',
+        '.webm': 'video/webm'
+    }
+    mime_type = mime_type_map.get(ext, 'video/mp4')
+
+    file_size = os.path.getsize(file_path)
+    range_header = request.headers.get('Range')
+
+    if range_header:
+        # Parse range header
+        range_str = range_header.replace('bytes=', '').split('-')
+        start = int(range_str[0]) if range_str[0] else 0
+        end = int(range_str[1]) if range_str[1] else file_size - 1
+
+        if start > end or end >= file_size:
+            return jsonify({'error': 'Invalid range'}), 416
+
+        # Return 206 Partial Content
+        with open(file_path, 'rb') as f:
+            f.seek(start)
+            data = f.read(end - start + 1)
+            response = current_app.response_class(data, 206, mimetype=mime_type)
+            response.headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+            response.headers['Content-Length'] = len(data)
+            response.headers['Accept-Ranges'] = 'bytes'
+            return response
+    else:
+        # Full file response
+        response = current_app.response_class(open(file_path, 'rb'), 200, mimetype=mime_type)
+        response.headers['Content-Length'] = file_size
+        response.headers['Accept-Ranges'] = 'bytes'
+        return response
 
 
 @videos_bp.route('/<int:video_id>/snapshot/<path:filename>', methods=['GET'])

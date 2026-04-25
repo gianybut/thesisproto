@@ -10,27 +10,58 @@ export default function DetectionViewerPage() {
   const [detections, setDetections] = useState([]);
   const [activeDetection, setActiveDetection] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [videoError, setVideoError] = useState(null);
 
   const fetchData = () => {
     videosAPI.get(id).then(res => {
+      console.log('Video data:', res.data.video);
       setVideo(res.data.video);
       setDetections(res.data.detections || []);
       setLoading(false);
-    }).catch(() => { setLoading(false); navigate('/videos'); });
+    }).catch((err) => { 
+      console.error('Failed to fetch video:', err);
+      setLoading(false); 
+      navigate('/videos'); 
+    });
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 3000);
+    const interval = setInterval(() => {
+      fetchData();
+    }, 2000); // Poll every 2 seconds while processing
     return () => clearInterval(interval);
   }, [id]);
 
   const jumpToTimestamp = (detection) => {
+    console.log(`🎯 Clicking detection: ${detection.timestamp_formatted} (${detection.timestamp}s), Frame ${detection.frame_number}`);
     setActiveDetection(detection.id);
-    if (videoRef.current) {
-      videoRef.current.currentTime = detection.timestamp;
-      videoRef.current.play();
+    
+    if (!videoRef.current) {
+      console.error('❌ Video ref not available');
+      return;
     }
+
+    // Pause the video first
+    videoRef.current.pause();
+    
+    // Set the current time to seek to the frame with the bounding box
+    videoRef.current.currentTime = detection.timestamp;
+    console.log(`⏸️  Paused at ${detection.timestamp}s with bounding box visible`);
+  };
+
+  const handleVideoError = (e) => {
+    console.error('Video error:', e);
+    setVideoError(`Video error: ${e.target.error?.message || 'Unknown error'}`);
+  };
+
+  const handleVideoLoadStart = () => {
+    console.log('Video loading started');
+    setVideoError(null);
+  };
+
+  const handleVideoCanPlay = () => {
+    console.log('Video can play');
   };
 
   if (loading) return <div className="page" style={{display:'flex',alignItems:'center',justifyContent:'center'}}><div className="spinner" /></div>;
@@ -39,6 +70,8 @@ export default function DetectionViewerPage() {
   const isProcessing = video.status === 'processing';
   const isCompleted = video.status === 'completed';
   const videoSrc = isCompleted ? videosAPI.processedUrl(video.id) : videosAPI.streamUrl(video.id);
+  
+  console.log('Rendering with status:', video.status, 'Video src:', videoSrc);
 
   return (
     <div className="page fade-in">
@@ -63,9 +96,33 @@ export default function DetectionViewerPage() {
         </div>
       )}
 
+      {videoError && (
+        <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(255, 0, 0, 0.1)', borderLeft: '4px solid var(--danger)' }}>
+          <p style={{ color: 'var(--danger)' }}>❌ {videoError}</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>Video URL: {videoSrc}</p>
+        </div>
+      )}
+
       <div className="viewer-layout">
-        <div className="viewer-video glass-card" style={{ padding: 0 }}>
-          <video ref={videoRef} src={videoSrc} controls style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        <div className="viewer-video glass-card" style={{ padding: 0, minHeight: '400px' }}>
+          {videoSrc ? (
+            <video 
+              key={videoSrc}
+              ref={videoRef} 
+              src={videoSrc}
+              controls
+              preload="metadata"
+              crossOrigin="anonymous"
+              onError={handleVideoError}
+              onLoadStart={handleVideoLoadStart}
+              onCanPlay={handleVideoCanPlay}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+              <p style={{ color: 'var(--text-muted)' }}>No video source available</p>
+            </div>
+          )}
         </div>
 
         <div className="detection-panel">
@@ -93,21 +150,28 @@ export default function DetectionViewerPage() {
               detections.map((d, i) => (
                 <div key={d.id}
                   className={`detection-item fade-in ${activeDetection === d.id ? 'active' : ''}`}
-                  style={{ animationDelay: `${i * 0.03}s` }}
-                  onClick={() => jumpToTimestamp(d)}>
+                  style={{ animationDelay: `${i * 0.03}s`, cursor: 'pointer' }}
+                  onClick={() => jumpToTimestamp(d)}
+                  title={`Click to jump to ${d.timestamp_formatted}`}>
                   <div>
-                    <div className="detection-time">{d.timestamp_formatted}</div>
-                    <div className="detection-conf">
-                      Confidence: {(d.confidence * 100).toFixed(1)}%
+                    <div className="detection-time" style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                      ⏱️ {d.timestamp_formatted}
+                    </div>
+                    <div className="detection-conf" style={{ fontSize: '12px', marginTop: '4px' }}>
+                      {(d.confidence * 100).toFixed(1)}% confidence
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Frame #{d.frame_number}
                     </div>
                   </div>
                   <div style={{ flex: 1 }} />
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Frame #{d.frame_number}</span>
-                    <div className="detection-conf-bar">
+                    <div className="detection-conf-bar" style={{ width: '60px' }}>
                       <div className="detection-conf-fill" style={{
                         width: `${d.confidence * 100}%`,
-                        background: d.confidence > 0.7 ? 'var(--success)' : d.confidence > 0.5 ? 'var(--warning)' : 'var(--danger)'
+                        background: d.confidence > 0.7 ? 'var(--success)' : d.confidence > 0.5 ? 'var(--warning)' : 'var(--danger)',
+                        height: '4px',
+                        borderRadius: '2px'
                       }} />
                     </div>
                   </div>

@@ -1,7 +1,11 @@
-# Pothole Detection Dataset (RDD2022 - D40 class only)
-# Filtered from 3674 images with 6544 pothole annotations
+# Pothole Detection Dataset Configuration
+# Source: RDD2022 (D40 class only - potholes)
+#
+# NOTE: This file uses a RELATIVE path.
+# - In Google Colab, the notebook overwrites the path to /content/pothole_dataset
+# - Locally, update 'path' to your dataset location
 
-path: /Users/gpybut/Downloads/Prototype/ml/datasets/pothole_rdd2022
+path: ./datasets/pothole_rdd2022
 train: train/images
 val: val/images
 test: test/images

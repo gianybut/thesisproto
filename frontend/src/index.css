@@ -170,8 +170,14 @@ body {
   background: var(--bg-glass); border: 1px solid var(--border-glass);
   cursor: pointer; transition: var(--transition);
 }
-.detection-item:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.08); }
-.detection-item.active { border-color: var(--accent); background: rgba(59, 130, 246, 0.12); }
+.detection-item:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.08); box-shadow: 0 0 12px rgba(59, 130, 246, 0.1); }
+.detection-item.active { 
+  border-color: var(--accent-light); 
+  background: rgba(59, 130, 246, 0.2); 
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25), inset 0 0 8px rgba(59, 130, 246, 0.1);
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+}
 .detection-time { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--accent-light); min-width: 70px; }
 .detection-conf { font-size: 12px; color: var(--text-muted); }
 .detection-conf-bar { height: 4px; border-radius: 2px; background: var(--bg-secondary); width: 60px; }

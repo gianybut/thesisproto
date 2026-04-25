@@ -12,7 +12,9 @@ frontend/node_modules/
 ml/datasets/
 ml/runs/
 ml/pothole_rdd2022.zip
-ml/yolov8n.pt
+RDD2022_raw/
+pothole_dataset/
+
 
 # Database
 backend/pothole_detection.db
