@@ -36,5 +36,3 @@ echo.
 cd backend
 set PYTHONUTF8=1
 python run.py
-
-pause

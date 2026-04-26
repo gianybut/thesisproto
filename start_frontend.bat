@@ -46,5 +46,3 @@ echo   Press CTRL+C to stop the server
 echo.
 
 call npm run dev
-
-pause
