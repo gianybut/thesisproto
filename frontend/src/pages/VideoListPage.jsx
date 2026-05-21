@@ -14,7 +14,7 @@ export default function VideoListPage() {
 
   useEffect(() => {
     fetchVideos();
-    const interval = setInterval(fetchVideos, 5000); // Poll for status updates
+    const interval = setInterval(fetchVideos, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -81,8 +81,14 @@ export default function VideoListPage() {
                 <div className="video-meta">
                   <span>⏱ {formatDuration(v.duration)}</span>
                   <span>📦 {formatSize(v.file_size)}</span>
-                  {v.total_detections > 0 && <span>🕳️ {v.total_detections} potholes</span>}
+                  {v.total_detections > 0 && <span>⚠️ {v.total_detections} damages</span>}
+                  {v.has_gps && <span style={{ color: 'var(--teal)' }}>🛰️ GPS</span>}
                 </div>
+                {v.road_name && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                    📍 {v.road_name}
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
                   <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, v.id)}>🗑 Delete</button>
                 </div>

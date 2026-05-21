@@ -3,25 +3,41 @@ import { useNavigate } from 'react-router-dom';
 import { videosAPI } from '../api';
 
 export default function UploadPage() {
-  const [file, setFile] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [gpsFile, setGpsFile] = useState(null);
+  const [roadName, setRoadName] = useState('');
+  const [timeOffset, setTimeOffset] = useState(0);
   const [dragover, setDragover] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  const inputRef = useRef();
+  const videoInputRef = useRef();
+  const gpsInputRef = useRef();
   const navigate = useNavigate();
 
-  const handleFile = (f) => {
-    if (f && f.type.startsWith('video/')) { setFile(f); setError(''); }
+  const handleVideoFile = (f) => {
+    if (f && f.type.startsWith('video/')) { setVideoFile(f); setError(''); }
     else setError('Please select a valid video file (MP4, AVI, MOV, MKV)');
   };
 
+  const handleGpsFile = (f) => {
+    if (f) {
+      const ext = f.name.split('.').pop().toLowerCase();
+      if (['gpx', 'csv'].includes(ext)) { setGpsFile(f); setError(''); }
+      else setError('GPS file must be .gpx or .csv format. Selected: .' + ext);
+    }
+  };
+
   const handleUpload = async () => {
-    if (!file) return;
+    if (!videoFile) return;
     setUploading(true); setProgress(0); setError('');
     const formData = new FormData();
-    formData.append('video', file);
+    formData.append('video', videoFile);
+    if (gpsFile) formData.append('gps_file', gpsFile);
+    if (roadName) formData.append('road_name', roadName);
+    formData.append('time_offset', timeOffset);
+
     try {
       const res = await videosAPI.upload(formData, setProgress);
       setResult(res.data);
@@ -39,14 +55,19 @@ export default function UploadPage() {
           <div className="glass-card">
             <div style={{ fontSize: '64px', marginBottom: '16px' }}>✅</div>
             <h2 style={{ marginBottom: '8px' }}>Upload Successful!</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-              Your video is now being processed. Pothole detection will begin automatically.
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              Your video is now being processed. Road damage detection will begin automatically.
             </p>
+            {gpsFile && (
+              <p style={{ color: 'var(--teal)', fontSize: '14px', marginBottom: '16px' }}>
+                🛰️ GPS track attached — detections will be geo-located
+              </p>
+            )}
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button className="btn btn-primary" onClick={() => navigate(`/videos/${result.video.id}`)}>
                 View Processing
               </button>
-              <button className="btn btn-secondary" onClick={() => { setFile(null); setResult(null); }}>
+              <button className="btn btn-secondary" onClick={() => { setVideoFile(null); setGpsFile(null); setResult(null); }}>
                 Upload Another
               </button>
             </div>
@@ -59,25 +80,63 @@ export default function UploadPage() {
   return (
     <div className="page fade-in">
       <div className="page-header">
-        <h2>Upload Video</h2>
-        <p>Upload road survey footage for automated pothole detection</p>
+        <h2>Upload Road Survey</h2>
+        <p>Upload road survey video and GPS track file for automated damage detection</p>
       </div>
 
       <div style={{ maxWidth: '700px', margin: '0 auto' }}>
         {error && <div className="alert alert-error">{error}</div>}
 
+        {/* Video Upload Zone */}
         <div className={`upload-zone ${dragover ? 'dragover' : ''}`}
           onDragOver={(e) => { e.preventDefault(); setDragover(true); }}
           onDragLeave={() => setDragover(false)}
-          onDrop={(e) => { e.preventDefault(); setDragover(false); handleFile(e.dataTransfer.files[0]); }}
-          onClick={() => inputRef.current?.click()}>
-          <input ref={inputRef} type="file" accept="video/*" hidden onChange={(e) => handleFile(e.target.files[0])} />
-          <div className="upload-icon">📤</div>
-          <h3>{file ? file.name : 'Drop your video here or click to browse'}</h3>
-          <p>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : 'Supports MP4, AVI, MOV, MKV up to 500MB'}</p>
+          onDrop={(e) => { e.preventDefault(); setDragover(false); handleVideoFile(e.dataTransfer.files[0]); }}
+          onClick={() => videoInputRef.current?.click()}>
+          <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={(e) => handleVideoFile(e.target.files[0])} />
+          <div className="upload-icon">🎬</div>
+          <h3>{videoFile ? videoFile.name : 'Drop your road survey video here'}</h3>
+          <p>{videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : 'Supports MP4, AVI, MOV, MKV up to 500MB'}</p>
         </div>
 
-        {file && (
+        {/* GPS File Upload — supports click, drag-and-drop */}
+        <div style={{ marginTop: '20px' }}>
+          <div className={`upload-zone-sm ${gpsFile ? '' : ''}`}
+            onClick={() => gpsInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleGpsFile(e.dataTransfer.files[0]); }}>
+            <input ref={gpsInputRef} type="file" accept="*/*" hidden onChange={(e) => handleGpsFile(e.target.files[0])} />
+            <div className="upload-icon">🛰️</div>
+            <h4>{gpsFile ? `✅ ${gpsFile.name}` : 'Attach GPS Track File (optional)'}</h4>
+            <p>{gpsFile ? `${(gpsFile.size / 1024).toFixed(1)} KB — GPS coordinates will be synced with detections`
+              : 'Click to browse or drag & drop your .GPX or .CSV file here'}</p>
+          </div>
+        </div>
+
+        {/* Road Name and Time Offset */}
+        <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+          <div className="input-group">
+            <label>Road Name (optional)</label>
+            <input className="input-field" type="text" value={roadName}
+              onChange={(e) => setRoadName(e.target.value)}
+              placeholder="e.g., Manila-Cavite Expressway" />
+          </div>
+          <div className="input-group">
+            <label>GPS Time Offset (sec)</label>
+            <input className="input-field" type="number" value={timeOffset}
+              onChange={(e) => setTimeOffset(parseFloat(e.target.value) || 0)}
+              step="0.1" placeholder="0" />
+          </div>
+        </div>
+
+        {gpsFile && (
+          <div className="alert alert-info" style={{ marginTop: '16px' }}>
+            💡 <strong>Time Offset:</strong> If the GPS recording started before/after the video, enter the
+            difference in seconds (positive = GPS started first, negative = video started first).
+          </div>
+        )}
+
+        {videoFile && (
           <div style={{ marginTop: '24px' }}>
             {uploading ? (
               <div>

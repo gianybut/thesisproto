@@ -1,7 +1,7 @@
-"""Detection and dashboard statistics routes."""
+"""Detection and dashboard statistics routes — enhanced with damage type and severity breakdown."""
 
 from flask import Blueprint, request, jsonify
-from models import db, Video, Detection
+from models import db, Video, Detection, PublicReport
 from sqlalchemy import func
 
 detections_bp = Blueprint('detections', __name__)
@@ -42,7 +42,7 @@ def get_detections(video_id):
 
 @detections_bp.route('/dashboard/stats', methods=['GET'])
 def get_dashboard_stats():
-    """Get aggregate dashboard statistics."""
+    """Get aggregate dashboard statistics with damage type and severity breakdown."""
     user_id = get_user_id()
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
@@ -70,6 +70,37 @@ def get_dashboard_stats():
         Video.status == 'completed'
     ).scalar() or 0
 
+    # Damage type breakdown
+    type_counts = db.session.query(
+        Detection.damage_type, Detection.damage_label, func.count(Detection.id)
+    ).join(Video).filter(
+        Video.user_id == user_id
+    ).group_by(Detection.damage_type, Detection.damage_label).all()
+
+    # Severity breakdown
+    severity_counts = db.session.query(
+        Detection.severity, func.count(Detection.id)
+    ).join(Video).filter(
+        Video.user_id == user_id,
+        Detection.severity.isnot(None)
+    ).group_by(Detection.severity).all()
+
+    # Status breakdown
+    status_counts = db.session.query(
+        Detection.inspection_status, func.count(Detection.id)
+    ).join(Video).filter(
+        Video.user_id == user_id
+    ).group_by(Detection.inspection_status).all()
+
+    # Geo-located count
+    geolocated_count = Detection.query.join(Video).filter(
+        Video.user_id == user_id,
+        Detection.latitude.isnot(None)
+    ).count()
+
+    # Pending public reports
+    pending_reports = PublicReport.query.filter_by(status='pending').count()
+
     # Recent detections
     recent_detections = Detection.query.join(Video).filter(
         Video.user_id == user_id
@@ -87,6 +118,11 @@ def get_dashboard_stats():
         'total_detections': int(total_detections),
         'avg_confidence': round(float(avg_confidence), 4),
         'total_duration': round(float(total_duration), 1),
+        'by_damage_type': [{'type': t, 'label': l, 'count': c} for t, l, c in type_counts],
+        'by_severity': {s: c for s, c in severity_counts if s},
+        'by_status': {s: c for s, c in status_counts if s},
+        'geolocated_count': geolocated_count,
+        'pending_reports': pending_reports,
         'recent_detections': [d.to_dict() for d in recent_detections],
         'recent_videos': [v.to_dict() for v in recent_videos]
     }), 200

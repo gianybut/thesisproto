@@ -1,4 +1,4 @@
-"""Flask application factory for the Pothole Detection System."""
+"""Flask application factory for the Road Damage Detection System."""
 
 import os
 from flask import Flask
@@ -17,11 +17,14 @@ def create_app():
     app.config['UPLOAD_FOLDER'] = os.path.join(base_dir, 'uploads')
     app.config['PROCESSED_FOLDER'] = os.path.join(base_dir, 'processed')
     app.config['SNAPSHOTS_FOLDER'] = os.path.join(base_dir, 'snapshots')
+    app.config['REPORTS_FOLDER'] = os.path.join(base_dir, 'reports')
     app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max upload
     app.config['MODEL_PATH'] = os.path.join(base_dir, '..', 'ml', 'models', 'best.pt')
 
     # Ensure directories exist
-    for folder in [app.config['UPLOAD_FOLDER'], app.config['PROCESSED_FOLDER'], app.config['SNAPSHOTS_FOLDER']]:
+    for folder in [app.config['UPLOAD_FOLDER'], app.config['PROCESSED_FOLDER'],
+                   app.config['SNAPSHOTS_FOLDER'], app.config['REPORTS_FOLDER'],
+                   os.path.join(app.config['UPLOAD_FOLDER'], 'id_photos')]:
         os.makedirs(folder, exist_ok=True)
 
     # Initialize extensions
@@ -32,10 +35,18 @@ def create_app():
     from routes.auth import auth_bp
     from routes.videos import videos_bp
     from routes.detections import detections_bp
+    from routes.damage_map import damage_map_bp
+    from routes.public_reports import public_reports_bp
+    from routes.database import database_bp
+    from routes.accounts import accounts_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(videos_bp, url_prefix='/api/videos')
     app.register_blueprint(detections_bp, url_prefix='/api')
+    app.register_blueprint(damage_map_bp, url_prefix='/api/map')
+    app.register_blueprint(public_reports_bp, url_prefix='/api/reports')
+    app.register_blueprint(database_bp, url_prefix='/api/database')
+    app.register_blueprint(accounts_bp, url_prefix='/api/accounts')
 
     # Create database tables
     with app.app_context():
@@ -47,8 +58,11 @@ def create_app():
             admin = User(
                 username='admin',
                 full_name='System Administrator',
-                lgu_name='Default LGU',
-                role='admin'
+                lgu_name='DPWH Central Office',
+                role='admin',
+                agency='DPWH',
+                sector_level='national',
+                account_status='active',
             )
             admin.set_password('admin123')
             db.session.add(admin)

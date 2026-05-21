@@ -1,4 +1,4 @@
-"""Database models for the Pothole Detection System."""
+"""Database models for the Road Damage Detection System."""
 
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
@@ -7,9 +7,29 @@ import json
 
 db = SQLAlchemy()
 
+# Valid roles for the hierarchical access system
+VALID_ROLES = ['public', 'barangay', 'municipal', 'provincial', 'dpwh', 'admin']
+
+# Valid damage types from RDD2022 classification
+DAMAGE_TYPES = {
+    'D10': 'Longitudinal Crack',
+    'D20': 'Transverse Crack',
+    'D30': 'Alligator Crack',
+    'D40': 'Pothole',
+}
+
+# Valid inspection/maintenance statuses
+INSPECTION_STATUSES = [
+    'pending_validation',
+    'inspected',
+    'scheduled',
+    'ongoing_repair',
+    'resolved',
+]
+
 
 class User(db.Model):
-    """LGU personnel user account."""
+    """User account — supports hierarchical government roles."""
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -17,8 +37,16 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     full_name = db.Column(db.String(150), nullable=False)
     lgu_name = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(50), default='inspector')  # inspector, admin
+    role = db.Column(db.String(50), default='inspector')  # public, barangay, municipal, provincial, dpwh, admin
+    agency = db.Column(db.String(200), nullable=True)
+    sector_level = db.Column(db.String(50), nullable=True)
+    email = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Account approval fields
+    account_status = db.Column(db.String(20), default='active')  # active, pending, rejected
+    id_photo = db.Column(db.String(300), nullable=True)  # filename of uploaded government ID
+    rejection_reason = db.Column(db.String(500), nullable=True)
 
     videos = db.relationship('Video', backref='uploader', lazy=True, cascade='all, delete-orphan')
 
@@ -35,12 +63,18 @@ class User(db.Model):
             'full_name': self.full_name,
             'lgu_name': self.lgu_name,
             'role': self.role,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'agency': self.agency,
+            'sector_level': self.sector_level,
+            'email': self.email,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'account_status': self.account_status,
+            'id_photo': self.id_photo,
+            'rejection_reason': self.rejection_reason,
         }
 
 
 class Video(db.Model):
-    """Uploaded road survey video."""
+    """Uploaded road survey video with optional GPS track."""
     __tablename__ = 'videos'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -58,7 +92,14 @@ class Video(db.Model):
     total_detections = db.Column(db.Integer, default=0)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+    # GPS track file fields
+    gps_filename = db.Column(db.String(300), nullable=True)
+    gps_original_filename = db.Column(db.String(300), nullable=True)
+    time_offset = db.Column(db.Float, default=0.0)  # seconds offset between video and GPS start
+    road_name = db.Column(db.String(300), nullable=True)
+
     detections = db.relationship('Detection', backref='video', lazy=True, cascade='all, delete-orphan')
+    gps_track_points = db.relationship('GpsTrackPoint', backref='video', lazy=True, cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
@@ -74,12 +115,17 @@ class Video(db.Model):
             'upload_date': self.upload_date.isoformat() if self.upload_date else None,
             'processed_date': self.processed_date.isoformat() if self.processed_date else None,
             'total_detections': self.total_detections,
-            'user_id': self.user_id
+            'user_id': self.user_id,
+            'gps_filename': self.gps_filename,
+            'gps_original_filename': self.gps_original_filename,
+            'time_offset': self.time_offset,
+            'road_name': self.road_name,
+            'has_gps': self.gps_filename is not None,
         }
 
 
 class Detection(db.Model):
-    """Individual pothole detection record."""
+    """Individual road damage detection record with geo-location and severity."""
     __tablename__ = 'detections'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -93,6 +139,28 @@ class Detection(db.Model):
     bbox_y2 = db.Column(db.Float, nullable=False)
     frame_snapshot = db.Column(db.String(300), nullable=True)  # path to frame image
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Damage classification
+    damage_type = db.Column(db.String(50), default='D40')  # D10, D20, D30, D40
+    damage_label = db.Column(db.String(100), default='Pothole')
+
+    # GPS coordinates (populated when GPS track file is provided)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+
+    # Severity assessment (rule-based scoring)
+    severity = db.Column(db.String(20), nullable=True)  # low, medium, high
+    severity_score = db.Column(db.Float, nullable=True)  # 0-100
+
+    # Road and location info
+    road_name = db.Column(db.String(300), nullable=True)
+
+    # Maintenance workflow tracking
+    inspection_status = db.Column(db.String(50), default='pending_validation')
+    repair_status = db.Column(db.String(50), nullable=True)
+
+    # Source tracking
+    source_type = db.Column(db.String(30), default='ai_detection')  # ai_detection, public_report
 
     def to_dict(self):
         return {
@@ -108,7 +176,18 @@ class Detection(db.Model):
                 'x2': self.bbox_x2,
                 'y2': self.bbox_y2
             },
-            'frame_snapshot': self.frame_snapshot
+            'frame_snapshot': self.frame_snapshot,
+            'damage_type': self.damage_type,
+            'damage_label': self.damage_label,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'severity': self.severity,
+            'severity_score': round(self.severity_score, 2) if self.severity_score else None,
+            'road_name': self.road_name,
+            'inspection_status': self.inspection_status,
+            'repair_status': self.repair_status,
+            'source_type': self.source_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
     def _format_timestamp(self):
@@ -116,3 +195,78 @@ class Detection(db.Model):
         minutes = int(self.timestamp // 60)
         seconds = self.timestamp % 60
         return f"{minutes:02d}:{seconds:05.2f}"
+
+
+class GpsTrackPoint(db.Model):
+    """Individual GPS track point from an uploaded GPX/CSV file."""
+    __tablename__ = 'gps_track_points'
+
+    id = db.Column(db.Integer, primary_key=True)
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id'), nullable=False)
+    timestamp = db.Column(db.Float, nullable=False)  # seconds from track start
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    elevation = db.Column(db.Float, nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'video_id': self.video_id,
+            'timestamp': self.timestamp,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'elevation': self.elevation,
+        }
+
+
+class PublicReport(db.Model):
+    """Citizen-submitted road damage report."""
+    __tablename__ = 'public_reports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    reporter_name = db.Column(db.String(150), nullable=True)
+    reporter_contact = db.Column(db.String(200), nullable=True)
+    image_filename = db.Column(db.String(300), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+
+    # Location (GPS or manual)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    manual_location = db.Column(db.String(500), nullable=True)
+
+    # Damage info
+    damage_type = db.Column(db.String(50), default='D40')
+    damage_label = db.Column(db.String(100), default='Pothole')
+
+    # Status tracking
+    status = db.Column(db.String(30), default='pending')  # pending, validated, rejected
+    validated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationship to the user who submitted (if logged in)
+    submitted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'reporter_name': self.reporter_name,
+            'reporter_contact': self.reporter_contact,
+            'image_filename': self.image_filename,
+            'description': self.description,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'manual_location': self.manual_location,
+            'damage_type': self.damage_type,
+            'damage_label': self.damage_label,
+            'status': self.status,
+            'validated_by': self.validated_by,
+            'rejection_reason': self.rejection_reason,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'submitted_by': self.submitted_by,
+        }
