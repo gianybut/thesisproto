@@ -1,12 +1,18 @@
 """
-YOLOv8 Training Script for Pothole Detection
-Trains a YOLOv8 model on the prepared pothole dataset.
+YOLOv8 Training Script for Road Damage Detection (four CRDDC 2022 classes)
+
+Defaults match the thesis (Sec 3.2.1): YOLOv8m, 100 epochs, batch 16, imgsz 640, early stopping
+with patience 20. Reports per-class AP@50 so the Chapter IV table can be filled directly.
 
 Usage:
-    python train_model.py                    # Train with default settings
-    python train_model.py --epochs 100       # Custom epochs
-    python train_model.py --model yolov8s    # Use small model instead of nano
-    python train_model.py --resume           # Resume training from last checkpoint
+    python train_model.py --data ./datasets/pothole_dataset/data.yaml
+    python train_model.py --model yolov8s --epochs 100          # smaller/faster ablation (C5)
+    python train_model.py --resume                              # continue from last.pt
+
+On Google Colab / Kaggle (free T4 — training on CPU is not realistic, see review C2):
+    !pip install ultralytics
+    !python train_model.py --data /content/pothole_dataset/data.yaml --model yolov8m --epochs 100
+    then download ml/models/best.pt and drop it into the repo.
 """
 
 import os
@@ -18,30 +24,34 @@ from ultralytics import YOLO
 
 def train_model(
     data_yaml='./datasets/pothole_dataset/data.yaml',
-    model_size='yolov8n',
-    epochs=50,
+    model_size='yolov8m',
+    epochs=100,
     batch_size=16,
     img_size=640,
+    patience=20,
+    target_map50=0.50,
     resume=False,
     project_name='pothole_detection',
     experiment_name='train'
 ):
     """
-    Train YOLOv8 model for pothole detection.
+    Train YOLOv8 for four-class road damage detection.
 
     Args:
         data_yaml: Path to dataset configuration file
         model_size: YOLOv8 model variant (yolov8n, yolov8s, yolov8m, yolov8l, yolov8x)
-        epochs: Number of training epochs
+        epochs: Maximum training epochs (early stopping usually ends sooner)
         batch_size: Training batch size
         img_size: Input image size
+        patience: Stop when val mAP has not improved for this many epochs (review C4)
+        target_map50: A-priori acceptance bar for mAP@50 (review C19; thesis: ≥ 0.50 local)
         resume: Resume from last checkpoint
         project_name: Project directory name for saving results
         experiment_name: Experiment name within project
     """
 
     print("=" * 60)
-    print("🚀 Pothole Detection - YOLOv8 Training")
+    print("🚀 Road Damage Detection - YOLOv8 Training")
     print("=" * 60)
 
     # Validate data.yaml exists
@@ -65,7 +75,7 @@ def train_model(
         model = YOLO(f'{model_size}.pt')
 
     print(f"📊 Dataset config: {data_yaml}")
-    print(f"🔧 Epochs: {epochs}, Batch: {batch_size}, Image size: {img_size}")
+    print(f"🔧 Epochs: {epochs} (patience {patience}), Batch: {batch_size}, Image size: {img_size}")
     print()
 
     # Train the model
@@ -102,7 +112,7 @@ def train_model(
         mixup=0.15,
 
         # Other settings
-        patience=20,
+        patience=patience,
         save=True,
         save_period=10,
         val=True,
@@ -141,26 +151,36 @@ def train_model(
     print("🔍 Running validation...")
     val_results = model.val(data=data_yaml)
 
+    p, r = float(val_results.box.mp), float(val_results.box.mr)
+    f1 = 2 * p * r / (p + r) if (p + r) else 0.0
+
     print()
     print("=" * 60)
-    print("📊 Validation Metrics")
+    print("📊 Validation Metrics (overall)")
     print("=" * 60)
     print(f"   mAP@50:      {val_results.box.map50:.4f}")
     print(f"   mAP@50-95:   {val_results.box.map:.4f}")
-    print(f"   Precision:    {val_results.box.mp:.4f}")
-    print(f"   Recall:       {val_results.box.mr:.4f}")
+    print(f"   Precision:   {p:.4f}")
+    print(f"   Recall:      {r:.4f}")
+    print(f"   F1 (from P/R above, not hand-edited): {f1:.4f}")
+
+    # Per-class AP@50 — the rows of the Chapter IV per-class table
+    try:
+        names = model.names
+        ap50 = val_results.box.ap50
+        print("-" * 60)
+        print("   Per-class AP@50:")
+        for i, ap in enumerate(ap50):
+            print(f"     {names.get(i, i):<20} {ap:.4f}")
+    except Exception:
+        pass
     print("=" * 60)
 
-    # Check if target accuracy is met
-    if val_results.box.map50 >= 0.80:
-        print("🎉 TARGET ACHIEVED: mAP@50 ≥ 80%!")
+    if val_results.box.map50 >= target_map50:
+        print(f"🎉 Acceptance bar met: mAP@50 {val_results.box.map50:.3f} ≥ {target_map50}")
     else:
-        print(f"⚠️  mAP@50 is {val_results.box.map50:.1%}, below 80% target.")
-        print("   Consider:")
-        print("   - Using the full RDD2022 dataset instead of synthetic data")
-        print("   - Increasing epochs")
-        print("   - Using a larger model (yolov8s or yolov8m)")
-        print("   - Adding more data augmentation")
+        print(f"⚠️  mAP@50 {val_results.box.map50:.3f} is below the {target_map50} acceptance bar.")
+        print("   Consider more real data per class, more epochs, or the yolov8s/m ablation.")
 
     return model, val_results
 
@@ -174,26 +194,30 @@ def export_model(model_path, format='onnx'):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train YOLOv8 for pothole detection')
+    parser = argparse.ArgumentParser(description='Train YOLOv8 for four-class road damage detection')
     parser.add_argument('--data', type=str, default='./datasets/pothole_dataset/data.yaml',
                         help='Path to data.yaml')
-    parser.add_argument('--model', type=str, default='yolov8n',
-                        help='YOLOv8 model size (yolov8n/s/m/l/x)')
-    parser.add_argument('--epochs', type=int, default=50,
-                        help='Number of training epochs')
+    parser.add_argument('--model', type=str, default='yolov8m',
+                        help='YOLOv8 model size (yolov8n/s/m/l/x); thesis uses yolov8m')
+    parser.add_argument('--epochs', type=int, default=100,
+                        help='Maximum epochs (early stopping applies)')
     parser.add_argument('--batch', type=int, default=16,
                         help='Batch size')
     parser.add_argument('--img-size', type=int, default=640,
                         help='Input image size')
+    parser.add_argument('--patience', type=int, default=20,
+                        help='Early-stopping patience in epochs')
+    parser.add_argument('--target-map', type=float, default=0.50,
+                        help='Acceptance bar for mAP@50 (thesis: 0.50 on the local test subset)')
     parser.add_argument('--resume', action='store_true',
                         help='Resume training from last checkpoint')
     parser.add_argument('--export', type=str, default=None,
-                        help='Export model format (onnx, tflite, etc.)')
+                        help='Export ml/models/best.pt to this format (onnx, tflite, ...)')
 
     args = parser.parse_args()
 
     if args.export:
-        export_model(args.export)
+        export_model(str(Path(__file__).parent / 'models' / 'best.pt'), args.export)
     else:
         train_model(
             data_yaml=args.data,
@@ -201,5 +225,7 @@ if __name__ == '__main__':
             epochs=args.epochs,
             batch_size=args.batch,
             img_size=args.img_size,
+            patience=args.patience,
+            target_map50=args.target_map,
             resume=args.resume
         )

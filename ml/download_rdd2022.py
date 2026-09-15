@@ -15,8 +15,15 @@ DOWNLOAD_URL = "https://ndownloader.figshare.com/files/38030910"
 ZIP_PATH = "RDD2022.zip"
 EXTRACT_DIR = "RDD2022_raw"
 OUTPUT_DIR = "pothole_dataset"
-TARGET_CLASS = "D40"
 RANDOM_SEED = 42
+
+# The four CRDDC 2022 classes, using RDD2022's own codes (there is no D30 in RDD2022).
+# Index order must match backend/services/video_processor.py's fallback map.
+TARGET_CLASSES = {'D00': 0, 'D10': 1, 'D20': 2, 'D40': 3}
+CLASS_NAMES = ['longitudinal_crack', 'transverse_crack', 'alligator_crack', 'pothole']
+
+# C3: cap images per class for a balanced, defensible subset. None = keep everything.
+MAX_PER_CLASS = int(os.environ.get('RDD_MAX_PER_CLASS', '2500')) or None
 
 TRAIN_RATIO = 0.80
 VAL_RATIO = 0.15
@@ -68,7 +75,7 @@ def extract_nested_zips(directory):
             extract_zip(zf, zf_dir)
             os.remove(zf)
             
-def parse_voc_xml(xml_path, target_class="D40"):
+def parse_voc_xml(xml_path, target_classes=TARGET_CLASSES):
     try:
         tree = ET.parse(xml_path)
         root = tree.getroot()
@@ -83,7 +90,8 @@ def parse_voc_xml(xml_path, target_class="D40"):
         labels = []
         for obj in root.findall('object'):
             name = obj.find('name').text.strip()
-            if name != target_class: continue
+            if name not in target_classes: continue
+            cls_id = target_classes[name]
 
             bbox = obj.find('bndbox')
             xmin = float(bbox.find('xmin').text)
@@ -101,10 +109,35 @@ def parse_voc_xml(xml_path, target_class="D40"):
             w = max(0.001, min(1.0, w))
             h = max(0.001, min(1.0, h))
 
-            labels.append(f"0 {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}")
+            labels.append(f"{cls_id} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}")
         return labels
     except Exception:
         return []
+
+
+def cap_per_class(pairs, max_per_class):
+    """Keep at most max_per_class images per class; an image counts for every class it holds."""
+    if not max_per_class:
+        return pairs
+    pairs = list(pairs)
+    random.Random(RANDOM_SEED).shuffle(pairs)
+    per_class = {i: 0 for i in TARGET_CLASSES.values()}
+    kept = []
+    for img, labels in pairs:
+        classes = {int(l.split()[0]) for l in labels}
+        if any(per_class[c] < max_per_class for c in classes):
+            kept.append((img, labels))
+            for c in classes:
+                per_class[c] += 1
+    return kept
+
+
+def class_box_counts(pairs):
+    counts = {n: 0 for n in CLASS_NAMES}
+    for _, labels in pairs:
+        for l in labels:
+            counts[CLASS_NAMES[int(l.split()[0])]] += 1
+    return counts
 
 def prepare_yolo_dataset():
     rdd_root = None
@@ -117,7 +150,7 @@ def prepare_yolo_dataset():
     if rdd_root is None:
         raise RuntimeError("Could not locate country directories. Did extraction fail?")
 
-    print("🔍 Filtering for D40 (pothole)...")
+    print(f"🔍 Filtering for the four CRDDC 2022 classes {list(TARGET_CLASSES)}...")
     all_pairs = []
     for country in COUNTRIES:
         country_dir = os.path.join(rdd_root, country)
@@ -137,7 +170,7 @@ def prepare_yolo_dataset():
                 
             xml_files = glob.glob(os.path.join(xml_dir, '*.xml'))
             for xml_file in xml_files:
-                labels = parse_voc_xml(xml_file, TARGET_CLASS)
+                labels = parse_voc_xml(xml_file)
                 if labels:
                     img_stem = os.path.splitext(os.path.basename(xml_file))[0]
                     img_path = None
@@ -152,10 +185,17 @@ def prepare_yolo_dataset():
                         
     total_images = len(all_pairs)
     total_bboxes = sum(len(labels) for _, labels in all_pairs)
-    print(f"📊 Found {total_images} images with {total_bboxes} pothole bounding boxes")
+    print(f"📊 Found {total_images} images with {total_bboxes} boxes before capping")
+    print(f"   boxes per class: {class_box_counts(all_pairs)}")
 
     if total_images == 0:
-        raise RuntimeError("No pothole annotations found!")
+        raise RuntimeError("No annotations for the four target classes found!")
+
+    if MAX_PER_CLASS:
+        all_pairs = cap_per_class(all_pairs, MAX_PER_CLASS)
+        print(f"📉 Capped to ≤{MAX_PER_CLASS} images per class → {len(all_pairs)} images "
+              f"(set RDD_MAX_PER_CLASS=0 to keep everything)")
+        print(f"   boxes per class: {class_box_counts(all_pairs)}")
 
     random.seed(RANDOM_SEED)
     random.shuffle(all_pairs)
@@ -179,23 +219,25 @@ def prepare_yolo_dataset():
         print(f"   Writing {split_name} split...")
         for idx, (img_path, labels) in enumerate(tqdm(pairs, desc=split_name)):
             ext = os.path.splitext(img_path)[1]
-            new_name = f"pothole_{idx:05d}"
-            
+            new_name = f"rdd_{idx:05d}"
+
             shutil.copy2(img_path, os.path.join(img_out, new_name + ext))
             with open(os.path.join(lbl_out, new_name + '.txt'), 'w') as f:
                 f.write('\n'.join(labels))
 
     abs_out_path = os.path.abspath(OUTPUT_DIR).replace('\\', '/')
-    yaml_content = f"""# Pothole Detection Dataset
+    names_block = "\n".join(f"  {i}: {n}" for i, n in enumerate(CLASS_NAMES))
+    yaml_content = f"""# Road Damage Detection Dataset — RDD2022 four-class subset (CRDDC 2022 codes)
+# {len(all_pairs)} images{f', capped at {MAX_PER_CLASS}/class' if MAX_PER_CLASS else ''}
 path: {abs_out_path}
 train: train/images
 val: val/images
 test: test/images
 
-nc: 1
+nc: {len(CLASS_NAMES)}
 
 names:
-  0: pothole
+{names_block}
 """
     yaml_path = os.path.join(OUTPUT_DIR, 'data.yaml')
     with open(yaml_path, 'w') as f:
