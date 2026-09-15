@@ -5,6 +5,20 @@ Welcome to the Pothole Detection System. This guide provides the exact steps nee
 > [!IMPORTANT]
 > **Always run the startup scripts from the root directory of the project** (`thesisproto`). Do not navigate into the `backend` or `frontend` folders to run these scripts.
 
+## Step 0: Install ffmpeg (once)
+
+The backend re-encodes every annotated video to browser-playable MP4 with ffmpeg. Without it
+the output stays as an AVI that most browsers refuse to play, and the backend prints a warning
+at startup.
+
+**Windows:**
+```bash
+winget install Gyan.FFmpeg
+```
+**Linux:** `sudo apt-get install ffmpeg` · **Mac:** `brew install ffmpeg`
+
+Open a new terminal afterwards so it is on your PATH, and check with `ffmpeg -version`.
+
 ## Step 1: Start the Backend Server
 
 Open a new terminal, navigate to the `thesisproto` root directory, and run the backend startup script:
@@ -54,3 +68,7 @@ Once both servers are running, open your web browser and navigate to:
 - **Virtual Environment Not Found:** Make sure you have installed the requirements using `pip install -r requirements.txt` in a `.venv` directory at the root of the project.
 - **Port Already in Use:** If you see an error about ports `5000` or `5173` being in use, make sure you don't have other instances of the app running in the background. You can close them or use Task Manager / Activity Monitor to kill the processes.
 - **Node.js Not Installed:** If the frontend script fails, ensure you have [Node.js](https://nodejs.org/) installed (version 16 or higher).
+- **Processed video won't play:** ffmpeg is missing — see Step 0. The backend warns about this at startup.
+- **A video is stuck at "processing":** processing runs inside the backend process, so it dies if the backend is stopped. On the next start the backend marks any interrupted video as *failed*; upload it again.
+- **Upload rejected as too long:** videos are capped at 10 minutes and 500 MB. Trim the clip and retry.
+- **Database column errors after pulling new code:** run `python backend/migrate.py` once (safe to re-run).

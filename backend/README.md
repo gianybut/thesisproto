@@ -59,6 +59,10 @@ Server will start at `http://localhost:5000`
 - `GET /api/videos/<id>/stream` — Stream original video
 - `GET /api/videos/<id>/processed` — Stream processed video with bounding boxes
 - `GET /api/videos/<id>/snapshot/<filename>` — Get detection snapshot image
+- `GET /api/videos/<id>/control-points` — List manual georeferencing control points
+- `POST /api/videos/<id>/control-points` — Replace control points and re-position the video's detections (videos without a GPS track only)
+- `DELETE /api/videos/<id>/control-points/<cp_id>` — Remove one control point and re-position
+- `GET /api/videos/export?format=csv|json` — Per-video processing statistics (frames, sampled frames, processing seconds) for evaluation
 
 ### Detections & Dashboard
 
@@ -119,6 +123,54 @@ After first run, a default admin user is created:
 - frame_snapshot (String) — filename of snapshot image
 - created_at (DateTime)
 ```
+
+### Route Control Points Table
+
+Manual georeferencing for videos uploaded without a GPS track. Each row maps a moment in the
+video to a map coordinate; detections are positioned by piecewise-linear interpolation between
+the two bracketing points (never clamped — detections outside the range stay unpositioned).
+
+```
+- id (Integer, PK)
+- video_id (Integer, FK to videos, cascade delete)
+- seq (Integer) — 0-based order by video_time_s
+- video_time_s (Float) — seconds from video start
+- latitude, longitude (Float) — must fall inside the Philippines
+- created_at (DateTime)
+```
+
+`videos.position_source` and `detections.position_source` record where coordinates came from:
+`gps_file`, `georeferenced`, or `none`.
+
+## Migrations
+
+There is no migration framework: `db.create_all()` creates missing tables but never alters
+existing ones. Every column added to `models.py` after a database exists is listed in
+`backend/migrate.py`. Run it against your existing `pothole_detection.db` — or delete the DB
+and let it be recreated.
+
+```bash
+python backend/migrate.py   # adds any columns your database is missing
+```
+
+The script is idempotent; re-running it is safe.
+
+## Data retention
+
+Raw uploaded footage can contain faces and plates; detections and snapshots do not. Delete
+originals after the retention period with the dry-run-by-default purge script:
+
+```bash
+python backend/purge_uploads.py            # list what would go (default: 30 days after processing)
+python backend/purge_uploads.py --apply    # delete
+```
+
+## Damage class codes
+
+The system uses RDD2022's own codes (Arya et al., 2022; CRDDC 2022 evaluation set):
+`D00` longitudinal crack, `D10` transverse crack, `D20` alligator crack, `D40` pothole.
+There is no `D30` in RDD2022. `migrate.py` remaps rows written under the earlier
+D10/D20/D30 scheme.
 
 ## Processing Pipeline
 
