@@ -1,6 +1,7 @@
 """Flask application factory for the Road Damage Detection System."""
 
 import os
+import shutil
 from flask import Flask
 from flask_cors import CORS
 from models import db
@@ -19,6 +20,7 @@ def create_app():
     app.config['SNAPSHOTS_FOLDER'] = os.path.join(base_dir, 'snapshots')
     app.config['REPORTS_FOLDER'] = os.path.join(base_dir, 'reports')
     app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max upload
+    app.config['MAX_VIDEO_DURATION_S'] = 10 * 60          # 10-minute cap (thesis Sec 1.7 / 3.4)
     app.config['MODEL_PATH'] = os.path.join(base_dir, '..', 'ml', 'models', 'best.pt')
 
     # Ensure directories exist
@@ -48,9 +50,25 @@ def create_app():
     app.register_blueprint(database_bp, url_prefix='/api/database')
     app.register_blueprint(accounts_bp, url_prefix='/api/accounts')
 
+    # Processing runs in a plain thread that dies with the server. Anything still marked
+    # 'uploaded' or 'processing' at boot was interrupted and will never finish — say so
+    # instead of leaving it spinning forever in the UI.
+    if shutil.which('ffmpeg') is None:
+        print("⚠️  ffmpeg is not on PATH — annotated videos will be saved as AVI, which most "
+              "browsers cannot play. Install it: winget install Gyan.FFmpeg")
+
     # Create database tables
     with app.app_context():
         db.create_all()
+
+        from models import Video
+        stale = Video.query.filter(Video.status.in_(['uploaded', 'processing'])).all()
+        if stale:
+            for v in stale:
+                v.status = 'failed'
+                v.processing_progress = 0
+            db.session.commit()
+            print(f"⚠️  Marked {len(stale)} interrupted upload(s) as failed (server restarted mid-processing)")
 
         # Create default admin user if none exists
         from models import User
@@ -58,10 +76,10 @@ def create_app():
             admin = User(
                 username='admin',
                 full_name='System Administrator',
-                lgu_name='DPWH Central Office',
+                lgu_name='Local Government Unit of Mendez-Nuñez',
                 role='admin',
-                agency='DPWH',
-                sector_level='national',
+                agency='Local Government Unit of Mendez-Nuñez',
+                sector_level='municipal',
                 account_status='active',
             )
             admin.set_password('admin123')

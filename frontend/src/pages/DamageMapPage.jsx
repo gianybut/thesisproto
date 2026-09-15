@@ -1,230 +1,345 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { Fragment, useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { mapAPI, videosAPI } from '../api';
+import { mapAPI } from '../api';
 
-// Fix default marker icon issue with bundlers
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+// Map data palette. These four hues encode the RDD2022 damage classes on the map and are used
+// nowhere else in the interface (the seven design tokens cover everything that is not data).
+// Okabe–Ito hues: distinct from each other, from the OpenStreetMap base, and under common
+// colour-vision deficiency.
+const DAMAGE_CLASSES = [
+  { code: 'D00', label: 'Longitudinal crack', color: '#009E73' },
+  { code: 'D10', label: 'Transverse crack',   color: '#0072B2' },
+  { code: 'D20', label: 'Alligator crack',    color: '#CC79A7' },
+  { code: 'D40', label: 'Pothole',            color: '#D55E00' },
+];
+const CLASS_BY_CODE = Object.fromEntries(DAMAGE_CLASSES.map(c => [c.code, c]));
+const UNKNOWN_CLASS = { code: '', label: 'Unclassified damage', color: '#5C635A' }; // --ink-soft
 
-// Custom colored markers using SVG
-const createColoredIcon = (color, size = 28) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="${size}" height="${Math.round(size*1.3)}">
-    <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}" stroke="#fff" stroke-width="1.5"/>
-    <circle cx="12" cy="12" r="5" fill="#fff"/>
-  </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: '',
-    iconSize: [size, Math.round(size * 1.3)],
-    iconAnchor: [size / 2, Math.round(size * 1.3)],
-    popupAnchor: [0, -Math.round(size * 1.1)],
-  });
+const INK = '#1A1D19';           // --ink: dot outline
+const ROUTE_COLOR = '#0E5661';   // --cyan: the route is the focus of the map
+const ROUTE_CASING = '#FFFDF8';  // --card: light casing so the route reads over dark roads
+const DOT_RADIUS = 9;
+
+const classFor = (d) => CLASS_BY_CODE[d.damage_type] || UNKNOWN_CLASS;
+
+// Solid dot for GPS-measured positions; dashed, lighter dot for positions placed by hand.
+const dotStyle = (d) => {
+  const color = classFor(d).color;
+  return d.position_source === 'georeferenced'
+    ? { color, weight: 2.5, dashArray: '3 3', fillColor: color, fillOpacity: 0.4 }
+    : { color: INK, weight: 1.5, fillColor: color, fillOpacity: 1 };
 };
 
-const SEVERITY_ICONS = {
-  high: createColoredIcon('#ef4444'),
-  medium: createColoredIcon('#f59e0b'),
-  low: createColoredIcon('#eab308'),
-  default: createColoredIcon('#3b82f6'),
-};
-
-// Auto-fit map to markers
-function FitBounds({ detections }) {
+// Fit the view to everything drawn (route + dots). Re-fits when the survey changes so
+// switching maps actually moves the view.
+function FitBounds({ points, fitKey }) {
   const map = useMap();
   useEffect(() => {
-    if (detections.length > 0) {
-      const bounds = L.latLngBounds(detections.map(d => [d.latitude, d.longitude]));
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    if (points.length > 0) {
+      map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 16 });
     }
-  }, [detections, map]);
+  }, [fitKey, points, map]);
   return null;
+}
+
+function Route({ track, label }) {
+  const start = track.points[0];
+  const end = track.points[track.points.length - 1];
+  const line = { lineCap: 'round', lineJoin: 'round', opacity: 1 };
+  return (
+    <>
+      <Polyline positions={track.points} pathOptions={{ ...line, color: ROUTE_CASING, weight: 9 }} />
+      <Polyline positions={track.points} pathOptions={{ ...line, color: ROUTE_COLOR, weight: 5 }} />
+      <CircleMarker center={start} radius={7}
+        pathOptions={{ color: ROUTE_COLOR, weight: 3, fillColor: ROUTE_CASING, fillOpacity: 1 }}>
+        <Tooltip permanent direction="top" offset={[0, -8]} className="route-label">Start{label}</Tooltip>
+      </CircleMarker>
+      <CircleMarker center={end} radius={7}
+        pathOptions={{ color: ROUTE_CASING, weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }}>
+        <Tooltip permanent direction="top" offset={[0, -8]} className="route-label">End{label}</Tooltip>
+      </CircleMarker>
+    </>
+  );
 }
 
 export default function DamageMapPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const videoId = searchParams.get('video') || '';   // '' means every survey
+
   const [detections, setDetections] = useState([]);
   const [tracks, setTracks] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [videos, setVideos] = useState([]);
+  const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({ damage_type: '', severity: '', status: '' });
+  const [filters, setFilters] = useState({ damage_type: '', status: '' });
 
-  const fetchData = async () => {
-    try {
-      const [detRes, trackRes, statsRes] = await Promise.all([
-        mapAPI.getDetections(filters),
-        mapAPI.getGpsTracks(),
-        mapAPI.getStats(),
-      ]);
+  // One key per (survey, filters, reload) combination. The page is loading whenever the last
+  // completed request was for a different key, so nothing is set synchronously in the effect.
+  const [reloadTick, setReloadTick] = useState(0);
+  const requestKey = `${videoId}|${filters.damage_type}|${filters.status}|${reloadTick}`;
+  const [loadedKey, setLoadedKey] = useState(null);
+  const loading = loadedKey !== requestKey;
+
+  useEffect(() => {
+    let cancelled = false;   // a newer request supersedes this one
+    Promise.all([
+      mapAPI.getDetections({ damage_type: filters.damage_type, status: filters.status }, videoId),
+      mapAPI.getGpsTracks(videoId),
+      mapAPI.getMappedVideos(),
+    ]).then(([detRes, trackRes, vidRes]) => {
+      if (cancelled) return;
       setDetections(detRes.data.detections || []);
       setTracks(trackRes.data.tracks || []);
-      setStats(statsRes.data || {});
-    } catch (err) {
-      console.error('Map data fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+      setVideos(vidRes.data.videos || []);
+      setError('');
+      setLoadedKey(requestKey);
+    }).catch((err) => {
+      if (cancelled) return;
+      setError(
+        err.response?.status === 401
+          ? 'Your session has expired. Sign in again to see the map.'
+          : 'Could not load the map. Check that the server is running, then choose Reload.'
+      );
+      setLoadedKey(requestKey);
+    });
+    return () => { cancelled = true; };
+  }, [requestKey, videoId, filters.damage_type, filters.status]);
+
+  const reload = () => { setLoadedKey(null); setReloadTick(t => t + 1); };
+
+  // Switching survey resets the view; keeping filters would hide markers for no visible reason.
+  const selectVideo = (id) => {
+    setFilters({ damage_type: '', status: '' });
+    setSearchParams(id ? { video: id } : {}, { replace: false });
   };
 
-  useEffect(() => { fetchData(); }, [filters.damage_type, filters.severity, filters.status]);
+  const selected = videos.find(v => String(v.id) === String(videoId));
+  const anyFilter = Boolean(filters.damage_type || filters.status);
 
-  // Default center: Philippines
-  const defaultCenter = [14.5995, 120.9842];
-  const center = detections.length > 0
-    ? [detections[0].latitude, detections[0].longitude]
-    : defaultCenter;
+  // Count of dots on the map per class, after filters.
+  const counts = useMemo(() => {
+    const c = {};
+    for (const d of detections) c[d.damage_type] = (c[d.damage_type] || 0) + 1;
+    return c;
+  }, [detections]);
+  const hasHandPlaced = detections.some(d => d.position_source === 'georeferenced');
+  const routeFromPoints = tracks.some(t => t.source === 'control_points');
 
-  if (loading) return <div className="page" style={{display:'flex',alignItems:'center',justifyContent:'center'}}><div className="spinner" /></div>;
+  const boundsPoints = useMemo(() => [
+    ...detections.map(d => [d.latitude, d.longitude]),
+    ...tracks.flatMap(t => t.points),
+  ], [detections, tracks]);
+
+  const defaultCenter = [14.1294, 120.9056]; // Mendez-Nuñez, Cavite
+  const center = boundsPoints[0] || defaultCenter;
 
   return (
-    <div className="page fade-in" style={{ padding: '16px 32px' }}>
-      <div className="page-header" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2>Damage Map</h2>
-          <p>Interactive visualization of geo-located road damages</p>
+    <div className="page">
+      <div className="page-header" style={{ marginBottom: 'var(--s3)', paddingBottom: 'var(--s3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--s3)', flexWrap: 'wrap' }}>
+          <div>
+            <h2>{selected ? selected.name : 'Damage map'}</h2>
+            <p>
+              {selected
+                ? 'The road driven in this survey, and every pothole and crack found along it.'
+                : 'Every road surveyed so far and every pothole and crack found along them. Each dot is one damage; its colour is the kind of damage.'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--s3)', alignItems: 'center' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>
+              {showFilters ? 'Hide filters' : 'Filter by type'}
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={reload}>Reload</button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>
-            🔍 {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={fetchData}>🔄 Refresh</button>
+
+        {/* Survey switcher — one map per survey, or all of them together */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', marginTop: 'var(--s3)', flexWrap: 'wrap' }}>
+          <label htmlFor="map-survey" style={{ marginBottom: 0 }}>Showing</label>
+          <select id="map-survey" className="input-field" value={videoId}
+            onChange={(e) => selectVideo(e.target.value)} style={{ minWidth: '260px' }}>
+            <option value="">All surveys{videos.length ? ` (${videos.length})` : ''}</option>
+            {videos.map(v => (
+              <option key={v.id} value={v.id}>
+                {v.name}{v.road_name ? ` — ${v.road_name}` : ''} ({v.detection_count})
+              </option>
+            ))}
+          </select>
+          {selected && (
+            <>
+              <span className="secondary">
+                <span className="mono">{selected.detection_count}</span> damage{selected.detection_count === 1 ? '' : 's'} on this survey
+              </span>
+              <button className="btn btn-secondary btn-sm" onClick={() => selectVideo('')}>Show all surveys</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/videos/${selected.id}`)}>Open the video</button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Filter Panel */}
-      {showFilters && (
-        <div className="filter-bar" style={{ marginBottom: '16px' }}>
-          <select className="input-field" value={filters.damage_type}
+      {error && (
+        <div className="alert alert-error">
+          {error} <button className="btn btn-secondary btn-sm" onClick={reload}>Try again</button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="list" aria-busy="true" aria-label="Loading the map">
+          {[0, 1, 2, 3].map(i => (
+            <div className="skeleton-row" key={i}>
+              <div className="skeleton" style={{ width: '92px' }} />
+              <div className="skeleton" style={{ flex: 1, maxWidth: '320px' }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showFilters && !loading && (
+        <div className="filter-bar">
+          <select className="input-field" value={filters.damage_type} aria-label="Kind of damage"
             onChange={e => setFilters({ ...filters, damage_type: e.target.value })}>
-            <option value="">All Damage Types</option>
-            <option value="D10">D10 — Longitudinal Crack</option>
-            <option value="D20">D20 — Transverse Crack</option>
-            <option value="D30">D30 — Alligator Crack</option>
-            <option value="D40">D40 — Pothole</option>
+            <option value="">All kinds of damage</option>
+            {DAMAGE_CLASSES.map(c => <option key={c.code} value={c.code}>{c.label}s</option>)}
           </select>
-          <select className="input-field" value={filters.severity}
-            onChange={e => setFilters({ ...filters, severity: e.target.value })}>
-            <option value="">All Severity</option>
-            <option value="high">🔴 High</option>
-            <option value="medium">🟠 Medium</option>
-            <option value="low">🟡 Low</option>
-          </select>
-          <select className="input-field" value={filters.status}
+          <select className="input-field" value={filters.status} aria-label="Repair stage"
             onChange={e => setFilters({ ...filters, status: e.target.value })}>
-            <option value="">All Status</option>
-            <option value="pending_validation">Pending</option>
-            <option value="inspected">Inspected</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="ongoing_repair">Ongoing Repair</option>
-            <option value="resolved">Resolved</option>
+            <option value="">Any repair stage</option>
+            <option value="pending_validation">Not yet checked</option>
+            <option value="inspected">Checked on site</option>
+            <option value="scheduled">Repair scheduled</option>
+            <option value="ongoing_repair">Repair under way</option>
+            <option value="resolved">Repaired</option>
           </select>
-          {(filters.damage_type || filters.severity || filters.status) && (
-            <button className="btn btn-secondary btn-sm"
-              onClick={() => setFilters({ damage_type: '', severity: '', status: '' })}>
-              ✕ Clear
+          {anyFilter && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ damage_type: '', status: '' })}>
+              Clear filters
             </button>
           )}
         </div>
       )}
 
-      {/* Map */}
+      {!loading && !error && (
       <div className="map-container">
         {detections.length === 0 && tracks.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'var(--bg-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 'var(--s3)' }}>
             <div className="empty-state">
-              <div className="empty-icon">🗺️</div>
-              <h3>No geo-located data yet</h3>
-              <p>Upload a video with a GPS track file to see damage locations on the map</p>
-              <button className="btn btn-primary" onClick={() => navigate('/upload')}>📤 Upload Survey</button>
+              {selected ? (
+                <>
+                  <h3>This survey has no locations yet</h3>
+                  <p>
+                    Damage was found in this video, but none of it has a place on the map yet. Add a GPS
+                    file when you upload, or match a few points in the video to the map by hand.
+                  </p>
+                  <button className="btn btn-primary" onClick={() => navigate(`/videos/${selected.id}/georeference`)}>
+                    Place this survey on the map
+                  </button>
+                  <p style={{ marginTop: 'var(--s2)' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => selectVideo('')}>Show all surveys instead</button>
+                  </p>
+                </>
+              ) : anyFilter ? (
+                <>
+                  <h3>Nothing matches these filters</h3>
+                  <p>No located damage matches the kind and repair stage you picked.</p>
+                  <button className="btn btn-secondary" onClick={() => setFilters({ damage_type: '', status: '' })}>Clear filters</button>
+                </>
+              ) : (
+                <>
+                  <h3>Start with one road survey</h3>
+                  <p>
+                    Upload a dashcam video of a road and the system will find the damage in it. Add a GPS
+                    file from your phone or dashcam and every pothole it finds lands on this map.
+                  </p>
+                  <button className="btn btn-primary" onClick={() => navigate('/upload')}>Upload a video</button>
+                </>
+              )}
             </div>
           </div>
         ) : (
-          <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}
-            zoomControl={true}>
+          <MapContainer center={center} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={true}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <FitBounds detections={detections} />
+            <FitBounds points={boundsPoints} fitKey={videoId} />
 
-            {/* GPS Track Polylines */}
-            {tracks.map((track) => (
-              <Polyline
-                key={track.video_id}
-                positions={track.points}
-                color="#3b82f6"
-                weight={3}
-                opacity={0.6}
-                dashArray="5, 10"
-              />
+            {/* Route driven, drawn under the dots. Start and end are labelled; when several
+                surveys share the map the label also names the survey. */}
+            {tracks.map(t => (
+              <Route key={t.video_id} track={t} label={videoId ? '' : ` · ${t.video_name}`} />
             ))}
 
-            {/* Detection Markers */}
-            {detections.map(d => (
-              <Marker
-                key={d.id}
-                position={[d.latitude, d.longitude]}
-                icon={SEVERITY_ICONS[d.severity] || SEVERITY_ICONS.default}
-              >
-                <Popup>
-                  <div style={{ minWidth: '200px', fontFamily: 'Inter, sans-serif' }}>
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                      <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: '#f0f0f0' }}>{d.damage_type}</span>
-                      <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700',
-                        background: d.severity === 'high' ? '#fee2e2' : d.severity === 'medium' ? '#fef3c7' : '#fef9c3',
-                        color: d.severity === 'high' ? '#dc2626' : d.severity === 'medium' ? '#d97706' : '#ca8a04',
-                      }}>{d.severity?.toUpperCase()}</span>
+            {detections.map(d => {
+              const cls = classFor(d);
+              return (
+                <CircleMarker key={d.id} center={[d.latitude, d.longitude]} radius={DOT_RADIUS} pathOptions={dotStyle(d)}>
+                  <Tooltip direction="top" offset={[0, -DOT_RADIUS]}>{cls.label}</Tooltip>
+                  <Popup>
+                    <div className="map-popup">
+                      <div className="map-popup-type">
+                        <span className="map-legend-dot" style={{ background: cls.color }} />
+                        {cls.label}
+                      </div>
+                      <div className="mono">{d.damage_type || '—'} · {(d.confidence * 100).toFixed(1)}% confidence</div>
+                      {d.road_name && <div className="secondary">{d.road_name}</div>}
+                      <div className="mono">{d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}</div>
+                      {d.position_source === 'georeferenced' && (
+                        <div className="secondary">Placed by hand between control points, not measured by GPS.</div>
+                      )}
+                      {d.video_id > 0 && (
+                        <button className="btn btn-secondary btn-sm" style={{ marginRight: 0, alignSelf: 'flex-start' }}
+                          onClick={() => navigate(`/videos/${d.video_id}?t=${d.timestamp}`)}>
+                          Open in the video
+                        </button>
+                      )}
                     </div>
-                    <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>{d.damage_label}</div>
-                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Confidence: {(d.confidence * 100).toFixed(1)}%</div>
-                    {d.severity_score != null && <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Severity Score: {d.severity_score}</div>}
-                    {d.road_name && <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>📍 {d.road_name}</div>}
-                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
-                      {d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}
-                    </div>
-                    {d.video_id > 0 && (
-                      <button
-                        onClick={() => navigate(`/videos/${d.video_id}?t=${d.timestamp}`)}
-                        style={{ padding: '4px 10px', fontSize: '11px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        View in Video →
-                      </button>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
           </MapContainer>
         )}
 
-        {/* Legend */}
-        {detections.length > 0 && (
-          <div className="map-legend">
-            <div className="map-legend-item"><div className="map-legend-dot" style={{ background: '#ef4444' }} /><span>High Severity</span></div>
-            <div className="map-legend-item"><div className="map-legend-dot" style={{ background: '#f59e0b' }} /><span>Medium Severity</span></div>
-            <div className="map-legend-item"><div className="map-legend-dot" style={{ background: '#eab308' }} /><span>Low Severity</span></div>
-            {tracks.length > 0 && <div className="map-legend-item"><div style={{ width: '20px', height: '2px', background: '#3b82f6', borderTop: '2px dashed #3b82f6' }} /><span>Survey Route</span></div>}
-          </div>
-        )}
-
-        {/* Stats Bar */}
-        {stats.total_geolocated > 0 && (
-          <div className="map-stats-bar">
-            <div className="stat"><div className="stat-num">{stats.total_geolocated}</div><div className="stat-lbl">Total</div></div>
-            <div className="stat"><div className="stat-num" style={{ color: 'var(--severity-high)' }}>{stats.by_severity?.high || 0}</div><div className="stat-lbl">High</div></div>
-            <div className="stat"><div className="stat-num" style={{ color: 'var(--severity-medium)' }}>{stats.by_severity?.medium || 0}</div><div className="stat-lbl">Medium</div></div>
-            <div className="stat"><div className="stat-num" style={{ color: 'var(--severity-low)' }}>{stats.by_severity?.low || 0}</div><div className="stat-lbl">Low</div></div>
+        {(detections.length > 0 || tracks.length > 0) && (
+          <div className="map-legend" aria-label="Map legend">
+            <div className="map-legend-title">Kind of damage</div>
+            {DAMAGE_CLASSES.map(c => (
+              <div className="map-legend-item" key={c.code}>
+                <span className="map-legend-dot" style={{ background: c.color }} />
+                <span>{c.label}</span>
+                <span className="mono map-legend-count">{counts[c.code] || 0}</span>
+              </div>
+            ))}
+            {hasHandPlaced && (
+              <div className="map-legend-item">
+                <span className="map-legend-dot map-legend-dot-hand" />
+                <span>Placed by hand</span>
+              </div>
+            )}
+            {tracks.length > 0 && (
+              <Fragment>
+                <div className="map-legend-title" style={{ marginTop: 'var(--s1)' }}>Route</div>
+                <div className="map-legend-item"><span className="map-legend-line" /><span>Road driven</span></div>
+                <div className="map-legend-item">
+                  <span className="map-legend-end map-legend-end-start" /><span>Start</span>
+                  <span className="map-legend-end" style={{ marginLeft: 'var(--s1)' }} /><span>End</span>
+                </div>
+                {routeFromPoints && (
+                  <div className="secondary" style={{ marginTop: '4px', maxWidth: '200px' }}>
+                    Drawn straight between the points you placed; no GPS log was uploaded.
+                  </div>
+                )}
+              </Fragment>
+            )}
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

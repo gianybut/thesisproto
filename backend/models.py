@@ -8,13 +8,14 @@ import json
 db = SQLAlchemy()
 
 # Valid roles for the hierarchical access system
-VALID_ROLES = ['public', 'barangay', 'municipal', 'provincial', 'dpwh', 'admin']
+VALID_ROLES = ['public', 'barangay', 'municipal', 'provincial', 'admin']
 
-# Valid damage types from RDD2022 classification
+# The four CRDDC 2022 evaluation classes, using RDD2022's own codes (Arya et al., 2022).
+# Note: there is no D30 in RDD2022 — D00 is longitudinal, D10 transverse, D20 alligator.
 DAMAGE_TYPES = {
-    'D10': 'Longitudinal Crack',
-    'D20': 'Transverse Crack',
-    'D30': 'Alligator Crack',
+    'D00': 'Longitudinal Crack',
+    'D10': 'Transverse Crack',
+    'D20': 'Alligator Crack',
     'D40': 'Pothole',
 }
 
@@ -27,6 +28,9 @@ INSPECTION_STATUSES = [
     'resolved',
 ]
 
+# Where a detection's coordinates came from
+POSITION_SOURCES = ['gps_file', 'georeferenced', 'none']
+
 
 class User(db.Model):
     """User account — supports hierarchical government roles."""
@@ -37,7 +41,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     full_name = db.Column(db.String(150), nullable=False)
     lgu_name = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(50), default='inspector')  # public, barangay, municipal, provincial, dpwh, admin
+    role = db.Column(db.String(50), default='inspector')  # public, barangay, municipal, provincial, admin
     agency = db.Column(db.String(200), nullable=True)
     sector_level = db.Column(db.String(50), nullable=True)
     email = db.Column(db.String(200), nullable=True)
@@ -80,6 +84,7 @@ class Video(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(300), nullable=False)
     original_filename = db.Column(db.String(300), nullable=False)
+    display_name = db.Column(db.String(300), nullable=True)  # user-chosen label; falls back to original_filename
     file_size = db.Column(db.Integer)  # in bytes
     duration = db.Column(db.Float)  # in seconds
     fps = db.Column(db.Float)
@@ -98,14 +103,26 @@ class Video(db.Model):
     time_offset = db.Column(db.Float, default=0.0)  # seconds offset between video and GPS start
     road_name = db.Column(db.String(300), nullable=True)
 
+    # How detections were positioned: gps_file (uploaded track), georeferenced (manual control points), none
+    position_source = db.Column(db.String(20), default='none')
+
     detections = db.relationship('Detection', backref='video', lazy=True, cascade='all, delete-orphan')
     gps_track_points = db.relationship('GpsTrackPoint', backref='video', lazy=True, cascade='all, delete-orphan')
+    control_points = db.relationship('RouteControlPoint', backref='video', lazy=True, cascade='all, delete-orphan',
+                                     order_by='RouteControlPoint.video_time_s')
+
+    @property
+    def name(self):
+        """What the user should see: their own label, or the uploaded filename."""
+        return self.display_name or self.original_filename
 
     def to_dict(self):
         return {
             'id': self.id,
             'filename': self.filename,
             'original_filename': self.original_filename,
+            'display_name': self.display_name,
+            'name': self.name,
             'file_size': self.file_size,
             'duration': self.duration,
             'fps': self.fps,
@@ -121,11 +138,13 @@ class Video(db.Model):
             'time_offset': self.time_offset,
             'road_name': self.road_name,
             'has_gps': self.gps_filename is not None,
+            'position_source': self.position_source or 'none',
+            'control_point_count': len(self.control_points),
         }
 
 
 class Detection(db.Model):
-    """Individual road damage detection record with geo-location and severity."""
+    """Individual road damage detection record with geo-location."""
     __tablename__ = 'detections'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -141,16 +160,18 @@ class Detection(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Damage classification
-    damage_type = db.Column(db.String(50), default='D40')  # D10, D20, D30, D40
+    damage_type = db.Column(db.String(50), default='D40')  # D00, D10, D20, D40 (RDD2022 codes)
     damage_label = db.Column(db.String(100), default='Pothole')
 
     # GPS coordinates (populated when GPS track file is provided)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
+    position_source = db.Column(db.String(20), nullable=True)  # gps_file, georeferenced, none
 
-    # Severity assessment (rule-based scoring)
-    severity = db.Column(db.String(20), nullable=True)  # low, medium, high
-    severity_score = db.Column(db.Float, nullable=True)  # 0-100
+    # Legacy columns from the dropped severity feature. Never written or read any more and not
+    # exposed by to_dict(); kept only so existing databases need no destructive migration.
+    severity = db.Column(db.String(20), nullable=True)
+    severity_score = db.Column(db.Float, nullable=True)
 
     # Road and location info
     road_name = db.Column(db.String(300), nullable=True)
@@ -181,8 +202,7 @@ class Detection(db.Model):
             'damage_label': self.damage_label,
             'latitude': self.latitude,
             'longitude': self.longitude,
-            'severity': self.severity,
-            'severity_score': round(self.severity_score, 2) if self.severity_score else None,
+            'position_source': self.position_source,
             'road_name': self.road_name,
             'inspection_status': self.inspection_status,
             'repair_status': self.repair_status,
@@ -216,6 +236,30 @@ class GpsTrackPoint(db.Model):
             'latitude': self.latitude,
             'longitude': self.longitude,
             'elevation': self.elevation,
+        }
+
+
+class RouteControlPoint(db.Model):
+    """Manually placed (video time -> map coordinate) pair used to georeference a video with no GPS track."""
+    __tablename__ = 'route_control_points'
+
+    id = db.Column(db.Integer, primary_key=True)
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id'), nullable=False)
+    seq = db.Column(db.Integer, nullable=False)  # 0-based order by video_time_s
+    video_time_s = db.Column(db.Float, nullable=False)  # seconds from video start
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'video_id': self.video_id,
+            'seq': self.seq,
+            'video_time_s': self.video_time_s,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 

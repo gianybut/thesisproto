@@ -52,19 +52,29 @@ export default function UploadPage() {
     return (
       <div className="page fade-in">
         <div style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center' }}>
-          <div className="glass-card">
+          <div className="panel">
             <div style={{ fontSize: '64px', marginBottom: '16px' }}>✅</div>
             <h2 style={{ marginBottom: '8px' }}>Upload Successful!</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
+            <p style={{ color: 'var(--ink-soft)', marginBottom: '8px' }}>
               Your video is now being processed. Road damage detection will begin automatically.
             </p>
-            {gpsFile && (
-              <p style={{ color: 'var(--teal)', fontSize: '14px', marginBottom: '16px' }}>
+            {gpsFile ? (
+              <p style={{ color: 'var(--ink-soft)', fontSize: '14px', marginBottom: '16px' }}>
                 🛰️ GPS track attached — detections will be geo-located
               </p>
+            ) : (
+              <div className="alert alert-warning" style={{ textAlign: 'left' }}>
+                📍 <strong>No GPS track attached.</strong> Detections won't appear on the map until you georeference
+                this video by matching a few moments in the footage to landmarks on the map.
+              </div>
             )}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button className="btn btn-primary" onClick={() => navigate(`/videos/${result.video.id}`)}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {!gpsFile && (
+                <button className="btn btn-primary" onClick={() => navigate(`/videos/${result.video.id}/georeference`)}>
+                  📍 Georeference Video
+                </button>
+              )}
+              <button className={`btn ${gpsFile ? 'btn-primary' : 'btn-secondary'}`} onClick={() => navigate(`/videos/${result.video.id}`)}>
                 View Processing
               </button>
               <button className="btn btn-secondary" onClick={() => { setVideoFile(null); setGpsFile(null); setResult(null); }}>
@@ -142,7 +152,7 @@ export default function UploadPage() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ fontSize: '14px' }}>Uploading...</span>
-                  <span style={{ fontSize: '14px', color: 'var(--accent)' }}>{progress}%</span>
+                  <span style={{ fontSize: '14px', color: 'var(--cyan)' }}>{progress}%</span>
                 </div>
                 <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
               </div>

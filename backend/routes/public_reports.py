@@ -145,8 +145,6 @@ def validate_report(report_id):
             damage_label=report.damage_label,
             latitude=report.latitude,
             longitude=report.longitude,
-            severity='medium',
-            severity_score=50.0,
             road_name=report.manual_location,
             inspection_status='pending_validation',
             source_type='public_report',

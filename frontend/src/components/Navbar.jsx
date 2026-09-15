@@ -2,23 +2,17 @@ import { NavLink, useNavigate } from 'react-router-dom';
 
 const ROLE_LABELS = {
   admin: 'Admin',
-  dpwh: 'DPWH',
   provincial: 'Provincial',
   municipal: 'Municipal',
   barangay: 'Barangay',
-  public: 'Public',
-  inspector: 'Inspector',
 };
 
 // Which nav items each role can see (must match ROLE_ROUTE_ACCESS in App.jsx)
 const ROLE_NAV = {
-  public:     ['/', '/report', '/map'],
-  barangay:   ['/', '/upload', '/videos', '/map', '/report', '/reports'],
-  municipal:  ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database'],
-  provincial: ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database'],
-  dpwh:       ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database'],
-  admin:      ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database', '/accounts'],
-  inspector:  ['/', '/upload', '/videos', '/map', '/database'],
+  barangay:   ['/', '/upload', '/videos', '/map'],
+  municipal:  ['/', '/upload', '/videos', '/map', '/database'],
+  provincial: ['/', '/upload', '/videos', '/map', '/database'],
+  admin:      ['/', '/upload', '/videos', '/map', '/database'],
 };
 
 const NAV_ITEMS = [
@@ -26,16 +20,13 @@ const NAV_ITEMS = [
   { path: '/upload', label: '📤 Upload' },
   { path: '/videos', label: '📂 Videos' },
   { path: '/map', label: '🗺️ Map' },
-  { path: '/report', label: '📱 Report' },
-  { path: '/reports', label: '📋 Reports' },
   { path: '/database', label: '🗃️ Database' },
-  { path: '/accounts', label: '👤 Accounts' },
 ];
 
 export default function Navbar({ user, onLogout }) {
   const navigate = useNavigate();
-  const role = user.role || 'inspector';
-  const allowedPaths = ROLE_NAV[role] || ROLE_NAV.inspector;
+  const role = user.role || 'barangay';
+  const allowedPaths = ROLE_NAV[role] || ROLE_NAV.barangay;
 
   const handleLogout = () => {
     onLogout();
@@ -64,7 +55,7 @@ export default function Navbar({ user, onLogout }) {
 
       <div className="navbar-user">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user.lgu_name}</span>
+          <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>{user.lgu_name}</span>
           <span className={`role-badge ${role}`}>{ROLE_LABELS[role] || role}</span>
         </div>
         <div className="user-avatar">{user.full_name?.[0] || 'U'}</div>

@@ -11,7 +11,7 @@ auth_bp = Blueprint('auth', __name__)
 # Roles that require ID verification and admin approval
 APPROVAL_REQUIRED_ROLES = ['barangay', 'municipal', 'inspector']
 
-# Roles available for self-registration (admin/dpwh/provincial assigned by admin only)
+# Roles available for self-registration (admin/provincial assigned by admin only)
 SELF_REGISTER_ROLES = ['public', 'barangay', 'municipal', 'inspector']
 
 ALLOWED_ID_EXTENSIONS = {'jpg', 'jpeg', 'png', 'pdf'}
@@ -88,7 +88,7 @@ def register():
     if role not in SELF_REGISTER_ROLES:
         return jsonify({
             'error': f'Cannot self-register as "{role}". '
-                     f'Admin, DPWH, and Provincial accounts must be assigned by a system administrator.'
+                     f'Admin and Provincial accounts must be assigned by a system administrator.'
         }), 403
 
     # Determine account status based on role

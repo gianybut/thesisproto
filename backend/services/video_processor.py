@@ -1,4 +1,4 @@
-"""Video processing service — YOLOv8 road damage detection pipeline with GPS sync and severity."""
+"""Video processing service — YOLOv8 road damage detection pipeline with GPS sync."""
 
 import os
 import cv2
@@ -7,24 +7,33 @@ import numpy as np
 from datetime import datetime, timezone
 
 
-# Damage class label mapping (RDD2022 standard)
+# Inference settings. These are the numbers the thesis cites (Sec 3.2.1, 3.4, Algorithm 1);
+# change them here only so the paper and the code cannot drift apart.
+INFERENCE_FPS = 5        # frames analysed per second of video — every (fps / INFERENCE_FPS)-th frame
+CONF_THRESHOLD = 0.15    # minimum confidence for a prediction to be kept
+IOU_THRESHOLD = 0.45     # non-maximum-suppression overlap threshold
+
+# Model class name -> (RDD2022 code, label). Codes follow CRDDC 2022 (Arya et al., 2022):
+# D00 longitudinal, D10 transverse, D20 alligator, D40 pothole. There is no D30.
+# Substring keys let any reasonably named model map without code changes.
 DAMAGE_CLASS_MAP = {
-    'd00': ('D00', 'Linear Crack'),
-    'd10': ('D10', 'Longitudinal Crack'),
-    'd20': ('D20', 'Transverse Crack'),
-    'd30': ('D30', 'Alligator Crack'),
+    'd00': ('D00', 'Longitudinal Crack'),
+    'd10': ('D10', 'Transverse Crack'),
+    'd20': ('D20', 'Alligator Crack'),
     'd40': ('D40', 'Pothole'),
+    'longitudinal': ('D00', 'Longitudinal Crack'),
+    'transverse': ('D10', 'Transverse Crack'),
+    'lateral': ('D10', 'Transverse Crack'),
+    'alligator': ('D20', 'Alligator Crack'),
+    'crocodile': ('D20', 'Alligator Crack'),
     'pothole': ('D40', 'Pothole'),
-    'longitudinal': ('D10', 'Longitudinal Crack'),
-    'transverse': ('D20', 'Transverse Crack'),
-    'alligator': ('D30', 'Alligator Crack'),
 }
 
 # Colors for each damage type (BGR format for OpenCV)
 DAMAGE_COLORS = {
-    'D10': (255, 165, 0),    # Orange — Longitudinal
-    'D20': (0, 255, 255),    # Yellow — Transverse
-    'D30': (0, 0, 255),      # Red — Alligator
+    'D00': (255, 165, 0),    # Orange — Longitudinal
+    'D10': (0, 255, 255),    # Yellow — Transverse
+    'D20': (0, 0, 255),      # Red — Alligator
     'D40': (0, 69, 255),     # Dark Orange — Pothole
 }
 
@@ -32,13 +41,12 @@ DAMAGE_COLORS = {
 def process_video(video_id, config):
     """
     Process an uploaded video:
-    1. Extract frames
-    2. Run YOLOv8 inference on each frame
+    1. Sample frames at INFERENCE_FPS
+    2. Run YOLOv8 inference on each sampled frame
     3. Assign GPS coordinates via timestamp synchronization
-    4. Calculate severity scores
-    5. Draw bounding boxes on detections
-    6. Reassemble annotated video
-    7. Save detection records to database
+    4. Draw bounding boxes on detections
+    5. Reassemble annotated video
+    6. Save detection records to database
     """
     from models import db, Video, Detection
 
@@ -61,6 +69,12 @@ def process_video(video_id, config):
         # Load GPS track if available
         gps_points = _load_gps_track(video, config)
 
+        # Fallback: manually placed control points (only when there is no GPS track)
+        control_points = None
+        if gps_points is None and len(video.control_points) >= 2:
+            control_points = list(video.control_points)
+            print(f"📍 Using {len(control_points)} manual control points for georeferencing")
+
         # Process video
         input_path = os.path.join(config['UPLOAD_FOLDER'], video.filename)
         processed_filename = f"processed_{video.filename}"
@@ -69,14 +83,14 @@ def process_video(video_id, config):
 
         detections, actual_filename = _run_detection_pipeline(
             model, input_path, output_path, snapshots_dir,
-            video_id, video, db, gps_points
+            video_id, video, db, gps_points, control_points
         )
 
         if actual_filename is None:
             raise Exception("Failed to create video file")
 
-        # Calculate severity scores after all detections are collected
-        _calculate_batch_severity(detections, video, db)
+        # Severity scoring is future work (thesis Sec 3.1.6). services/severity_service.py is kept
+        # for reference but nothing calls it; the app records damage type and position only.
 
         # Update video record with actual processed filename (may differ due to codec)
         video.status = 'completed'
@@ -172,22 +186,25 @@ def _classify_damage(class_name, cls_id, model):
 
     # For custom model with few classes — assume all are damage types
     if len(model.names) <= 5:
-        # Try to map by class index for RDD2022-style models
-        rdd_map = {0: ('D00', 'Linear Crack'), 1: ('D10', 'Longitudinal Crack'),
-                   2: ('D20', 'Transverse Crack'), 3: ('D30', 'Alligator Crack'),
-                   4: ('D40', 'Pothole')}
+        # Fall back to class index in the CRDDC 2022 order used by ml/dataset_prep.py
+        rdd_map = {0: ('D00', 'Longitudinal Crack'), 1: ('D10', 'Transverse Crack'),
+                   2: ('D20', 'Alligator Crack'), 3: ('D40', 'Pothole')}
+        if len(model.names) == 1:
+            return 'D40', 'Pothole', True  # single-class (pothole-only) models
         if cls_id in rdd_map:
             return rdd_map[cls_id][0], rdd_map[cls_id][1], True
-        return 'D40', 'Pothole', True  # Default to pothole for single-class models
+        return 'D40', 'Pothole', True
 
     # For pretrained COCO model (fallback) — no direct damage classes
     return 'D40', 'Pothole', False
 
 
-def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video_id, video, db, gps_points=None):
+def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video_id, video, db,
+                            gps_points=None, control_points=None):
     """Run frame-by-frame detection and generate annotated video."""
     from models import Detection
     from services.gps_service import interpolate_gps
+    from services.georeference_service import interpolate_from_control_points
 
     cap = cv2.VideoCapture(input_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -241,7 +258,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
 
     all_detections = []
     frame_number = 0
-    process_every_n = max(1, int(fps / 5))  # Process ~5 frames per second
+    process_every_n = max(1, int(fps / INFERENCE_FPS))  # sample ~INFERENCE_FPS frames per second
 
     recent_detection_frames = set()
     detection_cooldown = int(fps * 2)
@@ -270,7 +287,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
         if frame_number % process_every_n == 0:
             active_boxes.clear()
 
-            results = model(frame, verbose=False, conf=0.15, iou=0.45)
+            results = model(frame, verbose=False, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD)
 
             for result in results:
                 boxes = result.boxes
@@ -308,11 +325,19 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                                 # GPS Synchronization (Formula 19)
                                 latitude = None
                                 longitude = None
+                                position_source = 'none'
                                 if gps_points:
                                     gps_coord = interpolate_gps(gps_points, timestamp, time_offset)
                                     if gps_coord:
                                         latitude = gps_coord['latitude']
                                         longitude = gps_coord['longitude']
+                                        position_source = 'gps_file'
+                                elif control_points:
+                                    # Manual control points — piecewise between bracketing points, no clamping
+                                    cp_coord = interpolate_from_control_points(control_points, timestamp)
+                                    if cp_coord:
+                                        latitude, longitude = cp_coord
+                                        position_source = 'georeferenced'
 
                                 snapshot_name = f"snap_{video_id}_{frame_number}.jpg"
                                 snapshot_path = os.path.join(snapshots_dir, snapshot_name)
@@ -336,6 +361,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                                     damage_label=damage_label,
                                     latitude=latitude,
                                     longitude=longitude,
+                                    position_source=position_source,
                                     road_name=video.road_name,
                                     source_type='ai_detection',
                                 )
@@ -397,47 +423,6 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     print(f"📹 Output video: {actual_filename}")
 
     return all_detections, actual_filename
-
-
-def _calculate_batch_severity(detections, video, db):
-    """Calculate severity scores for all detections using cluster analysis."""
-    if not detections:
-        return
-
-    from services.severity_service import calculate_severity
-
-    # Build list of detection dicts for cluster analysis
-    det_dicts = []
-    for d in detections:
-        det_dicts.append({
-            'damage_type': d.damage_type,
-            'confidence': d.confidence,
-            'bbox_x1': d.bbox_x1,
-            'bbox_y1': d.bbox_y1,
-            'bbox_x2': d.bbox_x2,
-            'bbox_y2': d.bbox_y2,
-            'latitude': d.latitude,
-            'longitude': d.longitude,
-        })
-
-    # Parse resolution for frame dimensions
-    frame_w, frame_h = 640, 640
-    if video.resolution:
-        try:
-            parts = video.resolution.split('x')
-            frame_w, frame_h = int(parts[0]), int(parts[1])
-        except (ValueError, IndexError):
-            pass
-
-    # Calculate severity for each detection
-    for i, detection in enumerate(detections):
-        result = calculate_severity(det_dicts[i], all_detections=det_dicts,
-                                     frame_width=frame_w, frame_height=frame_h)
-        detection.severity_score = result['score']
-        detection.severity = result['level']
-
-    db.session.commit()
-    print(f"📊 Severity scores calculated for {len(detections)} detections")
 
 
 def _summarize_detections(detections):

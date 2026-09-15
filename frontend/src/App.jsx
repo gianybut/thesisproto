@@ -1,32 +1,29 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UploadPage from './pages/UploadPage';
 import VideoListPage from './pages/VideoListPage';
 import DetectionViewerPage from './pages/DetectionViewerPage';
+import GeoreferencePage from './pages/GeoreferencePage';
 import DamageMapPage from './pages/DamageMapPage';
-import PublicReportPage from './pages/PublicReportPage';
-import ReportsManagementPage from './pages/ReportsManagementPage';
 import DatabasePage from './pages/DatabasePage';
-import AccountsPage from './pages/AccountsPage';
 import Navbar from './components/Navbar';
 
 // Role-based route access control
 // Defines which routes each role is ALLOWED to access
 const ROLE_ROUTE_ACCESS = {
-  public:     ['/', '/report', '/map'],
-  barangay:   ['/', '/upload', '/videos', '/map', '/report', '/reports'],
-  municipal:  ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database'],
-  provincial: ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database'],
-  dpwh:       ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database'],
-  admin:      ['/', '/upload', '/videos', '/map', '/report', '/reports', '/database', '/accounts'],
-  inspector:  ['/', '/upload', '/videos', '/map', '/database'],
+  barangay:   ['/', '/upload', '/videos', '/map'],
+  municipal:  ['/', '/upload', '/videos', '/map', '/database'],
+  provincial: ['/', '/upload', '/videos', '/map', '/database'],
+  admin:      ['/', '/upload', '/videos', '/map', '/database'],
 };
 
-// Helper: check if a user role can access a given path
+// Helper: check if a user role can access a given path.
+// Unknown roles fall back to barangay — the most restrictive set — so a stale
+// role left in the database cannot widen access.
 function canAccess(role, path) {
-  const allowed = ROLE_ROUTE_ACCESS[role] || ROLE_ROUTE_ACCESS.public;
+  const allowed = ROLE_ROUTE_ACCESS[role] || ROLE_ROUTE_ACCESS.barangay;
   // For /videos/:id, check if /videos is allowed
   if (path.startsWith('/videos/')) return allowed.includes('/videos');
   return allowed.includes(path);
@@ -34,7 +31,7 @@ function canAccess(role, path) {
 
 // Protected route wrapper — redirects to dashboard if role is not permitted
 function ProtectedRoute({ user, path, children }) {
-  const role = user?.role || 'public';
+  const role = user?.role || 'barangay';
   if (!canAccess(role, path)) {
     return <Navigate to="/" replace />;
   }
@@ -73,20 +70,14 @@ function App() {
         <Route path="/videos/:id" element={
           <ProtectedRoute user={user} path="/videos"><DetectionViewerPage /></ProtectedRoute>
         } />
+        <Route path="/videos/:id/georeference" element={
+          <ProtectedRoute user={user} path="/videos"><GeoreferencePage /></ProtectedRoute>
+        } />
         <Route path="/map" element={
           <ProtectedRoute user={user} path="/map"><DamageMapPage /></ProtectedRoute>
         } />
-        <Route path="/report" element={
-          <PublicReportPage user={user} />
-        } />
-        <Route path="/reports" element={
-          <ProtectedRoute user={user} path="/reports"><ReportsManagementPage /></ProtectedRoute>
-        } />
         <Route path="/database" element={
           <ProtectedRoute user={user} path="/database"><DatabasePage /></ProtectedRoute>
-        } />
-        <Route path="/accounts" element={
-          <ProtectedRoute user={user} path="/accounts"><AccountsPage /></ProtectedRoute>
         } />
 
         <Route path="*" element={<Navigate to="/" />} />

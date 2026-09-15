@@ -16,28 +16,11 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Accounts are created directly in the database; there is no self-registration.
 export const authAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }),
-  register: (data) => {
-    // If data is FormData (has file), use multipart
-    if (data instanceof FormData) {
-      return api.post('/auth/register', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    }
-    return api.post('/auth/register', data);
-  },
   me: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
-};
-
-export const accountsAPI = {
-  getPending: () => api.get('/accounts/pending'),
-  getAll: (status) => api.get(`/accounts/all${status ? `?status=${status}` : ''}`),
-  approve: (id) => api.put(`/accounts/${id}/approve`),
-  reject: (id, reason) => api.put(`/accounts/${id}/reject`, { reason }),
-  getStats: () => api.get('/accounts/stats'),
-  idPhotoUrl: (filename) => `${API_BASE}/accounts/id-photo/${filename}`,
 };
 
 export const videosAPI = {
@@ -48,10 +31,15 @@ export const videosAPI = {
     }),
   list: () => api.get('/videos'),
   get: (id) => api.get(`/videos/${id}`),
+  rename: (id, name) => api.patch(`/videos/${id}`, { name }),
   delete: (id) => api.delete(`/videos/${id}`),
   streamUrl: (id) => `${API_BASE}/videos/${id}/stream`,
   processedUrl: (id) => `${API_BASE}/videos/${id}/processed`,
   snapshotUrl: (videoId, filename) => `${API_BASE}/videos/${videoId}/snapshot/${filename}`,
+  // Manual georeferencing (videos without a GPS track)
+  getControlPoints: (id) => api.get(`/videos/${id}/control-points`),
+  saveControlPoints: (id, points) => api.post(`/videos/${id}/control-points`, { control_points: points }),
+  deleteControlPoint: (id, cpId) => api.delete(`/videos/${id}/control-points/${cpId}`),
 };
 
 export const dashboardAPI = {
@@ -62,29 +50,21 @@ export const detectionsAPI = {
   getForVideo: (videoId) => api.get(`/detections/${videoId}`),
 };
 
+// Every map call takes an optional videoId so one survey can be viewed on its own.
+const videoParam = (videoId) => (videoId ? `?video_id=${videoId}` : '');
+
 export const mapAPI = {
-  getDetections: (filters = {}) => {
+  getDetections: (filters = {}, videoId) => {
     const params = new URLSearchParams();
+    if (videoId) params.append('video_id', videoId);
     if (filters.damage_type) params.append('damage_type', filters.damage_type);
-    if (filters.severity) params.append('severity', filters.severity);
     if (filters.status) params.append('status', filters.status);
     if (filters.min_confidence) params.append('min_confidence', filters.min_confidence);
     return api.get(`/map/detections?${params.toString()}`);
   },
-  getGpsTracks: () => api.get('/map/gps-tracks'),
-  getStats: () => api.get('/map/stats'),
-};
-
-export const reportsAPI = {
-  submit: (formData) =>
-    api.post('/reports', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
-  list: (status) => api.get(`/reports${status ? `?status=${status}` : ''}`),
-  get: (id) => api.get(`/reports/${id}`),
-  validate: (id) => api.put(`/reports/${id}/validate`),
-  reject: (id, reason) => api.put(`/reports/${id}/reject`, { reason }),
-  imageUrl: (filename) => `${API_BASE}/reports/image/${filename}`,
+  getGpsTracks: (videoId) => api.get(`/map/gps-tracks${videoParam(videoId)}`),
+  getStats: (videoId) => api.get(`/map/stats${videoParam(videoId)}`),
+  getMappedVideos: () => api.get('/map/videos'),
 };
 
 export const databaseAPI = {

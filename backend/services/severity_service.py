@@ -11,12 +11,15 @@ Classification:
 
 import math
 
-# Damage type severity weights (0-100)
+# NOTE: this service is retained for reference / future work (thesis Sec 3.1.6) and is not
+# invoked anywhere in the pipeline. Detection.severity stays NULL.
+
+# Damage type severity weights (0-100), keyed by RDD2022 code (D00 long, D10 trans, D20 allig, D40 pothole)
 DAMAGE_TYPE_WEIGHTS = {
-    'D30': 100,   # Alligator Crack — most severe structural damage
+    'D20': 100,   # Alligator Crack — most severe structural damage
     'D40': 85,    # Pothole — immediate hazard
-    'D10': 60,    # Longitudinal Crack — moderate structural concern
-    'D20': 50,    # Transverse Crack — least severe of the four
+    'D00': 60,    # Longitudinal Crack — moderate structural concern
+    'D10': 50,    # Transverse Crack — least severe of the four
 }
 
 # Default weight for unknown damage types

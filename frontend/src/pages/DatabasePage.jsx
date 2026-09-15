@@ -20,7 +20,7 @@ export default function DatabasePage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
   const [filters, setFilters] = useState({
-    damage_type: '', severity: '', status: '', source: '', search: '',
+    damage_type: '', status: '', search: '',
     sort: 'created_at', dir: 'desc',
   });
 
@@ -77,7 +77,7 @@ export default function DatabasePage() {
 
   const SortIcon = ({ col }) => {
     if (filters.sort !== col) return <span style={{ opacity: 0.3 }}>↕</span>;
-    return <span style={{ color: 'var(--accent)' }}>{filters.dir === 'desc' ? '↓' : '↑'}</span>;
+    return <span style={{ color: 'var(--cyan)' }}>{filters.dir === 'desc' ? '↓' : '↑'}</span>;
   };
 
   return (
@@ -103,14 +103,6 @@ export default function DatabasePage() {
           <div className="stat-value" style={{ fontSize: '24px' }}>{stats.total_geolocated || 0}</div>
           <div className="stat-label">Geo-located</div>
         </div>
-        <div className="stat-card danger">
-          <div className="stat-value" style={{ fontSize: '24px' }}>{stats.by_severity?.high || 0}</div>
-          <div className="stat-label">High Severity</div>
-        </div>
-        <div className="stat-card warning">
-          <div className="stat-value" style={{ fontSize: '24px' }}>{stats.pending_reports || 0}</div>
-          <div className="stat-label">Pending Reports</div>
-        </div>
       </div>
 
       {/* Filters */}
@@ -120,29 +112,16 @@ export default function DatabasePage() {
           style={{ minWidth: '180px' }} />
         <select className="input-field" value={filters.damage_type}
           onChange={e => { setFilters({ ...filters, damage_type: e.target.value }); setPage(1); }}>
-          <option value="">All Types</option>
-          <option value="D10">D10 — Longitudinal</option>
-          <option value="D20">D20 — Transverse</option>
-          <option value="D30">D30 — Alligator</option>
-          <option value="D40">D40 — Pothole</option>
-        </select>
-        <select className="input-field" value={filters.severity}
-          onChange={e => { setFilters({ ...filters, severity: e.target.value }); setPage(1); }}>
-          <option value="">All Severity</option>
-          <option value="high">🔴 High</option>
-          <option value="medium">🟠 Medium</option>
-          <option value="low">🟡 Low</option>
+          <option value="">All kinds of damage</option>
+          <option value="D00">Longitudinal cracks</option>
+          <option value="D10">Transverse cracks</option>
+          <option value="D20">Alligator cracks</option>
+          <option value="D40">Potholes</option>
         </select>
         <select className="input-field" value={filters.status}
           onChange={e => { setFilters({ ...filters, status: e.target.value }); setPage(1); }}>
           <option value="">All Status</option>
           {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-        </select>
-        <select className="input-field" value={filters.source}
-          onChange={e => { setFilters({ ...filters, source: e.target.value }); setPage(1); }}>
-          <option value="">All Sources</option>
-          <option value="ai_detection">AI Detection</option>
-          <option value="public_report">Public Report</option>
         </select>
       </div>
 
@@ -163,7 +142,6 @@ export default function DatabasePage() {
                 <tr>
                   <th>ID</th>
                   <th onClick={() => toggleSort('damage_type')}>Type <SortIcon col="damage_type" /></th>
-                  <th onClick={() => toggleSort('severity_score')}>Severity <SortIcon col="severity_score" /></th>
                   <th onClick={() => toggleSort('confidence')}>Confidence <SortIcon col="confidence" /></th>
                   <th>Location</th>
                   <th onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
@@ -175,30 +153,23 @@ export default function DatabasePage() {
               <tbody>
                 {detections.map(d => (
                   <tr key={d.id}>
-                    <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>#{d.id}</td>
+                    <td style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>#{d.id}</td>
                     <td>
                       <span className={`damage-badge damage-${d.damage_type}`}>{d.damage_type}</span>
-                      <span style={{ fontSize: '11px', marginLeft: '6px', color: 'var(--text-muted)' }}>{d.damage_label}</span>
-                    </td>
-                    <td>
-                      {d.severity && (
-                        <span className={`severity-badge severity-${d.severity}`}>
-                          {d.severity} {d.severity_score != null ? `(${d.severity_score})` : ''}
-                        </span>
-                      )}
+                      <span style={{ fontSize: '11px', marginLeft: '6px', color: 'var(--ink-soft)' }}>{d.damage_label}</span>
                     </td>
                     <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>
                       {(d.confidence * 100).toFixed(1)}%
                     </td>
                     <td>
                       {d.latitude && d.longitude ? (
-                        <span style={{ fontSize: '11px', color: 'var(--teal)' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>
                           📍 {d.latitude.toFixed(4)}, {d.longitude.toFixed(4)}
                         </span>
                       ) : d.road_name ? (
                         <span style={{ fontSize: '11px' }}>{d.road_name}</span>
                       ) : (
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>—</span>
+                        <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>—</span>
                       )}
                     </td>
                     <td>
@@ -223,11 +194,11 @@ export default function DatabasePage() {
                       </div>
                     </td>
                     <td>
-                      <span style={{ fontSize: '11px', color: d.source_type === 'public_report' ? 'var(--warning)' : 'var(--accent)' }}>
-                        {d.source_type === 'public_report' ? '📱 Public' : '🤖 AI'}
+                      <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>
+                        {d.source_type === 'public_report' ? 'Citizen report' : 'Video analysis'}
                       </span>
                     </td>
-                    <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <td style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>
                       {d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}
                     </td>
                     <td>
@@ -250,7 +221,7 @@ export default function DatabasePage() {
             <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px', alignItems: 'center' }}>
               <button className="btn btn-secondary btn-sm" disabled={page <= 1}
                 onClick={() => setPage(p => p - 1)}>← Prev</button>
-              <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>
                 Page {page} of {totalPages}
               </span>
               <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}

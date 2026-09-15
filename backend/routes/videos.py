@@ -1,12 +1,15 @@
 """Video management routes — upload with GPS track support."""
 
 import os
+import io
+import csv
+import json
 import uuid
 import threading
 from datetime import datetime, timezone
-from flask import Blueprint, request, jsonify, current_app, send_file
+from flask import Blueprint, request, jsonify, current_app, send_file, Response
 from werkzeug.utils import secure_filename
-from models import db, Video, Detection
+from models import db, Video, Detection, RouteControlPoint
 
 videos_bp = Blueprint('videos', __name__)
 
@@ -71,6 +74,15 @@ def upload_video():
     duration = frame_count / fps if fps > 0 else 0
     cap.release()
 
+    # Enforce the length limit in code, not just in the paper (thesis Sec 1.7 / 3.4)
+    max_s = current_app.config.get('MAX_VIDEO_DURATION_S', 600)
+    if duration > max_s:
+        os.remove(upload_path)
+        return jsonify({
+            'error': (f'This video is {duration / 60:.1f} minutes long. Videos must be '
+                      f'{max_s // 60} minutes or shorter — trim it and upload again.')
+        }), 400
+
     # Handle GPS track file (optional)
     gps_filename = None
     gps_original_filename = None
@@ -105,6 +117,7 @@ def upload_video():
         gps_original_filename=gps_original_filename,
         time_offset=time_offset,
         road_name=road_name,
+        position_source='gps_file' if gps_filename else 'none',
     )
     db.session.add(video)
     db.session.commit()
@@ -126,6 +139,62 @@ def upload_video():
         'message': 'Video uploaded successfully. Processing started.',
         'video': video.to_dict()
     }), 201
+
+
+@videos_bp.route('/export', methods=['GET'])
+def export_videos():
+    """Per-video processing statistics — the throughput data for the evaluation chapter.
+
+    ?format=csv (default) or json. One row per video the caller owns:
+      frames            = duration × fps
+      sampled_frames    = frames actually run through the model (every fps/INFERENCE_FPS-th)
+      processing_seconds= wall-clock from upload complete to processing complete
+    """
+    from services.video_processor import INFERENCE_FPS
+
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    videos = Video.query.filter_by(user_id=user_id).order_by(Video.upload_date).all()
+    rows = []
+    for v in videos:
+        fps = v.fps or 0
+        frames = round((v.duration or 0) * fps)
+        skip = max(1, int(fps / INFERENCE_FPS)) if fps else 1
+        processing = None
+        if v.processed_date and v.upload_date:
+            processing = round((v.processed_date - v.upload_date).total_seconds(), 1)
+        rows.append({
+            'id': v.id,
+            'name': v.name,
+            'original_filename': v.original_filename,
+            'status': v.status,
+            'duration_s': round(v.duration, 2) if v.duration else None,
+            'fps': round(fps, 2) if fps else None,
+            'frames': frames,
+            'inference_fps': INFERENCE_FPS,
+            'sampled_frames': frames // skip if frames else 0,
+            'total_detections': v.total_detections,
+            'position_source': v.position_source or 'none',
+            'has_gps': v.gps_filename is not None,
+            'control_point_count': len(v.control_points),
+            'upload_date': v.upload_date.isoformat() if v.upload_date else None,
+            'processed_date': v.processed_date.isoformat() if v.processed_date else None,
+            'processing_seconds': processing,
+        })
+
+    if request.args.get('format', 'csv') == 'json':
+        return Response(json.dumps(rows, indent=2), mimetype='application/json',
+                        headers={'Content-Disposition': 'attachment;filename=video_processing_stats.json'})
+
+    output = io.StringIO()
+    if rows:
+        writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    return Response(output.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment;filename=video_processing_stats.csv'})
 
 
 @videos_bp.route('', methods=['GET'])
@@ -158,6 +227,35 @@ def get_video(video_id):
         'video': video.to_dict(),
         'detections': [d.to_dict() for d in detections]
     }), 200
+
+
+@videos_bp.route('/<int:video_id>', methods=['PATCH'])
+def rename_video(video_id):
+    """Rename a video. Body: {"name": "Rizal Ave northbound"}.
+
+    Stores a display_name; the uploaded filename is never overwritten. Sending an
+    empty name clears the label and falls back to the original filename.
+    """
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    if not video:
+        return jsonify({'error': 'Video not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    if 'name' not in data:
+        return jsonify({'error': 'Body must be {"name": "..."}'}), 400
+
+    name = (data.get('name') or '').strip()
+    if len(name) > 300:
+        return jsonify({'error': 'Name must be 300 characters or fewer'}), 400
+
+    video.display_name = name or None
+    db.session.commit()
+
+    return jsonify({'message': 'Video renamed', 'video': video.to_dict()}), 200
 
 
 @videos_bp.route('/<int:video_id>', methods=['DELETE'])
@@ -238,6 +336,124 @@ def get_snapshot(video_id, filename):
         return jsonify({'error': 'Snapshot not found'}), 404
 
     return send_file(file_path, mimetype='image/jpeg')
+
+
+# ---------------------------------------------------------------------------
+# Control-point georeferencing — fallback for videos uploaded without a GPS track
+# ---------------------------------------------------------------------------
+
+def _control_points_payload(video, applied=None, message=None):
+    """Common response body for the control-point endpoints."""
+    body = {
+        'control_points': [cp.to_dict() for cp in video.control_points],
+        'position_source': video.position_source,
+        'video': video.to_dict(),
+    }
+    if applied is not None:
+        body['applied'] = applied
+    if message:
+        body['message'] = message
+    return body
+
+
+@videos_bp.route('/<int:video_id>/control-points', methods=['GET'])
+def get_control_points(video_id):
+    """List the control points saved for a video."""
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    if not video:
+        return jsonify({'error': 'Video not found'}), 404
+
+    return jsonify(_control_points_payload(video)), 200
+
+
+@videos_bp.route('/<int:video_id>/control-points', methods=['POST'])
+def save_control_points(video_id):
+    """Replace a video's control points and re-georeference its existing detections.
+
+    Body: {"control_points": [{"video_time_s": 12.5, "latitude": 14.6, "longitude": 121.0}, ...]}
+    Points must be in strictly increasing video_time_s order and inside the Philippines.
+    """
+    from services.georeference_service import validate_control_points, apply_control_points_to_detections
+
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    if not video:
+        return jsonify({'error': 'Video not found'}), 404
+
+    if video.gps_filename:
+        return jsonify({'error': 'Video already has a GPS track — manual georeferencing is only for videos without one'}), 409
+    if video.status in ('uploaded', 'processing'):
+        return jsonify({'error': 'Video is still processing. Wait for it to finish before saving control points'}), 409
+
+    data = request.get_json(silent=True) or {}
+    points = data.get('control_points')
+    if not isinstance(points, list):
+        return jsonify({'error': 'Body must be {"control_points": [...]}'}), 400
+
+    valid, message = validate_control_points(points, max_time_s=video.duration)
+    if not valid:
+        return jsonify({'error': message}), 400
+
+    # Replace semantics — the client always sends the full set
+    RouteControlPoint.query.filter_by(video_id=video.id).delete()
+    for seq, p in enumerate(points):
+        db.session.add(RouteControlPoint(
+            video_id=video.id,
+            seq=seq,
+            video_time_s=float(p['video_time_s']),
+            latitude=float(p['latitude']),
+            longitude=float(p['longitude']),
+        ))
+    db.session.commit()
+    db.session.refresh(video)
+
+    applied = apply_control_points_to_detections(video, db)
+
+    return jsonify(_control_points_payload(
+        video, applied,
+        f"Saved {len(points)} control points; positioned {applied['positioned']} of "
+        f"{applied['positioned'] + applied['unpositioned']} detections"
+    )), 200
+
+
+@videos_bp.route('/<int:video_id>/control-points/<int:cp_id>', methods=['DELETE'])
+def delete_control_point(video_id, cp_id):
+    """Remove one control point and re-georeference; with fewer than 2 left all positions are cleared."""
+    from services.georeference_service import apply_control_points_to_detections
+
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    if not video:
+        return jsonify({'error': 'Video not found'}), 404
+
+    if video.status in ('uploaded', 'processing'):
+        return jsonify({'error': 'Video is still processing. Wait for it to finish before changing control points'}), 409
+
+    cp = RouteControlPoint.query.filter_by(id=cp_id, video_id=video.id).first()
+    if not cp:
+        return jsonify({'error': 'Control point not found'}), 404
+
+    db.session.delete(cp)
+    db.session.flush()
+    remaining = RouteControlPoint.query.filter_by(video_id=video.id).order_by(RouteControlPoint.video_time_s).all()
+    for seq, point in enumerate(remaining):
+        point.seq = seq
+    db.session.commit()
+    db.session.refresh(video)
+
+    applied = apply_control_points_to_detections(video, db)
+
+    return jsonify(_control_points_payload(video, applied, 'Control point deleted')), 200
 
 
 def _stream_file(file_path):

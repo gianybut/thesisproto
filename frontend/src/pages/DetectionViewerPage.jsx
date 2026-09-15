@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { videosAPI, detectionsAPI } from '../api';
+import { videosAPI } from '../api';
+import RenameVideo from '../components/RenameVideo';
 
 export default function DetectionViewerPage() {
   const { id } = useParams();
@@ -13,7 +14,6 @@ export default function DetectionViewerPage() {
   const [loading, setLoading] = useState(true);
   const [videoError, setVideoError] = useState(null);
   const [filterType, setFilterType] = useState('');
-  const [filterSeverity, setFilterSeverity] = useState('');
   const [hasSeeked, setHasSeeked] = useState(false);
 
   const fetchData = () => {
@@ -71,51 +71,53 @@ export default function DetectionViewerPage() {
   // Filter detections
   let filtered = detections;
   if (filterType) filtered = filtered.filter(d => d.damage_type === filterType);
-  if (filterSeverity) filtered = filtered.filter(d => d.severity === filterSeverity);
 
   // Stats
   const typeSet = [...new Set(detections.map(d => d.damage_type))];
-  const highCount = detections.filter(d => d.severity === 'high').length;
   const gpsCount = detections.filter(d => d.latitude).length;
 
   return (
     <div className="page fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '22px' }}>{video.original_filename}</h2>
+        <div style={{ minWidth: 0 }}>
+          <RenameVideo video={video} as="h2" onRenamed={(updated) => setVideo(v => ({ ...v, ...updated }))} />
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
             <span className={`badge badge-${video.status}`}>{video.status}</span>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{video.resolution} • {video.fps?.toFixed(0)} fps</span>
-            {video.has_gps && <span style={{ fontSize: '13px', color: 'var(--teal)' }}>🛰️ GPS synced</span>}
-            {video.road_name && <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>📍 {video.road_name}</span>}
+            <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>{video.resolution} • {video.fps?.toFixed(0)} fps</span>
+            {video.has_gps && <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>🛰️ GPS synced</span>}
+            {video.position_source === 'georeferenced' && <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>📍 Manually georeferenced ({video.control_point_count} points)</span>}
+            {video.road_name && <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>📍 {video.road_name}</span>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          {!video.has_gps && (
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/videos/${video.id}/georeference`)}>📍 Georeference</button>
+          )}
           {gpsCount > 0 && (
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/map')}>🗺️ View on Map</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/map?video=${video.id}`)}>View this survey on the map</button>
           )}
           <button className="btn btn-secondary" onClick={() => navigate('/videos')}>← Back</button>
         </div>
       </div>
 
       {isProcessing && (
-        <div className="glass-card" style={{ marginBottom: '24px' }}>
+        <div className="panel" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>🔄 Processing video... Detecting road damages</span>
-            <span style={{ color: 'var(--accent)' }}>{video.processing_progress?.toFixed(0)}%</span>
+            <span style={{ color: 'var(--cyan)' }}>{video.processing_progress?.toFixed(0)}%</span>
           </div>
           <div className="progress-bar"><div className="progress-fill" style={{ width: `${video.processing_progress}%` }} /></div>
         </div>
       )}
 
       {videoError && (
-        <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(255, 0, 0, 0.1)', borderLeft: '4px solid var(--danger)' }}>
-          <p style={{ color: 'var(--danger)' }}>❌ {videoError}</p>
+        <div className="panel" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(255, 0, 0, 0.1)', borderLeft: '4px solid var(--alert)' }}>
+          <p style={{ color: 'var(--alert)' }}>❌ {videoError}</p>
         </div>
       )}
 
       <div className="viewer-layout">
-        <div className="viewer-video glass-card" style={{ padding: 0, minHeight: '400px' }}>
+        <div className="viewer-video panel" style={{ padding: 0, minHeight: '400px' }}>
           {videoSrc ? (
             <video
               key={videoSrc}
@@ -131,19 +133,18 @@ export default function DetectionViewerPage() {
             />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-              <p style={{ color: 'var(--text-muted)' }}>No video source available</p>
+              <p style={{ color: 'var(--ink-soft)' }}>No video source available</p>
             </div>
           )}
         </div>
 
         <div className="detection-panel">
-          <div className="glass-card" style={{ padding: '16px' }}>
+          <div className="panel" style={{ padding: '16px' }}>
             <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Detection Log</h3>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>
                 {detections.length} damage{detections.length !== 1 ? 's' : ''} found
-                {highCount > 0 && <span style={{ color: 'var(--severity-high)', marginLeft: '6px' }}>({highCount} high)</span>}
-                {gpsCount > 0 && <span style={{ color: 'var(--teal)', marginLeft: '6px' }}>📍 {gpsCount} geo-located</span>}
+                {gpsCount > 0 &&<span style={{ color: 'var(--ink-soft)', marginLeft: '6px' }}>📍 {gpsCount} geo-located</span>}
               </span>
             </div>
 
@@ -153,13 +154,6 @@ export default function DetectionViewerPage() {
                 value={filterType} onChange={e => setFilterType(e.target.value)}>
                 <option value="">All Types</option>
                 {typeSet.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <select className="input-field" style={{ padding: '4px 8px', fontSize: '11px', minWidth: '90px' }}
-                value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
-                <option value="">All Severity</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
               </select>
             </div>
           </div>
@@ -187,26 +181,21 @@ export default function DetectionViewerPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                       <span className={`damage-badge damage-${d.damage_type}`}>{d.damage_type}</span>
-                      {d.severity && <span className={`severity-badge severity-${d.severity}`}>{d.severity}</span>}
+                      <span style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>{d.damage_label}</span>
                     </div>
                     <div className="detection-time">
                       ⏱️ {d.timestamp_formatted}
                     </div>
                     <div className="detection-conf" style={{ marginTop: '2px' }}>
                       {(d.confidence * 100).toFixed(1)}% confidence
-                      {d.latitude && <span style={{ color: 'var(--teal)', marginLeft: '6px' }}>📍</span>}
+                      {d.latitude && <span style={{ color: 'var(--ink-soft)', marginLeft: '6px' }}>📍</span>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    {d.severity_score != null && (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        Score: {d.severity_score}
-                      </span>
-                    )}
                     <div className="detection-conf-bar" style={{ width: '60px' }}>
                       <div className="detection-conf-fill" style={{
                         width: `${d.confidence * 100}%`,
-                        background: d.confidence > 0.7 ? 'var(--success)' : d.confidence > 0.5 ? 'var(--warning)' : 'var(--danger)',
+                        background: d.confidence > 0.7 ? 'var(--ink-soft)' : d.confidence > 0.5 ? 'var(--alert)' : 'var(--alert)',
                         height: '4px',
                         borderRadius: '2px'
                       }} />

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { videosAPI } from '../api';
+import RenameVideo from '../components/RenameVideo';
 
 export default function VideoListPage() {
   const [videos, setVideos] = useState([]);
@@ -73,24 +74,29 @@ export default function VideoListPage() {
                 )}
                 <div className="play-overlay"><span style={{ fontSize: '36px' }}>▶</span></div>
               </div>
-              <div className="video-info">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3>{v.original_filename}</h3>
+              <div className="video-info" onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--s2)', marginBottom: '8px' }}>
+                  <RenameVideo
+                    video={v}
+                    onRenamed={(updated) => setVideos(prev => prev.map(x => (x.id === updated.id ? { ...x, ...updated } : x)))}
+                  />
                   <span className={`badge badge-${v.status}`}>{v.status}</span>
                 </div>
                 <div className="video-meta">
                   <span>⏱ {formatDuration(v.duration)}</span>
                   <span>📦 {formatSize(v.file_size)}</span>
                   {v.total_detections > 0 && <span>⚠️ {v.total_detections} damages</span>}
-                  {v.has_gps && <span style={{ color: 'var(--teal)' }}>🛰️ GPS</span>}
+                  {v.has_gps && <span style={{ color: 'var(--ink-soft)' }}>🛰️ GPS</span>}
                 </div>
                 {v.road_name && (
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '6px' }}>
                     📍 {v.road_name}
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                  <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, v.id)}>🗑 Delete</button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s2)', marginTop: '12px' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/videos/${v.id}`)}>Open</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/map?video=${v.id}`)}>View on map</button>
+                  <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, v.id)}>Delete</button>
                 </div>
               </div>
             </div>

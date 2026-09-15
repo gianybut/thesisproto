@@ -37,10 +37,6 @@ def get_all_detections():
     if damage_type:
         query = query.filter(Detection.damage_type == damage_type)
 
-    severity = request.args.get('severity')
-    if severity:
-        query = query.filter(Detection.severity == severity)
-
     status = request.args.get('status')
     if status:
         query = query.filter(Detection.inspection_status == status)
@@ -66,7 +62,6 @@ def get_all_detections():
 
     sort_map = {
         'created_at': Detection.created_at,
-        'severity_score': Detection.severity_score,
         'confidence': Detection.confidence,
         'damage_type': Detection.damage_type,
         'status': Detection.inspection_status,
@@ -151,8 +146,8 @@ def export_data():
         # CSV export
         output = io.StringIO()
         if data:
-            fieldnames = ['id', 'damage_type', 'damage_label', 'severity', 'severity_score',
-                          'confidence', 'latitude', 'longitude', 'road_name',
+            fieldnames = ['id', 'damage_type', 'damage_label',
+                          'confidence', 'latitude', 'longitude', 'position_source', 'road_name',
                           'inspection_status', 'source_type', 'created_at',
                           'video_id', 'frame_number', 'timestamp']
             writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
@@ -183,11 +178,6 @@ def get_database_stats():
         Detection.damage_type, Detection.damage_label, func.count(Detection.id)
     ).group_by(Detection.damage_type, Detection.damage_label).all()
 
-    # By severity
-    severity_counts = db.session.query(
-        Detection.severity, func.count(Detection.id)
-    ).filter(Detection.severity.isnot(None)).group_by(Detection.severity).all()
-
     # By status
     status_counts = db.session.query(
         Detection.inspection_status, func.count(Detection.id)
@@ -211,7 +201,6 @@ def get_database_stats():
     return jsonify({
         'total_detections': total,
         'by_damage_type': [{'type': t, 'label': l, 'count': c} for t, l, c in type_counts],
-        'by_severity': {s: c for s, c in severity_counts if s},
         'by_status': {s: c for s, c in status_counts if s},
         'by_source': {s: c for s, c in source_counts if s},
         'avg_confidence': round(float(avg_conf), 4),

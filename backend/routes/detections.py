@@ -1,4 +1,4 @@
-"""Detection and dashboard statistics routes — enhanced with damage type and severity breakdown."""
+"""Detection and dashboard statistics routes — with damage type and status breakdowns."""
 
 from flask import Blueprint, request, jsonify
 from models import db, Video, Detection, PublicReport
@@ -42,7 +42,7 @@ def get_detections(video_id):
 
 @detections_bp.route('/dashboard/stats', methods=['GET'])
 def get_dashboard_stats():
-    """Get aggregate dashboard statistics with damage type and severity breakdown."""
+    """Get aggregate dashboard statistics with damage type and status breakdowns."""
     user_id = get_user_id()
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
@@ -76,14 +76,6 @@ def get_dashboard_stats():
     ).join(Video).filter(
         Video.user_id == user_id
     ).group_by(Detection.damage_type, Detection.damage_label).all()
-
-    # Severity breakdown
-    severity_counts = db.session.query(
-        Detection.severity, func.count(Detection.id)
-    ).join(Video).filter(
-        Video.user_id == user_id,
-        Detection.severity.isnot(None)
-    ).group_by(Detection.severity).all()
 
     # Status breakdown
     status_counts = db.session.query(
@@ -119,7 +111,6 @@ def get_dashboard_stats():
         'avg_confidence': round(float(avg_confidence), 4),
         'total_duration': round(float(total_duration), 1),
         'by_damage_type': [{'type': t, 'label': l, 'count': c} for t, l, c in type_counts],
-        'by_severity': {s: c for s, c in severity_counts if s},
         'by_status': {s: c for s, c in status_counts if s},
         'geolocated_count': geolocated_count,
         'pending_reports': pending_reports,
