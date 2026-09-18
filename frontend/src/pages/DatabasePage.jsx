@@ -84,12 +84,12 @@ export default function DatabasePage() {
     <div className="page fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h2>🗃️ Damage Database</h2>
+          <h2>Damage Database</h2>
           <p>Centralized road damage records — {total} total entries</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => handleExport('csv')}>📥 Export CSV</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => handleExport('json')}>📥 Export JSON</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => handleExport('csv')}>Export CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => handleExport('json')}>Export JSON</button>
         </div>
       </div>
 
@@ -107,7 +107,7 @@ export default function DatabasePage() {
 
       {/* Filters */}
       <div className="filter-bar">
-        <input className="input-field" type="text" placeholder="🔍 Search road name..."
+        <input className="input-field" type="text" placeholder="Search road name..."
           value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })}
           style={{ minWidth: '180px' }} />
         <select className="input-field" value={filters.damage_type}

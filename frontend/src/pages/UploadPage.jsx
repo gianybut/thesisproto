@@ -60,7 +60,7 @@ export default function UploadPage() {
             </p>
             {gpsFile ? (
               <p style={{ color: 'var(--ink-soft)', fontSize: '14px', marginBottom: '16px' }}>
-                🛰️ GPS track attached — detections will be geo-located
+                GPS track attached — detections will be geo-located
               </p>
             ) : (
               <div className="alert alert-warning" style={{ textAlign: 'left' }}>
@@ -104,7 +104,6 @@ export default function UploadPage() {
           onDrop={(e) => { e.preventDefault(); setDragover(false); handleVideoFile(e.dataTransfer.files[0]); }}
           onClick={() => videoInputRef.current?.click()}>
           <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={(e) => handleVideoFile(e.target.files[0])} />
-          <div className="upload-icon">🎬</div>
           <h3>{videoFile ? videoFile.name : 'Drop your road survey video here'}</h3>
           <p>{videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : 'Supports MP4, AVI, MOV, MKV up to 500MB'}</p>
         </div>
@@ -116,7 +115,6 @@ export default function UploadPage() {
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleGpsFile(e.dataTransfer.files[0]); }}>
             <input ref={gpsInputRef} type="file" accept="*/*" hidden onChange={(e) => handleGpsFile(e.target.files[0])} />
-            <div className="upload-icon">🛰️</div>
             <h4>{gpsFile ? `✅ ${gpsFile.name}` : 'Attach GPS Track File (optional)'}</h4>
             <p>{gpsFile ? `${(gpsFile.size / 1024).toFixed(1)} KB — GPS coordinates will be synced with detections`
               : 'Click to browse or drag & drop your .GPX or .CSV file here'}</p>
@@ -158,7 +156,7 @@ export default function UploadPage() {
               </div>
             ) : (
               <button className="btn btn-primary btn-lg" onClick={handleUpload} style={{ width: '100%', justifyContent: 'center' }}>
-                🚀 Start Upload & Analysis
+               Start Upload & Analysis
               </button>
             )}
           </div>

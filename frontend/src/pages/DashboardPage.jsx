@@ -53,10 +53,10 @@ export default function DashboardPage() {
           <div className="panel">
             <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Quick Actions</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button className="btn btn-primary" onClick={() => navigate('/upload')}>📤 Upload Road Survey</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/map')}>🗺️ View Damage Map</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/database')}>🗃️ Damage Database</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/videos')}>📂 Video Library</button>
+              <button className="btn btn-primary" onClick={() => navigate('/upload')}>Upload Road Survey</button>
+              <button className="btn btn-secondary" onClick={() => navigate('/map')}>View Damage Map</button>
+              <button className="btn btn-secondary" onClick={() => navigate('/database')}>Damage Database</button>
+              <button className="btn btn-secondary" onClick={() => navigate('/videos')}>Video Library</button>
             </div>
           </div>
 
