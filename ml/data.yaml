@@ -1,5 +1,10 @@
-# Pothole Detection Dataset Configuration
-# Source: RDD2022 (D40 class only - potholes)
+# Road Damage Detection Dataset — RDD2022 codes (CRDDC 2022 classes)
+# Template/checked-in copy. dataset_prep.py, download_rdd2022.py and convert_rdd2022.py
+# each overwrite this file with the real paths and counts when they build a dataset.
+#
+# Class index order matches TARGET_CLASSES in ml/dataset_prep.py, which is also the
+# index-based fallback in backend/services/video_processor.py:_classify_damage.
+# There is no D30 in RDD2022: D00 longitudinal, D10 transverse, D20 alligator, D40 pothole.
 #
 # NOTE: This file uses a RELATIVE path.
 # - In Google Colab, the notebook overwrites the path to /content/pothole_dataset
@@ -10,7 +15,10 @@ train: train/images
 val: val/images
 test: test/images
 
-nc: 1
+nc: 4
 
 names:
-  0: pothole
+  0: longitudinal_crack
+  1: transverse_crack
+  2: alligator_crack
+  3: pothole

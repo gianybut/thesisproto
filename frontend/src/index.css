@@ -261,21 +261,45 @@ a.list-row:hover, .list-row.clickable:hover { background: var(--card); }
 .upload-zone p, .upload-zone-sm p { color: var(--ink-soft); font-size: 14px; }
 
 /* ===== Detection viewer ==================================================== */
-.viewer-layout { display: grid; grid-template-columns: 1fr 360px; gap: var(--r2); }
-.viewer-video { background: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius-panel); overflow: hidden; }
-.viewer-video video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.viewer-layout { display: grid; grid-template-columns: 1fr 360px; gap: var(--r2); align-items: start; }
+.viewer-video {
+  background: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius-panel);
+  overflow: hidden; min-height: 400px; display: flex; align-items: center; justify-content: center;
+}
+.viewer-video video { width: 100%; height: auto; max-height: calc(100vh - 260px); object-fit: contain; display: block; }
+.viewer-video-empty { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 400px; color: var(--ink-soft); }
 .detection-panel { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
-.detection-list { display: flex; flex-direction: column; border-top: 1px solid var(--rule); overflow-y: auto; }
+
+/* Facts under the survey title. Each one came from a column, so each is mono. — §4 */
+.viewer-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); margin-top: 6px; }
+
+.detection-panel-head { display: flex; flex-direction: column; gap: var(--s1); }
+.detection-panel-head h3 { font-size: 18px; }
+
+/* §6: the log is a real list. It scrolls next to the video rather than stretching the
+   page to the length of the detection count — a long survey ran to hundreds of rows. */
+.detection-list {
+  list-style: none;
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--rule);
+  max-height: calc(100vh - 300px); min-height: 200px; overflow-y: auto;
+}
+
+/* A row is a button: clicking it seeks the video, so it must be reachable by keyboard. */
 .detection-item {
-  display: flex; align-items: baseline; gap: var(--s2);
-  min-height: 44px; padding: 12px var(--s1); border-bottom: 1px solid var(--rule);
-  cursor: pointer; border-left: 2px solid transparent;
+  display: flex; align-items: baseline; gap: var(--s2); width: 100%;
+  min-height: 44px; padding: 12px var(--s1);
+  background: none; border: none; border-bottom: 1px solid var(--rule);
+  border-left: 2px solid transparent;
+  font-family: var(--font-body); font-size: 14px; color: var(--ink); text-align: left;
+  cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease;
 }
 .detection-item:hover { background: var(--card); }
 .detection-item.active { border-left-color: var(--cyan); background: var(--card); }
+.detection-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detection-time { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; flex: 0 0 62px; color: var(--ink-soft); }
-.detection-conf { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
+.detection-conf { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
 
 /* ===== Map ================================================================= */
 .map-container {
@@ -389,8 +413,6 @@ a.list-row:hover, .list-row.clickable:hover { background: var(--card); }
 .status-step.completed { color: var(--ink); }
 .status-arrow { color: var(--rule); font-size: 10px; }
 
-.detection-conf-bar { height: 2px; background: var(--rule); width: 60px; }
-.detection-conf-fill { height: 100%; background: var(--ink-soft); }
 
 .logo-icon, .user-avatar { display: none; }         /* §6: no icon in a coloured square */
 .empty-icon { display: none; }

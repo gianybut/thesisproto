@@ -9,7 +9,7 @@ if __name__ == '__main__':
         exit(1)
 
     print("=" * 60)
-    print("🏋️ STARTING LOCAL TRAINING — YOLOv8m POTHOLE DETECTION (RTX 4060)")
+    print("🏋️ STARTING LOCAL TRAINING — YOLOv8m ROAD DAMAGE, 4 CLASSES (RTX 4060)")
     print("=" * 60)
     
     # Load pretrained YOLOv8m

@@ -21,7 +21,13 @@ def create_app():
     app.config['REPORTS_FOLDER'] = os.path.join(base_dir, 'reports')
     app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max upload
     app.config['MAX_VIDEO_DURATION_S'] = 10 * 60          # 10-minute cap (thesis Sec 1.7 / 3.4)
-    app.config['MODEL_PATH'] = os.path.join(base_dir, '..', 'ml', 'models', 'best.pt')
+    # DEMO PLACEHOLDER (SE2 presentation only): external MIT-licensed RDD2022 baseline
+    # (nsr51324/Road_Damage_Object_Detection, YOLOv8n, mAP@50 0.393 on the uploader's own
+    # val set). It is 7-class; only the four CRDDC codes are kept, see _is_pothole_class.
+    # NOT our model and must never be reported as a thesis result — Chapter 4 numbers come
+    # from the Phase 6 fine-tune. Revert to the single-class baseline by swapping this one
+    # line back to 'best.pt'.
+    app.config['MODEL_PATH'] = os.path.join(base_dir, '..', 'ml', 'models', 'rdd2022_pretrained.pt')
 
     # Ensure directories exist
     for folder in [app.config['UPLOAD_FOLDER'], app.config['PROCESSED_FOLDER'],
@@ -59,6 +65,10 @@ def create_app():
 
     # Create database tables
     with app.app_context():
+        from migrate import migrate
+
+        # Older SQLite files need additive columns before ORM queries can touch them.
+        migrate()
         db.create_all()
 
         from models import Video

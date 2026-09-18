@@ -442,7 +442,11 @@ def _is_pothole_class(class_name, cls_id, model):
     if len(model.names) <= 5:
         return True
 
-    pothole_keywords = ['pothole', 'hole', 'crack', 'damage', 'd40', 'd00', 'd10', 'd20']
+    # Only rescue classes that name one of the four CRDDC 2022 codes. Generic names such as
+    # 'crack', 'block' or 'edge' are NOT in the scheme: _classify_damage cannot place them, so
+    # keeping them here would file them under D40 and show a plain crack as a pothole. Dropping
+    # them keeps the app honest about the four classes it claims to detect.
+    pothole_keywords = ['pothole', 'hole', 'd40', 'd00', 'd10', 'd20']
     return any(kw in class_name for kw in pothole_keywords)
 
 

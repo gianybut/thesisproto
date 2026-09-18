@@ -16,11 +16,11 @@ const ROLE_NAV = {
 };
 
 const NAV_ITEMS = [
-  { path: '/', label: '📊 Dashboard', end: true },
-  { path: '/upload', label: '📤 Upload' },
-  { path: '/videos', label: '📂 Videos' },
-  { path: '/map', label: '🗺️ Map' },
-  { path: '/database', label: '🗃️ Database' },
+  { path: '/', label: 'Dashboard', end: true },
+  { path: '/upload', label: 'Upload' },
+  { path: '/videos', label: 'Videos' },
+  { path: '/map', label: 'Map' },
+  { path: '/database', label: 'Database' },
 ];
 
 export default function Navbar({ user, onLogout }) {
