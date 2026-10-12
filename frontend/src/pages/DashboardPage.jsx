@@ -1,100 +1,105 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { dashboardAPI } from '../api';
+import { MAX_VIDEO_MINUTES, errorMessage, formatDate, isRunning, surveyName } from '../labels';
+import { canAccess, roleOf } from '../roles';
+import Icon from '../icons';
+import PageHeader from '../components/PageHeader';
+import SkeletonRows from '../components/SkeletonRows';
+import Notice from '../components/Notice';
+import { SurveyStatus } from '../components/StatusLabel';
 
-export default function DashboardPage() {
+const SHORTCUTS = [
+  { path: '/map', label: 'Damage map', icon: 'map' },
+  { path: '/database', label: 'Damage records', icon: 'table' },
+  { path: '/videos', label: 'Surveys', icon: 'video' },
+];
+
+export default function DashboardPage({ user }) {
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const role = roleOf(user);
 
+  const running = (stats?.recent_videos || []).some(isRunning) || (stats?.processing_videos || 0) > 0;
+
+  // Load once; keep polling every 5 s only while a survey is being analysed.
   useEffect(() => {
-    dashboardAPI.stats().then(res => { setStats(res.data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div className="page" style={{display:'flex',alignItems:'center',justifyContent:'center'}}><div className="spinner" /></div>;
+    let cancelled = false;
+    const load = () => dashboardAPI.stats()
+      .then(res => { if (!cancelled) { setStats(res.data); setError(''); } })
+      .catch(err => { if (!cancelled) setError(errorMessage(err, 'Could not load the overview. Check that the server is running, then reload the page.')); });
+    load();
+    if (!running) return () => { cancelled = true; };
+    const t = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [running]);
 
   const s = stats || {};
+  const counts = [
+    { label: 'Surveys uploaded', value: s.total_videos, icon: 'video' },
+    { label: 'Being analysed now', value: s.processing_videos, icon: 'hourglass' },
+    { label: 'Damage found', value: s.total_detections, icon: 'alert-triangle' },
+    { label: 'Damage with a location', value: s.geolocated_count, icon: 'map-pin' },
+  ];
 
   return (
-    <div className="page fade-in">
-      <div className="page-header">
-        <h2>Dashboard</h2>
-        <p>Road damage detection overview and infrastructure monitoring</p>
-      </div>
+    <div className="page">
+      <PageHeader title="Overview" />
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon">📹</div>
-          <div className="stat-value">{s.total_videos || 0}</div>
-          <div className="stat-label">Total Videos</div>
-        </div>
-        <div className="stat-card success">
-          <div className="stat-icon">⚠️</div>
-          <div className="stat-value">{s.total_detections || 0}</div>
-          <div className="stat-label">Damages Detected</div>
-        </div>
-        <div className="stat-card warning">
-          <div className="stat-icon">🎯</div>
-          <div className="stat-value">{s.avg_confidence ? (s.avg_confidence * 100).toFixed(1) + '%' : '—'}</div>
-          <div className="stat-label">Avg Confidence</div>
-        </div>
-        <div className="stat-card purple">
-          <div className="stat-icon">📍</div>
-          <div className="stat-value">{s.geolocated_count || 0}</div>
-          <div className="stat-label">Geo-located</div>
-        </div>
-      </div>
+      {error && <Notice kind="error">{error}</Notice>}
 
-      <div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Quick Actions */}
-          <div className="panel">
-            <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Quick Actions</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button className="btn btn-primary" onClick={() => navigate('/upload')}>Upload Road Survey</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/map')}>View Damage Map</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/database')}>Damage Database</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/videos')}>Video Library</button>
-            </div>
+      {canAccess(role, '/upload') && (
+        <div className="panel start-panel">
+          <Link to="/upload" className="btn btn-primary"><Icon name="upload" />Upload a road survey</Link>
+          <p className="muted">{MAX_VIDEO_MINUTES} minutes or shorter, with an optional GPS track</p>
+        </div>
+      )}
+
+      <ul className="count-grid" aria-label="Your surveys in numbers">
+        {counts.map(c => (
+          <li key={c.label} className="count-tile">
+            <Icon name={c.icon} className="count-icon" />
+            <span className="count-value num">{stats ? (c.value ?? 0) : '–'}</span>
+            <span className="count-label">{c.label}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="overview-columns">
+        <section className="panel" aria-labelledby="recent-title">
+          <div className="panel-head">
+            <h2 id="recent-title" className="panel-title">Recent surveys</h2>
+            <Link to="/videos" className="link-arrow">See all surveys<Icon name="chevron-right" size={16} /></Link>
           </div>
+          {!stats && !error ? <SkeletonRows rows={4} label="Loading recent surveys" /> : s.recent_videos?.length > 0 ? (
+            <ul className="row-list">
+              {s.recent_videos.map(v => (
+                <li key={v.id} className="recent-row">
+                  <span className="num muted recent-date">{formatDate(v.upload_date)}</span>
+                  <Link to={`/videos/${v.id}`} className="row-title">{surveyName(v)}</Link>
+                  <SurveyStatus video={v} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No surveys yet. Your uploads will be listed here.</p>
+          )}
+        </section>
 
-          {/* Status Overview */}
-          <div className="panel">
-            <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Maintenance Status</h3>
-            {s.by_status && Object.keys(s.by_status).length > 0 ? (
-              Object.entries(s.by_status).map(([status, count]) => (
-                <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--rule)' }}>
-                  <span style={{ fontSize: '13px', textTransform: 'capitalize' }}>{status.replace('_', ' ')}</span>
-                  <span style={{ fontSize: '13px', fontWeight: '600' }}>{count}</span>
-                </div>
-              ))
-            ) : (
-              <p style={{ color: 'var(--ink-soft)', fontSize: '14px' }}>No status data</p>
-            )}
-          </div>
-
-          {/* Recent Videos */}
-          <div className="panel">
-            <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Recent Videos</h3>
-            {s.recent_videos?.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {s.recent_videos.map(v => (
-                  <div key={v.id} onClick={() => navigate(`/videos/${v.id}`)}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: '8px', background: 'var(--card)', cursor: 'pointer', border: '1px solid var(--rule)' }}>
-                    <span style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
-                      {v.name || v.original_filename}
-                    </span>
-                    <span className={`badge badge-${v.status}`}>{v.status}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ color: 'var(--ink-soft)', fontSize: '14px' }}>No videos uploaded yet</p>
-            )}
-          </div>
-        </div>
+        <nav className="panel" aria-labelledby="goto-title">
+          <h2 id="goto-title" className="panel-title">Go to</h2>
+          <ul className="shortcut-list">
+            {SHORTCUTS.filter(x => canAccess(role, x.path)).map(x => (
+              <li key={x.path}>
+                <Link to={x.path} className="shortcut">
+                  <Icon name={x.icon} className="shortcut-icon" />
+                  <span className="shortcut-label">{x.label}</span>
+                  <Icon name="chevron-right" size={16} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </div>
   );

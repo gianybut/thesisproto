@@ -1,97 +1,47 @@
 import { useState, useRef, useEffect } from 'react';
 import { videosAPI } from '../api';
+import { errorMessage } from '../labels';
 
 /**
- * Inline rename control for a video.
- *
- * Shows the video's current name with a "Rename" link; clicking swaps in a text
- * field. The uploaded filename is never overwritten — clearing the field just
- * drops back to it.
- *
- * @param video    video object from the API (needs id, name, original_filename)
- * @param onRenamed called with the updated video once the server confirms
- * @param as       heading element to render the name in (default h3)
+ * Inline rename form for a survey. The parent decides when it is shown (the survey page's
+ * Rename button, or Rename in a survey's More menu). The uploaded filename is never
+ * overwritten: saving an empty name goes back to it.
  */
-export default function RenameVideo({ video, onRenamed, as }) {
-  const Tag = as || 'h3';
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(video.name || video.original_filename || '');
+export default function RenameVideo({ video, onRenamed, onCancel }) {
+  const [value, setValue] = useState(video.name || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef();
+  const id = `rename-${video.id}`;
 
-  useEffect(() => {
-    if (editing) inputRef.current?.select();
-  }, [editing]);
+  useEffect(() => { inputRef.current?.select(); }, []);
 
-  const start = () => {
-    setValue(video.display_name || video.name || '');
-    setError('');
-    setEditing(true);
-  };
-
-  const cancel = () => { setEditing(false); setError(''); };
-
-  const save = async () => {
+  const save = async (e) => {
+    e?.preventDefault();
     setSaving(true);
     setError('');
     try {
       const res = await videosAPI.rename(video.id, value.trim());
       onRenamed?.(res.data.video);
-      setEditing(false);
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not save the name. Check your connection and try again.');
-    } finally {
+      setError(errorMessage(err, 'Could not save the name. Check your connection and try again.'));
       setSaving(false);
     }
   };
 
-  const onKeyDown = (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); save(); }
-    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-  };
-
-  if (!editing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s2)', flexWrap: 'wrap', minWidth: 0 }}>
-        <Tag style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {video.name || video.original_filename}
-        </Tag>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={start}
-          style={{ minHeight: 'auto', padding: '2px 0', fontSize: '13px' }}>
-          Rename
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ minWidth: 0, width: '100%', maxWidth: '460px' }}>
-      <label htmlFor={`rename-${video.id}`}>Name this survey</label>
-      <div style={{ display: 'flex', gap: 'var(--s1)', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
-        <input
-          id={`rename-${video.id}`}
-          ref={inputRef}
-          className="input-field"
-          style={{ flex: 1, minWidth: '200px' }}
-          value={value}
-          maxLength={300}
-          disabled={saving}
-          placeholder={video.original_filename}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
-          {saving ? 'Saving' : 'Save'}
-        </button>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={cancel} disabled={saving}>
-          Cancel
-        </button>
+    <form className={`rename-form field${error ? ' has-error' : ''}`} onSubmit={save}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onCancel?.(); } }}>
+      <label className="field-label" htmlFor={id}>Survey name</label>
+      <p className="field-hint" id={`${id}-hint`}>Leave it empty to use the uploaded file name, {video.original_filename}.</p>
+      {error && <p className="field-error" id={`${id}-error`}>{error}</p>}
+      <div className="inline-row">
+        <input id={id} ref={inputRef} className="input" value={value} maxLength={300} disabled={saving}
+          aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`}
+          onChange={(e) => setValue(e.target.value)} />
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save name'}</button>
+        <button type="button" className="btn btn-quiet" onClick={onCancel} disabled={saving}>Cancel</button>
       </div>
-      <p className="secondary" style={{ marginTop: '6px' }}>
-        Leave it empty to go back to the uploaded file name.
-      </p>
-      {error && <div className="alert alert-error" style={{ marginTop: 'var(--s1)' }}>{error}</div>}
-    </div>
+    </form>
   );
 }

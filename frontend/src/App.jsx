@@ -1,39 +1,21 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AUTH_EXPIRED, TOKEN_KEY } from './api';
+import { canAccess, roleOf } from './roles';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UploadPage from './pages/UploadPage';
 import VideoListPage from './pages/VideoListPage';
-import DetectionViewerPage from './pages/DetectionViewerPage';
-import GeoreferencePage from './pages/GeoreferencePage';
+import SurveyPage from './pages/SurveyPage';
 import DamageMapPage from './pages/DamageMapPage';
 import DatabasePage from './pages/DatabasePage';
-import Navbar from './components/Navbar';
+import Header from './components/Header';
+import Footer from './components/Footer';
 
-// Role-based route access control
-// Defines which routes each role is ALLOWED to access
-const ROLE_ROUTE_ACCESS = {
-  barangay:   ['/', '/upload', '/videos', '/map'],
-  municipal:  ['/', '/upload', '/videos', '/map', '/database'],
-  provincial: ['/', '/upload', '/videos', '/map', '/database'],
-  admin:      ['/', '/upload', '/videos', '/map', '/database'],
-};
-
-// Helper: check if a user role can access a given path.
-// Unknown roles fall back to barangay — the most restrictive set — so a stale
-// role left in the database cannot widen access.
-function canAccess(role, path) {
-  const allowed = ROLE_ROUTE_ACCESS[role] || ROLE_ROUTE_ACCESS.barangay;
-  // For /videos/:id, check if /videos is allowed
-  if (path.startsWith('/videos/')) return allowed.includes('/videos');
-  return allowed.includes(path);
-}
-
-// Protected route wrapper — redirects to dashboard if role is not permitted
+// Protected route wrapper — redirects to the overview if the role is not permitted.
+// Route access per role lives in roles.js, shared with the header.
 function ProtectedRoute({ user, path, children }) {
-  const role = user?.role || 'barangay';
-  if (!canAccess(role, path)) {
+  if (!canAccess(roleOf(user), path)) {
     return <Navigate to="/" replace />;
   }
   return children;
@@ -46,9 +28,9 @@ function App() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    const onExpired = (e) => {
+    const onExpired = () => {
       setUser(null);
-      setNotice(e.detail || 'Your session has expired. Log in again.');
+      setNotice('Your session has expired. Sign in again.');
     };
     window.addEventListener(AUTH_EXPIRED, onExpired);
     return () => window.removeEventListener(AUTH_EXPIRED, onExpired);
@@ -73,31 +55,36 @@ function App() {
 
   return (
     <Router>
-      <Navbar user={user} onLogout={handleLogout} />
-      <Routes>
-        <Route path="/" element={<DashboardPage user={user} />} />
+      <a className="skip-link" href="#main">Skip to main content</a>
+      <Header user={user} onLogout={handleLogout} />
+      <main id="main" tabIndex={-1}>
+        <Routes>
+          <Route path="/" element={<DashboardPage user={user} />} />
 
-        <Route path="/upload" element={
-          <ProtectedRoute user={user} path="/upload"><UploadPage /></ProtectedRoute>
-        } />
-        <Route path="/videos" element={
-          <ProtectedRoute user={user} path="/videos"><VideoListPage /></ProtectedRoute>
-        } />
-        <Route path="/videos/:id" element={
-          <ProtectedRoute user={user} path="/videos"><DetectionViewerPage /></ProtectedRoute>
-        } />
-        <Route path="/videos/:id/georeference" element={
-          <ProtectedRoute user={user} path="/videos"><GeoreferencePage /></ProtectedRoute>
-        } />
-        <Route path="/map" element={
-          <ProtectedRoute user={user} path="/map"><DamageMapPage /></ProtectedRoute>
-        } />
-        <Route path="/database" element={
-          <ProtectedRoute user={user} path="/database"><DatabasePage /></ProtectedRoute>
-        } />
+          <Route path="/upload" element={
+            <ProtectedRoute user={user} path="/upload"><UploadPage /></ProtectedRoute>
+          } />
+          <Route path="/videos" element={
+            <ProtectedRoute user={user} path="/videos"><VideoListPage /></ProtectedRoute>
+          } />
+          {/* Survey detail and "Place on the map" are two tabs of one page; both URLs stay. */}
+          <Route path="/videos/:id" element={
+            <ProtectedRoute user={user} path="/videos"><SurveyPage tab="damage" /></ProtectedRoute>
+          } />
+          <Route path="/videos/:id/georeference" element={
+            <ProtectedRoute user={user} path="/videos"><SurveyPage tab="place" /></ProtectedRoute>
+          } />
+          <Route path="/map" element={
+            <ProtectedRoute user={user} path="/map"><DamageMapPage /></ProtectedRoute>
+          } />
+          <Route path="/database" element={
+            <ProtectedRoute user={user} path="/database"><DatabasePage /></ProtectedRoute>
+          } />
 
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
+      <Footer />
     </Router>
   );
 }

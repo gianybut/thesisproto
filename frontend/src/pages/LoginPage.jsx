@@ -1,61 +1,71 @@
 import { useState } from 'react';
 import { authAPI } from '../api';
+import { errorMessage } from '../labels';
+import ErrorSummary from '../components/ErrorSummary';
+import Notice from '../components/Notice';
 
 export default function LoginPage({ onLogin, notice }) {
   const [form, setForm] = useState({ username: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    const missing = {};
+    if (!form.username.trim()) missing.username = 'Enter your username';
+    if (!form.password) missing.password = 'Enter your password';
+    setFieldErrors(missing);
+    if (Object.keys(missing).length) return;
+
+    setLoading(true);
     try {
-      const res = await authAPI.login(form.username, form.password);
+      const res = await authAPI.login(form.username.trim(), form.password);
       onLogin(res.data.user, res.data.token);
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not sign in. Check your username and password.');
-    } finally {
+      setError(errorMessage(err, 'Could not sign in. Check your username and password.'));
       setLoading(false);
     }
   };
 
-  const updateField = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+  const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+  const summary = Object.entries(fieldErrors).map(([field, message]) => ({ field, message }));
+
+  const field = (id, label, type, autoComplete) => (
+    <div className={`field${fieldErrors[id] ? ' has-error' : ''}`}>
+      <label className="field-label" htmlFor={id}>{label}</label>
+      {fieldErrors[id] && <p className="field-error" id={`${id}-error`}>{fieldErrors[id]}</p>}
+      <input id={id} className="input" type={type} value={form[id]} onChange={update(id)}
+        autoComplete={autoComplete} aria-invalid={Boolean(fieldErrors[id])}
+        aria-describedby={fieldErrors[id] ? `${id}-error` : undefined} />
+    </div>
+  );
 
   return (
     <div className="login-page">
-      <div className="panel login-card fade-in">
-        <div className="login-brand">
-          <div className="logo-icon">🛣️</div>
-          <h2>Bantay Kalsada</h2>
-          <p className="subtitle">Road damage detection for local government</p>
+      <main id="main" className="login-main">
+        <div className="login-card">
+          <img src="/oculubak-icon-mono.svg" alt="" className="login-logo" width="100" height="64" />
+          <h1 className="login-title">OcuLubak</h1>
+          <p className="login-tagline">Find and track road damage from road survey videos.</p>
+
+          {notice && !error && <Notice kind="info">{notice}</Notice>}
+          {error && <Notice kind="error">{error}</Notice>}
+          <ErrorSummary errors={summary} />
+
+          <form onSubmit={handleSubmit} noValidate className="stack">
+            {field('username', 'Username', 'text', 'username')}
+            {field('password', 'Password', 'password', 'current-password')}
+            <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+
+          <p className="login-note">Accounts are set up by your system administrator.</p>
         </div>
-
-        {notice && !error && <div className="alert alert-error">{notice}</div>}
-        {error && <div className="alert alert-error">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label>Username</label>
-            <input className="input-field" type="text" value={form.username}
-              onChange={updateField('username')} autoComplete="username" required />
-          </div>
-          <div className="input-group">
-            <label>Password</label>
-            <input className="input-field" type="password" value={form.password}
-              onChange={updateField('password')} autoComplete="current-password" required />
-          </div>
-          <button className="btn btn-primary btn-lg" type="submit" disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', marginTop: '8px' }}>
-            {loading ? <span className="spinner" /> : 'Sign in'}
-          </button>
-        </form>
-
-        <div className="login-footer">
-          <p>Accounts are set up by your system administrator.</p>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }

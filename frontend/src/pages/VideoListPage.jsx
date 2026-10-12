@@ -1,108 +1,159 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { videosAPI } from '../api';
+import {
+  canPlaceByHand, errorMessage, formatDate, formatDuration, formatSize, hasLocation, isRunning, surveyName,
+} from '../labels';
+import Icon from '../icons';
+import PageHeader from '../components/PageHeader';
+import SkeletonRows from '../components/SkeletonRows';
+import EmptyState from '../components/EmptyState';
+import Notice from '../components/Notice';
+import Disclosure from '../components/Disclosure';
+import ConfirmDialog from '../components/ConfirmDialog';
 import RenameVideo from '../components/RenameVideo';
+import { LocationSource, ProgressBar, SurveyStatus } from '../components/StatusLabel';
+
+// The one visible next step for a survey; everything else lives in its More menu.
+function NextStep({ v }) {
+  if (hasLocation(v)) {
+    return <Link to={`/map?video=${v.id}`} className="btn btn-secondary"><Icon name="map" />See on the map</Link>;
+  }
+  if (canPlaceByHand(v)) {
+    return <Link to={`/videos/${v.id}/georeference`} className="btn btn-secondary"><Icon name="map-pin-plus" />Place on the map</Link>;
+  }
+  return null;
+}
 
 export default function VideoListPage() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [renamingId, setRenamingId] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const fetchVideos = () => {
-    videosAPI.list().then(res => { setVideos(res.data.videos); setLoading(false); })
-      .catch(() => setLoading(false));
-  };
+  const fetchVideos = useCallback(() => videosAPI.list()
+    .then(res => { setVideos(res.data.videos); setError(''); })
+    .catch(err => setError(errorMessage(err, 'Could not load your surveys. Check that the server is running, then reload the page.')))
+    .finally(() => setLoading(false)), []);
 
+  // Poll every 5 s so analysis progress stays live.
   useEffect(() => {
     fetchVideos();
-    const interval = setInterval(fetchVideos, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const t = setInterval(fetchVideos, 5000);
+    return () => clearInterval(t);
+  }, [fetchVideos]);
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
-    if (!confirm('Delete this video and all detections?')) return;
-    await videosAPI.delete(id);
-    fetchVideos();
+  const confirmDelete = async () => {
+    const v = toDelete;
+    setDeleting(true);
+    try {
+      await videosAPI.delete(v.id);
+      setNotice(`Deleted "${surveyName(v)}".`);
+      setVideos(prev => prev.filter(x => x.id !== v.id));
+    } catch (err) {
+      setError(errorMessage(err, `Could not delete "${surveyName(v)}". Try again.`));
+    } finally {
+      setDeleting(false);
+      setToDelete(null);
+    }
   };
-
-  const formatDuration = (s) => {
-    if (!s) return '—';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  const formatSize = (bytes) => {
-    if (!bytes) return '—';
-    if (bytes > 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    return `${(bytes / 1024).toFixed(0)} KB`;
-  };
-
-  if (loading) return <div className="page" style={{display:'flex',alignItems:'center',justifyContent:'center'}}><div className="spinner" /></div>;
 
   return (
-    <div className="page fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h2>Video Library</h2>
-          <p>{videos.length} video{videos.length !== 1 ? 's' : ''} uploaded</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => navigate('/upload')}>📤 Upload New</button>
-      </div>
+    <div className="page">
+      <PageHeader
+        title="Surveys"
+        meta={!loading && videos.length > 0 ? <><span className="num">{videos.length}</span> {videos.length === 1 ? 'survey' : 'surveys'}, newest first</> : null}
+        actions={<Link to="/upload" className="btn btn-primary"><Icon name="upload" />Upload survey</Link>}
+      />
 
-      {videos.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📹</div>
-          <h3>No videos yet</h3>
-          <p>Upload your first road survey video to get started</p>
-          <button className="btn btn-primary" onClick={() => navigate('/upload')}>Upload Video</button>
-        </div>
+      {notice && <Notice kind="success">{notice}</Notice>}
+      {error && <Notice kind="error">{error}</Notice>}
+
+      {loading ? (
+        <div className="panel"><SkeletonRows rows={4} label="Loading surveys" /></div>
+      ) : videos.length === 0 && !error ? (
+        <EmptyState icon="video" title="Upload your first road survey"
+          action={<Link to="/upload" className="btn btn-primary"><Icon name="upload" />Upload a road survey</Link>}>
+          Record a road with a dashcam or phone, then upload the video. The damage found in it appears
+          here and on the map.
+        </EmptyState>
       ) : (
-        <div className="video-grid">
-          {videos.map((v, i) => (
-            <div key={v.id} className="video-card fade-in" style={{ animationDelay: `${i * 0.05}s` }}
-              onClick={() => navigate(`/videos/${v.id}`)}>
-              <div className="video-thumb">
-                🎬
-                {v.status === 'processing' && (
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-                    <div className="progress-bar" style={{ borderRadius: 0 }}>
-                      <div className="progress-fill" style={{ width: `${v.processing_progress}%` }} />
-                    </div>
+        <ul className="panel survey-list">
+          {videos.map(v => (
+            <li key={v.id} className="survey-row">
+              {renamingId === v.id ? (
+                <RenameVideo video={v} onCancel={() => setRenamingId(null)}
+                  onRenamed={(u) => { setVideos(prev => prev.map(x => (x.id === u.id ? { ...x, ...u } : x))); setRenamingId(null); }} />
+              ) : (
+                <>
+                  <div className="survey-main">
+                    <Link to={`/videos/${v.id}`} className="row-title">{surveyName(v)}</Link>
+                    <p className="survey-meta num">
+                      {[v.road_name, formatDate(v.upload_date), formatDuration(v.duration), formatSize(v.file_size)].filter(Boolean).join(' · ')}
+                    </p>
                   </div>
-                )}
-                <div className="play-overlay"><span style={{ fontSize: '36px' }}>▶</span></div>
-              </div>
-              <div className="video-info" onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--s2)', marginBottom: '8px' }}>
-                  <RenameVideo
-                    video={v}
-                    onRenamed={(updated) => setVideos(prev => prev.map(x => (x.id === updated.id ? { ...x, ...updated } : x)))}
-                  />
-                  <span className={`badge badge-${v.status}`}>{v.status}</span>
-                </div>
-                <div className="video-meta">
-                  <span>⏱ {formatDuration(v.duration)}</span>
-                  <span>📦 {formatSize(v.file_size)}</span>
-                  {v.total_detections > 0 && <span>⚠️ {v.total_detections} damages</span>}
-                  {v.has_gps && <span style={{ color: 'var(--ink-soft)' }}>🛰️ GPS</span>}
-                </div>
-                {v.road_name && (
-                  <div style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '6px' }}>
-                    📍 {v.road_name}
+                  <div className="survey-state">
+                    <SurveyStatus video={v} />
+                    {isRunning(v) ? (
+                      <>
+                        <ProgressBar value={v.processing_progress} label={`Analysis progress for ${surveyName(v)}`} />
+                        <LocationSource video={v} />
+                      </>
+                    ) : (
+                      <p className="survey-meta">
+                        {v.status === 'completed' && <><span className="num">{v.total_detections}</span> {v.total_detections === 1 ? 'damage' : 'damages'} · </>}
+                        <LocationSource video={v} />
+                      </p>
+                    )}
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s2)', marginTop: '12px' }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/videos/${v.id}`)}>Open</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/map?video=${v.id}`)}>View on map</button>
-                  <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, v.id)}>Delete</button>
-                </div>
-              </div>
-            </div>
+                  <div className="survey-actions">
+                    <NextStep v={v} />
+                    <Disclosure
+                      renderButton={(props) => (
+                        <button className="btn btn-icon" aria-label={`More actions for ${surveyName(v)}`} {...props}>
+                          <Icon name="dots" />
+                        </button>
+                      )}
+                    >
+                      {(close) => (
+                        <ul className="menu-list">
+                          <li><Link to={`/videos/${v.id}`} className="menu-item"><Icon name="video" />Open survey</Link></li>
+                          <li><button type="button" className="menu-item" onClick={() => { close(); setRenamingId(v.id); }}><Icon name="pencil" />Rename</button></li>
+                          {v.position_source === 'georeferenced' && !v.has_gps && (
+                            <li><Link to={`/videos/${v.id}/georeference`} className="menu-item"><Icon name="map-pin" />Adjust map position</Link></li>
+                          )}
+                          <li className="menu-divider" role="separator" />
+                          <li><button type="button" className="menu-item menu-item-danger" onClick={() => { close(); setToDelete(v); }}><Icon name="trash" />Delete survey</button></li>
+                        </ul>
+                      )}
+                    </Disclosure>
+                  </div>
+                </>
+              )}
+            </li>
           ))}
-        </div>
+        </ul>
       )}
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title={toDelete ? `Delete "${surveyName(toDelete)}"?` : ''}
+        confirmLabel="Delete survey"
+        cancelLabel="Keep survey"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      >
+        {toDelete && (
+          <p>
+            This removes the video and all <span className="num">{toDelete.total_detections || 0}</span>
+            {toDelete.total_detections === 1 ? ' damage' : ' damages'} found in it. This cannot be undone.
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

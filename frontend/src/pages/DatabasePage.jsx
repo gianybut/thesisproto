@@ -1,59 +1,93 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { databaseAPI } from '../api';
+import { DAMAGE_CODES, STATUSES, STATUS_LABELS, damageName, errorMessage, formatDate } from '../labels';
+import Icon from '../icons';
+import PageHeader from '../components/PageHeader';
+import SkeletonRows from '../components/SkeletonRows';
+import EmptyState from '../components/EmptyState';
+import Notice from '../components/Notice';
+import Disclosure from '../components/Disclosure';
+import useMediaQuery, { WIDE } from '../useMediaQuery';
 
-const STATUSES = ['pending_validation', 'inspected', 'scheduled', 'ongoing_repair', 'resolved'];
-const STATUS_LABELS = {
-  pending_validation: 'Pending',
-  inspected: 'Inspected',
-  scheduled: 'Scheduled',
-  ongoing_repair: 'Ongoing',
-  resolved: 'Resolved',
-};
+const PER_PAGE = 25;
+
+// Phones have no sortable headers, so sorting is a select there.
+const SORT_OPTIONS = [
+  { value: 'created_at|desc', label: 'Newest first' },
+  { value: 'created_at|asc', label: 'Oldest first' },
+  { value: 'confidence|desc', label: 'Highest confidence' },
+  { value: 'confidence|asc', label: 'Lowest confidence' },
+  { value: 'damage_type|asc', label: 'Kind of damage' },
+  { value: 'status|asc', label: 'Inspection status' },
+];
+
+const confidenceText = (d) => (d.confidence == null ? '–' : `${Math.round(d.confidence * 100)}%`);
 
 export default function DatabasePage() {
-  const navigate = useNavigate();
+  const wide = useMediaQuery(WIDE);
   const [detections, setDetections] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
-  const [filters, setFilters] = useState({
-    damage_type: '', status: '', search: '',
-    sort: 'created_at', dir: 'desc',
-  });
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [stats, setStats] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [filters, setFilters] = useState({ damage_type: '', status: '', search: '', sort: 'created_at', dir: 'desc' });
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [detRes, statsRes] = await Promise.all([
-        databaseAPI.getDetections({ ...filters, page, per_page: 25 }),
-        databaseAPI.getStats(),
-      ]);
+  // One key per (filters, page) request; loading until that exact request has completed.
+  const requestKey = JSON.stringify({ filters, page });
+  const [loadedKey, setLoadedKey] = useState(null);
+  const loading = loadedKey !== requestKey;
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      databaseAPI.getDetections({ ...filters, page, per_page: PER_PAGE }),
+      databaseAPI.getStats(),
+    ]).then(([detRes, statsRes]) => {
+      if (cancelled) return;
       setDetections(detRes.data.detections || []);
       setTotal(detRes.data.total);
-      setTotalPages(detRes.data.total_pages);
+      setTotalPages(detRes.data.total_pages || 1);
       setStats(statsRes.data || {});
-    } catch (err) {
-      console.error('Database fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+      setError('');
+    }).catch((err) => {
+      if (!cancelled) setError(errorMessage(err, 'Could not load the damage records. Check that the server is running, then reload the page.'));
+    }).finally(() => {
+      if (!cancelled) setLoadedKey(requestKey);
+    });
+    return () => { cancelled = true; };
+  }, [requestKey, filters, page]);
+
+  const setFilter = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setPage(1); };
+  const applySearch = (e) => { e.preventDefault(); setFilter('search', searchText.trim()); };
+  const clearAll = () => {
+    setSearchText('');
+    setFilters(prev => ({ ...prev, damage_type: '', status: '', search: '' }));
+    setPage(1);
   };
+  const anyFilter = Boolean(filters.damage_type || filters.status || filters.search);
+  const filterCount = [filters.damage_type, filters.status, filters.search].filter(Boolean).length;
 
-  useEffect(() => { fetchData(); }, [page, filters]);
-
-  const updateStatus = async (id, newStatus) => {
+  const updateStatus = async (d, value) => {
+    setSavingId(d.id);
+    setNotice('');
     try {
-      await databaseAPI.updateStatus(id, { inspection_status: newStatus });
-      fetchData();
+      await databaseAPI.updateStatus(d.id, { inspection_status: value });
+      setDetections(prev => prev.map(x => (x.id === d.id ? { ...x, inspection_status: value } : x)));
+      setNotice(`Record ${d.id} (${damageName(d.damage_type).toLowerCase()}) is now marked "${STATUS_LABELS[value]}".`);
+      setError('');
     } catch (err) {
-      console.error('Status update error:', err);
+      setError(errorMessage(err, `Could not change the status of record ${d.id}. Try again.`));
+    } finally {
+      setSavingId(null);
     }
   };
 
-  const handleExport = async (format) => {
+  const download = async (format) => {
     try {
       const res = await databaseAPI.exportData(format);
       const url = URL.createObjectURL(res.data);
@@ -63,171 +97,196 @@ export default function DatabasePage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Export error:', err);
+      setError(errorMessage(err, `Could not download the ${format.toUpperCase()} file. Try again.`));
     }
   };
 
-  const toggleSort = (col) => {
-    setFilters(prev => ({
-      ...prev,
-      sort: col,
-      dir: prev.sort === col && prev.dir === 'desc' ? 'asc' : 'desc',
-    }));
+  const toggleSort = (col) => setFilters(prev => ({
+    ...prev, sort: col, dir: prev.sort === col && prev.dir === 'desc' ? 'asc' : 'desc',
+  }));
+
+  // A sortable column header (a function, not a component, so it is not re-created per render).
+  const sortHeader = (col, children) => {
+    const active = filters.sort === col;
+    return (
+      <th scope="col" key={col} aria-sort={active ? (filters.dir === 'desc' ? 'descending' : 'ascending') : 'none'}>
+        <button type="button" className="sort-button" onClick={() => toggleSort(col)}>
+          {children}
+          <Icon name="chevron-down" size={16} className={`sort-icon${active ? ' is-active' : ''}${active && filters.dir === 'asc' ? ' flip' : ''}`} />
+        </button>
+      </th>
+    );
   };
 
-  const SortIcon = ({ col }) => {
-    if (filters.sort !== col) return <span style={{ opacity: 0.3 }}>↕</span>;
-    return <span style={{ color: 'var(--cyan)' }}>{filters.dir === 'desc' ? '↓' : '↑'}</span>;
-  };
+  const statusSelect = (d) => (
+    <select id={`status-${d.id}`} className="input input-compact" value={d.inspection_status || 'pending_validation'}
+      disabled={savingId === d.id} onChange={(e) => updateStatus(d, e.target.value)}
+      aria-label={wide ? `Inspection status for record ${d.id}` : undefined}>
+      {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+    </select>
+  );
 
-  return (
-    <div className="page fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h2>Damage Database</h2>
-          <p>Centralized road damage records — {total} total entries</p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => handleExport('csv')}>Export CSV</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => handleExport('json')}>Export JSON</button>
-        </div>
-      </div>
+  const openInVideo = (d) => d.video_id > 0 && d.source_type !== 'public_report' && (
+    <Link to={`/videos/${d.video_id}?t=${d.timestamp}`} className="link-arrow" aria-label={`Open record ${d.id} in its video`}>
+      Open in video<Icon name="chevron-right" size={16} />
+    </Link>
+  );
+  const sourceText = (d) => (d.source_type === 'public_report' ? 'Resident report' : 'Survey video');
+  const location = (d) => (d.latitude && d.longitude
+    ? <span className="num">{d.latitude.toFixed(5)}, {d.longitude.toFixed(5)}</span>
+    : <span className="muted">No location</span>);
 
-      {/* Summary Stats */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-        <div className="stat-card">
-          <div className="stat-value" style={{ fontSize: '24px' }}>{stats.total_detections || 0}</div>
-          <div className="stat-label">Total Records</div>
+  const filterFields = (
+    <div className="records-filters">
+      <form className="field" onSubmit={applySearch} role="search">
+        <label className="field-label" htmlFor="db-search">Road name</label>
+        <div className="inline-row nowrap">
+          <input id="db-search" className="input" type="search" value={searchText} onChange={e => setSearchText(e.target.value)} />
+          <button type="submit" className="btn btn-secondary"><Icon name="search" />Search</button>
         </div>
-        <div className="stat-card success">
-          <div className="stat-value" style={{ fontSize: '24px' }}>{stats.total_geolocated || 0}</div>
-          <div className="stat-label">Geo-located</div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="filter-bar">
-        <input className="input-field" type="text" placeholder="Search road name..."
-          value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })}
-          style={{ minWidth: '180px' }} />
-        <select className="input-field" value={filters.damage_type}
-          onChange={e => { setFilters({ ...filters, damage_type: e.target.value }); setPage(1); }}>
-          <option value="">All kinds of damage</option>
-          <option value="D00">Longitudinal cracks</option>
-          <option value="D10">Transverse cracks</option>
-          <option value="D20">Alligator cracks</option>
-          <option value="D40">Potholes</option>
+      </form>
+      <div className="field">
+        <label className="field-label" htmlFor="db-type">Kind of damage</label>
+        <select id="db-type" className="input" value={filters.damage_type} onChange={e => setFilter('damage_type', e.target.value)}>
+          <option value="">All kinds</option>
+          {DAMAGE_CODES.map(c => <option key={c} value={c}>{damageName(c)} ({c})</option>)}
         </select>
-        <select className="input-field" value={filters.status}
-          onChange={e => { setFilters({ ...filters, status: e.target.value }); setPage(1); }}>
-          <option value="">All Status</option>
+      </div>
+      <div className="field">
+        <label className="field-label" htmlFor="db-status">Inspection status</label>
+        <select id="db-status" className="input" value={filters.status} onChange={e => setFilter('status', e.target.value)}>
+          <option value="">All statuses</option>
           {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
       </div>
+      {anyFilter && <button type="button" className="btn btn-quiet" onClick={clearAll}><Icon name="x" />Clear filters</button>}
+    </div>
+  );
 
-      {/* Data Table */}
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><div className="spinner" /></div>
-      ) : detections.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">🗃️</div>
-          <h3>No records found</h3>
-          <p>Upload a road survey video or submit a public report to populate the database</p>
-        </div>
-      ) : (
-        <>
-          <div className="data-table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th onClick={() => toggleSort('damage_type')}>Type <SortIcon col="damage_type" /></th>
-                  <th onClick={() => toggleSort('confidence')}>Confidence <SortIcon col="confidence" /></th>
-                  <th>Location</th>
-                  <th onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
-                  <th>Source</th>
-                  <th onClick={() => toggleSort('created_at')}>Date <SortIcon col="created_at" /></th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detections.map(d => (
-                  <tr key={d.id}>
-                    <td style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>#{d.id}</td>
-                    <td>
-                      <span className={`damage-badge damage-${d.damage_type}`}>{d.damage_type}</span>
-                      <span style={{ fontSize: '11px', marginLeft: '6px', color: 'var(--ink-soft)' }}>{d.damage_label}</span>
-                    </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>
-                      {(d.confidence * 100).toFixed(1)}%
-                    </td>
-                    <td>
-                      {d.latitude && d.longitude ? (
-                        <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>
-                          📍 {d.latitude.toFixed(4)}, {d.longitude.toFixed(4)}
-                        </span>
-                      ) : d.road_name ? (
-                        <span style={{ fontSize: '11px' }}>{d.road_name}</span>
-                      ) : (
-                        <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="status-pipeline">
-                        {STATUSES.map((s, i) => {
-                          const currentIdx = STATUSES.indexOf(d.inspection_status);
-                          const isCompleted = i < currentIdx;
-                          const isActive = s === d.inspection_status;
-                          return (
-                            <span key={s}>
-                              {i > 0 && <span className="status-arrow">→</span>}
-                              <span
-                                className={`status-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                                onClick={() => updateStatus(d.id, s)}
-                                title={`Set to: ${STATUS_LABELS[s]}`}
-                              >
-                                {STATUS_LABELS[s]}
-                              </span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>
-                        {d.source_type === 'public_report' ? 'Citizen report' : 'Video analysis'}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>
-                      {d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}
-                    </td>
-                    <td>
-                      {d.video_id > 0 && (
-                        <button className="btn btn-secondary btn-sm"
-                          onClick={() => navigate(`/videos/${d.video_id}?t=${d.timestamp}`)}
-                          style={{ padding: '3px 8px', fontSize: '10px' }}>
-                          View
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  return (
+    <div className="page">
+      <PageHeader
+        title="Damage records"
+        meta={stats && <><span className="num">{stats.total_detections ?? 0}</span> records · <span className="num">{stats.total_geolocated ?? 0}</span> with a location</>}
+        actions={
+          <Disclosure label="Download" icon={<Icon name="download" />}>
+            {(close) => (
+              <ul className="menu-list">
+                <li><button type="button" className="menu-item" onClick={() => { close(); download('csv'); }}>CSV, for spreadsheets</button></li>
+                <li><button type="button" className="menu-item" onClick={() => { close(); download('json'); }}>JSON</button></li>
+              </ul>
+            )}
+          </Disclosure>
+        }
+      />
+
+      {wide ? filterFields : (
+        <div className="stack-sm records-phone-controls">
+          <details className="details">
+            <summary><Icon name="filter" />Filters{filterCount > 0 && <> (<span className="num">{filterCount}</span> on)</>}</summary>
+            <div className="details-body">{filterFields}</div>
+          </details>
+          <div className="field">
+            <label className="field-label" htmlFor="db-sort">Sort by</label>
+            <select id="db-sort" className="input" value={`${filters.sort}|${filters.dir}`}
+              onChange={e => { const [sort, dir] = e.target.value.split('|'); setFilters(prev => ({ ...prev, sort, dir })); setPage(1); }}>
+              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
           </div>
+        </div>
+      )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px', alignItems: 'center' }}>
-              <button className="btn btn-secondary btn-sm" disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}>← Prev</button>
-              <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>
-                Page {page} of {totalPages}
-              </span>
-              <button className="btn btn-secondary btn-sm" disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}>Next →</button>
+      <div aria-live="polite">{notice && <Notice kind="success">{notice}</Notice>}</div>
+      {error && <Notice kind="error">{error}</Notice>}
+
+      {loading && detections.length === 0 ? (
+        <div className="panel"><SkeletonRows rows={6} label="Loading damage records" /></div>
+      ) : detections.length === 0 && !error ? (
+        anyFilter ? (
+          <EmptyState icon="filter" title="No records match these filters"
+            action={<button type="button" className="btn btn-secondary" onClick={clearAll}><Icon name="x" />Clear filters</button>}>
+            Try another kind of damage or status, or clear the filters to see every record.
+          </EmptyState>
+        ) : (
+          <EmptyState icon="table" title="No damage recorded yet"
+            action={<Link to="/upload" className="btn btn-primary"><Icon name="upload" />Upload a road survey</Link>}>
+            Records appear here once a survey has been analysed.
+          </EmptyState>
+        )
+      ) : detections.length > 0 && (
+        <>
+          {wide ? (
+            <div className="panel panel-flush table-wrap" aria-busy={loading}>
+              <table className="table records-table">
+                <caption className="visually-hidden">Damage records. Headers with a button can be sorted.</caption>
+                <thead>
+                  <tr>
+                    {sortHeader('damage_type', 'Damage')}
+                    <th scope="col">Location</th>
+                    {sortHeader('status', 'Inspection status')}
+                    {sortHeader('confidence', 'Confidence')}
+                    {sortHeader('created_at', 'Recorded')}
+                  </tr>
+                </thead>
+                <tbody>
+                  {detections.map(d => (
+                    <tr key={d.id}>
+                      <td>
+                        <span className="cell-main"><span className="num muted">#{d.id}</span> {damageName(d.damage_type)} <span className="code">{d.damage_type}</span></span>
+                        <span className="cell-sub">{sourceText(d)}</span>
+                      </td>
+                      <td>
+                        <span className="cell-main">{d.road_name || <span className="muted">No road name</span>}</span>
+                        <span className="cell-sub">{location(d)}</span>
+                      </td>
+                      <td>{statusSelect(d)}</td>
+                      <td className="num">{confidenceText(d)}</td>
+                      <td>
+                        <span className="cell-main num">{formatDate(d.created_at)}</span>
+                        <span className="cell-sub">{openInVideo(d)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          ) : (
+            <ul className="record-cards" aria-busy={loading}>
+              {detections.map(d => (
+                <li key={d.id} className="panel record-card">
+                  <p className="record-card-head">
+                    <span><span className="num muted">#{d.id}</span> · {damageName(d.damage_type)} <span className="code">{d.damage_type}</span></span>
+                    <span className="num">{confidenceText(d)}</span>
+                  </p>
+                  {d.road_name && <p>{d.road_name}</p>}
+                  <p>{location(d)}</p>
+                  <p className="muted">{sourceText(d)} · <span className="num">{formatDate(d.created_at)}</span></p>
+                  <div className="field">
+                    <label className="field-label" htmlFor={`status-${d.id}`}>Inspection status</label>
+                    {statusSelect(d)}
+                  </div>
+                  {openInVideo(d)}
+                </li>
+              ))}
+            </ul>
           )}
+
+          <nav className="pagination" aria-label="Pages of records">
+            <p className="muted">
+              Showing <span className="num">{(page - 1) * PER_PAGE + 1}</span>–<span className="num">{Math.min(page * PER_PAGE, total)}</span> of <span className="num">{total}</span>
+            </p>
+            {totalPages > 1 && (
+              <div className="inline-row">
+                <button type="button" className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                  <Icon name="chevron-left" size={16} />Previous
+                </button>
+                <span className="muted">Page <span className="num">{page}</span> of <span className="num">{totalPages}</span></span>
+                <button type="button" className="btn btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                  Next<Icon name="chevron-right" size={16} />
+                </button>
+              </div>
+            )}
+          </nav>
         </>
       )}
     </div>
