@@ -25,32 +25,31 @@ def test_auth():
     print(f"Status: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
     
-    user_id = response.json().get('user', {}).get('id')
-    return user_id
+    return response.json().get('token')
 
-def test_user_endpoints(user_id):
+def test_user_endpoints(token):
     """Test user endpoints."""
-    headers = {"Authorization": f"Bearer {user_id}"}
+    headers = {"Authorization": f"Bearer {token}"}
     
     print("👤 Testing get current user...")
     response = requests.get(f"{BASE_URL}/auth/me", headers=headers)
     print(f"Status: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
 
-def test_videos(user_id):
+def test_videos(token):
     """Test video endpoints."""
     print_section("2️⃣ Testing Video Management")
-    headers = {"Authorization": f"Bearer {user_id}"}
+    headers = {"Authorization": f"Bearer {token}"}
     
     print("📹 Listing videos...")
     response = requests.get(f"{BASE_URL}/videos", headers=headers)
     print(f"Status: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
 
-def test_dashboard(user_id):
+def test_dashboard(token):
     """Test dashboard statistics."""
     print_section("3️⃣ Testing Dashboard Statistics")
-    headers = {"Authorization": f"Bearer {user_id}"}
+    headers = {"Authorization": f"Bearer {token}"}
     
     print("📊 Fetching dashboard stats...")
     response = requests.get(f"{BASE_URL}/dashboard/stats", headers=headers)
@@ -71,11 +70,11 @@ Make sure the backend is running:
     """)
     
     try:
-        user_id = test_auth()
-        if user_id:
-            test_user_endpoints(user_id)
-            test_videos(user_id)
-            test_dashboard(user_id)
+        token = test_auth()
+        if token:
+            test_user_endpoints(token)
+            test_videos(token)
+            test_dashboard(token)
             
             print_section("✅ All Tests Completed")
             print("\n📝 Next steps:")

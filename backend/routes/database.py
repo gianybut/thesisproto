@@ -5,22 +5,10 @@ import io
 import json
 from flask import Blueprint, request, jsonify, Response
 from models import db, Video, Detection, PublicReport, DAMAGE_TYPES, INSPECTION_STATUSES
+from auth_tokens import current_user_id as get_user_id
 from sqlalchemy import func
 
 database_bp = Blueprint('database', __name__)
-
-
-def get_user_id():
-    """Extract user ID from session or Authorization header."""
-    from flask import session
-    user_id = session.get('user_id')
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            user_id = int(auth_header.split(' ')[1])
-        except (ValueError, IndexError):
-            pass
-    return user_id
 
 
 @database_bp.route('/detections', methods=['GET'])

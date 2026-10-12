@@ -12,9 +12,14 @@ GPS track or from user-placed control points, and surfaced through a React web a
 Mendez-Nuñez, Cavite (the seeded admin's `lgu_name`); never "DPWH Central Office". Severity
 scoring was dropped from the product: nothing computes, stores, returns or displays it.
 
-Three independent parts: [backend/](backend/) (Flask API), [frontend/](frontend/) (React + Vite),
+Four independent parts: [backend/](backend/) (Flask API), [frontend/](frontend/) (React + Vite),
 [ml/](ml/) (dataset prep + YOLO training, offline — the backend only consumes the resulting
-`ml/models/best.pt`).
+`ml/models/best.pt`), and [mobile/](mobile/) (Expo capture app for iPhone and Android: records video + a
+GPX on one phone and posts both to the unchanged `/api/videos/upload`; capture only, no on-device
+inference). The team captures survey data on iPhones. Platform differences (screen lock, GPS rate,
+`.mov` vs `.mp4`, upload transport) are tabled in [mobile/README.md](mobile/README.md) and all
+platform branches live in `mobile/src/platform.js` / `mobile/src/api.js` — keep them there and keep
+that table current.
 
 ## Commands
 
@@ -36,11 +41,16 @@ python backend/run.py
 cd frontend && npm run dev
 
 # Frontend
-npm run lint      # eslint (the only automated check in the repo)
+npm run lint      # eslint
 npm run build
+
+# Mobile (needs a development build, not Expo Go — see mobile/README.md)
+cd mobile && npm install && npx expo run:ios --device    # or: npx expo run:android
+npx expo lint
 ```
 
-Login: `admin` / `admin123` (auto-created on first boot if the users table is empty).
+Login: `admin` / `admin123` (auto-created on first boot if the users table is empty). `python backend/test_api.py`
+logs in and uses the returned token.
 
 **Windows:** `start_backend.bat` sets `PYTHONUTF8=1`. The backend logs heavily with emoji; without
 it, `print()` raises `UnicodeEncodeError` under cp1252. Set it if you launch Python directly.
@@ -70,14 +80,25 @@ Training writes to `ml/pothole_training/...`; copy the winning `weights/best.pt`
 
 ## Architecture
 
-### Auth is user-ID-as-token — treat every endpoint as unauthenticated
+### Auth: signed tokens, one middleware
 
-`Authorization: Bearer <user.id>` is the entire scheme. There is no signing, expiry, or
-verification: [frontend/src/api.js](frontend/src/api.js) reads `user.id` from `localStorage`, and
-each backend route re-implements an identical local `get_user_id()` that just `int()`s the header
-value. Anyone can impersonate any user by changing a number.
+`POST /api/auth/login` returns `token` (HS256 JWT, `sub` = user id, expiry `JWT_EXPIRY_HOURS`,
+default 12) plus `user`. [backend/auth_tokens.py](backend/auth_tokens.py) registers a
+`before_request` hook: every `/api/*` request needs `Authorization: Bearer <jwt>` for an existing,
+`active` user, or it gets a 401 with `code` = `token_missing` / `token_expired` / `token_invalid` /
+`user_inactive` before the route runs. Exceptions are the endpoint names in `PUBLIC_ENDPOINTS`
+(login, logout, register, anonymous report submission). The media endpoints in
+`QUERY_TOKEN_ENDPOINTS` also accept `?token=`, because `<video>`/`<img>` cannot send headers.
+There is no Flask session and no server-side logout; a token is valid until it expires.
 
-Consequences to keep in mind when changing anything:
+The signing key is `SECRET_KEY` from the environment, else a random key generated into the
+gitignored `backend/.secret_key` on first boot. Deleting that file logs everyone out.
+
+Routes read the caller with `current_user_id()` / `current_user()` from `auth_tokens` (most route
+files import it as `get_user_id`). A new route is protected by default; add its endpoint name to
+`PUBLIC_ENDPOINTS` only if it must work logged out.
+
+What is still true:
 
 - **Role enforcement is almost entirely client-side.** `ROLE_ROUTE_ACCESS` in
   [frontend/src/App.jsx](frontend/src/App.jsx) hides routes; the only server-side role check is
@@ -85,10 +106,10 @@ Consequences to keep in mind when changing anything:
 - **Data scoping varies per route file, not through a shared layer.** `videos`, `detections`, and
   `dashboard/stats` filter by `Video.user_id`; `map`, `database`, and `reports` return everything to
   any logged-in caller.
-- Flask `session` is also set on login and checked first, but the frontend never uses cookies.
 
-If you add a route, copy the `get_user_id()` helper pattern from a sibling file — there is no
-decorator or shared auth module.
+The web client keeps the token in `localStorage` (`token`); [api.js](frontend/src/api.js) attaches it,
+appends it to media URLs, and on any 401 outside login clears it and fires `auth:expired`, which
+`App.jsx` turns into the login screen with a notice.
 
 ### Role list drift
 

@@ -2,22 +2,10 @@
 
 from flask import Blueprint, request, jsonify
 from models import db, Video, Detection, GpsTrackPoint
+from auth_tokens import current_user_id as get_user_id
 from sqlalchemy import func
 
 damage_map_bp = Blueprint('damage_map', __name__)
-
-
-def get_user_id():
-    """Extract user ID from session or Authorization header."""
-    from flask import session
-    user_id = session.get('user_id')
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            user_id = int(auth_header.split(' ')[1])
-        except (ValueError, IndexError):
-            pass
-    return user_id
 
 
 @damage_map_bp.route('/videos', methods=['GET'])

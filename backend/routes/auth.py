@@ -1,7 +1,8 @@
 """Authentication routes — supports role-based access hierarchy."""
 
-from flask import Blueprint, request, jsonify, session, current_app
+from flask import Blueprint, request, jsonify, current_app
 from models import db, User, VALID_ROLES
+from auth_tokens import current_user, issue_token
 from werkzeug.utils import secure_filename
 import os
 import uuid
@@ -49,9 +50,11 @@ def login():
             'account_status': 'rejected'
         }), 403
 
-    session['user_id'] = user.id
+    token, expires_at = issue_token(user, current_app.config)
     return jsonify({
         'message': 'Login successful',
+        'token': token,
+        'expires_at': expires_at,
         'user': user.to_dict()
     }), 200
 
@@ -141,38 +144,23 @@ def register():
         }), 201
     else:
         # Public users get instant access
-        session['user_id'] = user.id
+        token, expires_at = issue_token(user, current_app.config)
         return jsonify({
             'message': 'Registration successful',
+            'token': token,
+            'expires_at': expires_at,
             'user': user.to_dict()
         }), 201
 
 
 @auth_bp.route('/me', methods=['GET'])
 def get_current_user():
-    """Get the currently authenticated user."""
-    user_id = session.get('user_id')
-
-    # Also check Authorization header for token-based auth
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            user_id = int(auth_header.split(' ')[1])
-        except (ValueError, IndexError):
-            pass
-
-    if not user_id:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    return jsonify({'user': user.to_dict()}), 200
+    """Get the user the bearer token belongs to (verified in auth_tokens.verify_request)."""
+    return jsonify({'user': current_user().to_dict()}), 200
 
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
-    """Log out the current user."""
-    session.pop('user_id', None)
+    """Tokens are stateless: logging out is the client discarding its token.
+    They stay valid until they expire (JWT_EXPIRY_HOURS)."""
     return jsonify({'message': 'Logged out successfully'}), 200

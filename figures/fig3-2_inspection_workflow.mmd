@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> pending_validation: AI detection saved
+    pending_validation --> inspected: Field/visual check confirms damage
+    inspected --> scheduled: Repair planned
+    scheduled --> ongoing_repair: Work started
+    ongoing_repair --> resolved: Repair completed
+    resolved --> [*]

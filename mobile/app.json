@@ -1,0 +1,79 @@
+{
+  "expo": {
+    "name": "Bantay Kalsada Capture",
+    "slug": "bantay-kalsada-capture",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F6F4EE",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bantaykalsada.capture",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "The app uploads survey videos to your LGU's detection server on the local network."
+      }
+    },
+    "android": {
+      "package": "com.bantaykalsada.capture",
+      "adaptiveIcon": {
+        "backgroundColor": "#F6F4EE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Bantay Kalsada Capture uses the camera to record road survey video, which is uploaded to your LGU's road damage detection system.",
+          "microphonePermission": "Survey videos are recorded without sound. iOS may still ask because the camera prepares an audio input before it is muted; allowing or refusing does not change the recording.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Your location is used while the camera screen is open, to check GPS accuracy before recording, and logged once a second while you record a road survey so each detection can be placed on the map.",
+          "locationAlwaysAndWhenInUsePermission": "\"Always\" lets the GPS track keep logging if iOS moves the app to the background during a survey. Location is only used on the camera screen and while a survey is recording.",
+          "locationAlwaysPermission": "Location is only used on the camera screen and while a road survey is recording, so detections can be placed on the map.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-video",
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "Lets you save a survey video to your Photos. The app only adds videos; it cannot see your library.",
+          "granularPermissions": ["video"]
+        }
+      ]
+    ]
+  }
+}

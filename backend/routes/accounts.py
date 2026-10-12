@@ -2,31 +2,15 @@
 
 from flask import Blueprint, request, jsonify, send_from_directory, current_app
 from models import db, User
+from auth_tokens import current_user
 import os
 
 accounts_bp = Blueprint('accounts', __name__)
 
 
-def _get_current_user():
-    """Get the current user from session or Authorization header."""
-    from flask import session
-    user_id = session.get('user_id')
-
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            user_id = int(auth_header.split(' ')[1])
-        except (ValueError, IndexError):
-            pass
-
-    if not user_id:
-        return None
-    return User.query.get(user_id)
-
-
 def _require_admin():
     """Check that the current user is an admin. Returns (user, error_response)."""
-    user = _get_current_user()
+    user = current_user()
     if not user:
         return None, (jsonify({'error': 'Not authenticated'}), 401)
     if user.role != 'admin':

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { AUTH_EXPIRED, TOKEN_KEY } from './api';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UploadPage from './pages/UploadPage';
@@ -39,20 +40,35 @@ function ProtectedRoute({ user, path, children }) {
 }
 
 function App() {
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || 'null'));
+  // A stored user without a token predates signed tokens; treat it as logged out.
+  const [user, setUser] = useState(() =>
+    localStorage.getItem(TOKEN_KEY) ? JSON.parse(localStorage.getItem('user') || 'null') : null);
+  const [notice, setNotice] = useState('');
 
-  const handleLogin = (userData) => {
+  useEffect(() => {
+    const onExpired = (e) => {
+      setUser(null);
+      setNotice(e.detail || 'Your session has expired. Log in again.');
+    };
+    window.addEventListener(AUTH_EXPIRED, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED, onExpired);
+  }, []);
+
+  const handleLogin = (userData, token) => {
     setUser(userData);
+    setNotice('');
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem(TOKEN_KEY, token);
   };
 
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem(TOKEN_KEY);
   };
 
   if (!user) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} notice={notice} />;
   }
 
   return (

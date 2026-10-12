@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, send_file, Response
 from werkzeug.utils import secure_filename
 from models import db, Video, Detection, RouteControlPoint
+from auth_tokens import current_user_id as get_user_id
 
 videos_bp = Blueprint('videos', __name__)
 
@@ -23,19 +24,6 @@ def allowed_video(filename):
 
 def allowed_gps(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_GPS_EXTENSIONS
-
-
-def get_user_id():
-    """Extract user ID from session or Authorization header."""
-    from flask import session
-    user_id = session.get('user_id')
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            user_id = int(auth_header.split(' ')[1])
-        except (ValueError, IndexError):
-            pass
-    return user_id
 
 
 @videos_bp.route('/upload', methods=['POST'])

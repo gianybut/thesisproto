@@ -7,14 +7,36 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Add auth token to requests
+// Signed token from /auth/login (backend/auth_tokens.py). It expires; any 401
+// outside the login call clears it and fires AUTH_EXPIRED, which App.jsx turns
+// into a return to the login screen.
+export const TOKEN_KEY = 'token';
+export const AUTH_EXPIRED = 'auth:expired';
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+
 api.interceptors.request.use((config) => {
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
-  if (user) {
-    config.headers.Authorization = `Bearer ${user.id}`;
+  const token = getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401 && !err.config?.url?.endsWith('/auth/login')) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('user');
+      window.dispatchEvent(new CustomEvent(AUTH_EXPIRED, { detail: err.response.data?.error }));
+    }
+    return Promise.reject(err);
+  },
+);
+
+// <video>/<img> src cannot send a header, so media URLs carry the token as a
+// query parameter; the backend accepts it on those endpoints only.
+const withToken = (url) => `${url}?token=${encodeURIComponent(getToken() || '')}`;
 
 // Accounts are created directly in the database; there is no self-registration.
 export const authAPI = {
@@ -33,9 +55,9 @@ export const videosAPI = {
   get: (id) => api.get(`/videos/${id}`),
   rename: (id, name) => api.patch(`/videos/${id}`, { name }),
   delete: (id) => api.delete(`/videos/${id}`),
-  streamUrl: (id) => `${API_BASE}/videos/${id}/stream`,
-  processedUrl: (id) => `${API_BASE}/videos/${id}/processed`,
-  snapshotUrl: (videoId, filename) => `${API_BASE}/videos/${videoId}/snapshot/${filename}`,
+  streamUrl: (id) => withToken(`${API_BASE}/videos/${id}/stream`),
+  processedUrl: (id) => withToken(`${API_BASE}/videos/${id}/processed`),
+  snapshotUrl: (videoId, filename) => withToken(`${API_BASE}/videos/${videoId}/snapshot/${filename}`),
   // Manual georeferencing (videos without a GPS track)
   getControlPoints: (id) => api.get(`/videos/${id}/control-points`),
   saveControlPoints: (id, points) => api.post(`/videos/${id}/control-points`, { control_points: points }),

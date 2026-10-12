@@ -23,6 +23,7 @@ backend/pothole_detection.db
 backend/uploads/
 backend/processed/
 backend/snapshots/
+backend/reports/
 
 # System
 .DS_Store
@@ -33,3 +34,6 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Signs auth tokens; generated on first boot when SECRET_KEY is not set
+backend/.secret_key

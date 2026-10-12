@@ -1,0 +1,78 @@
+erDiagram
+    USER ||--o{ VIDEO : uploads
+    VIDEO ||--o{ DETECTION : contains
+    VIDEO ||--o{ GPS_TRACK_POINT : has
+    VIDEO ||--o{ ROUTE_CONTROL_POINT : has
+    USER ||--o{ PUBLIC_REPORT : "submits / validates"
+    PUBLIC_REPORT ||--o| DETECTION : "promoted to"
+
+    USER {
+        int id PK
+        string username
+        string password_hash
+        string full_name
+        string lgu_name
+        string role
+        string account_status
+    }
+    VIDEO {
+        int id PK
+        int user_id FK
+        string original_filename
+        string display_name
+        float duration
+        float fps
+        string resolution
+        string status
+        float processing_progress
+        string processed_filename
+        int total_detections
+        string gps_filename
+        float time_offset
+        string road_name
+        string position_source
+    }
+    DETECTION {
+        int id PK
+        int video_id FK
+        int frame_number
+        float timestamp
+        float confidence
+        float bbox_x1_y1_x2_y2
+        string damage_type
+        string damage_label
+        float latitude
+        float longitude
+        string position_source
+        string frame_snapshot
+        string inspection_status
+        string repair_status
+        string source_type
+    }
+    GPS_TRACK_POINT {
+        int id PK
+        int video_id FK
+        float timestamp
+        float latitude
+        float longitude
+        float elevation
+    }
+    ROUTE_CONTROL_POINT {
+        int id PK
+        int video_id FK
+        int seq
+        float video_time_s
+        float latitude
+        float longitude
+    }
+    PUBLIC_REPORT {
+        int id PK
+        string image_filename
+        string description
+        float latitude
+        float longitude
+        string damage_type
+        string status
+        int validated_by FK
+        int submitted_by FK
+    }

@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph FE["Frontend — React + Vite single-page app"]
+        direction LR
+        K[Login] ~~~ L[Dashboard] ~~~ M[Upload] ~~~ N[Videos /<br/>Detection viewer] ~~~ O[Georeference] ~~~ P[Damage map] ~~~ Q[Database]
+    end
+
+    subgraph BE["Backend — Flask REST API"]
+        direction LR
+        E[REST endpoints<br/>7 blueprints] --> F[Video processing service<br/>background thread]
+        F --> G[GPS synchronisation<br/>service]
+        F --> H[Control-point<br/>georeferencing service]
+        E --> I[(SQLite database)]
+        F --> I
+        F --> J[(File storage: uploads,<br/>processed, snapshots, reports)]
+    end
+
+    subgraph ML["Offline ML pipeline — ml/"]
+        direction LR
+        A[RDD2022 dataset] --> B[Dataset preparation<br/>4 classes, capped per class,<br/>80/15/5 split, YOLO format] --> C[YOLOv8 training<br/>transfer learning] --> D[(Trained weights<br/>best.pt)]
+    end
+
+    FE <-- "HTTP / JSON" --> BE
+    ML -. "best.pt loaded at inference" .-> BE

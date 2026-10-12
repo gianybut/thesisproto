@@ -105,7 +105,7 @@ export default function UploadPage() {
           onClick={() => videoInputRef.current?.click()}>
           <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={(e) => handleVideoFile(e.target.files[0])} />
           <h3>{videoFile ? videoFile.name : 'Drop your road survey video here'}</h3>
-          <p>{videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : 'Supports MP4, AVI, MOV, MKV up to 500MB'}</p>
+          <p>{videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : 'Supports MP4, AVI, MOV, MKV up to 10 minutes'}</p>
         </div>
 
         {/* GPS File Upload — supports click, drag-and-drop */}

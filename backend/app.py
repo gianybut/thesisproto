@@ -12,14 +12,18 @@ def create_app():
 
     # Configuration
     base_dir = os.path.abspath(os.path.dirname(__file__))
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'pothole-detection-secret-key-2026')
+    from auth_tokens import load_secret_key, verify_request
+    app.config['SECRET_KEY'] = load_secret_key(base_dir)  # signs the bearer tokens
+    app.config['JWT_EXPIRY_HOURS'] = float(os.environ.get('JWT_EXPIRY_HOURS', 12))
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(base_dir, 'pothole_detection.db')}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = os.path.join(base_dir, 'uploads')
     app.config['PROCESSED_FOLDER'] = os.path.join(base_dir, 'processed')
     app.config['SNAPSHOTS_FOLDER'] = os.path.join(base_dir, 'snapshots')
     app.config['REPORTS_FOLDER'] = os.path.join(base_dir, 'reports')
-    app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max upload
+    # Upload size limit OFF for now: iPhone recordings outgrew 500 MB. To restore,
+    # set 500 * 1024 * 1024 and the mobile cap in mobile/src/config.js (MAX_VIDEO_BYTES).
+    app.config['MAX_CONTENT_LENGTH'] = None
     app.config['MAX_VIDEO_DURATION_S'] = 10 * 60          # 10-minute cap (thesis Sec 1.7 / 3.4)
     # DEMO PLACEHOLDER (SE2 presentation only): external MIT-licensed RDD2022 baseline
     # (nsr51324/Road_Damage_Object_Detection, YOLOv8n, mAP@50 0.393 on the uploader's own
@@ -38,6 +42,10 @@ def create_app():
     # Initialize extensions
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     db.init_app(app)
+
+    # Every /api/* request needs a valid token unless its endpoint is in
+    # auth_tokens.PUBLIC_ENDPOINTS; routes read the caller with current_user_id().
+    app.before_request(lambda: verify_request(app.config))
 
     # Register blueprints
     from routes.auth import auth_bp

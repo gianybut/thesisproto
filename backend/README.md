@@ -186,7 +186,7 @@ D10/D20/D30 scheme.
 
 ### Upload Limits
 
-- **Max file size:** 500MB (configured in `app.config`)
+- **Max file size:** none for now (`MAX_CONTENT_LENGTH = None` in `app.py`); the 10-minute length cap still applies
 - **Supported formats:** MP4, AVI, MOV, MKV, WebM
 
 ### Model
@@ -220,27 +220,27 @@ backend/
 ### Testing Endpoints
 
 ```bash
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
+# Login — the response carries a signed token that expires (JWT_EXPIRY_HOURS, default 12)
+TOKEN=$(curl -s -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"admin","password":"admin123"}' | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
 # Get current user
 curl -X GET http://localhost:5000/api/auth/me \
-  -H "Authorization: Bearer 1"
+  -H "Authorization: Bearer $TOKEN"
 
 # Upload video
 curl -X POST http://localhost:5000/api/videos/upload \
   -F "video=@sample.mp4" \
-  -H "Authorization: Bearer 1"
+  -H "Authorization: Bearer $TOKEN"
 
 # List videos
 curl -X GET http://localhost:5000/api/videos \
-  -H "Authorization: Bearer 1"
+  -H "Authorization: Bearer $TOKEN"
 
 # Get dashboard stats
 curl -X GET http://localhost:5000/api/dashboard/stats \
-  -H "Authorization: Bearer 1"
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Troubleshooting

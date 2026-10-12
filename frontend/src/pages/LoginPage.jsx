@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { authAPI } from '../api';
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, notice }) {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,7 +13,7 @@ export default function LoginPage({ onLogin }) {
 
     try {
       const res = await authAPI.login(form.username, form.password);
-      onLogin(res.data.user);
+      onLogin(res.data.user, res.data.token);
     } catch (err) {
       setError(err.response?.data?.error || 'Could not sign in. Check your username and password.');
     } finally {
@@ -32,6 +32,7 @@ export default function LoginPage({ onLogin }) {
           <p className="subtitle">Road damage detection for local government</p>
         </div>
 
+        {notice && !error && <div className="alert alert-error">{notice}</div>}
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>

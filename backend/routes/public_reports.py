@@ -5,6 +5,7 @@ import uuid
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from models import db, PublicReport, Detection, DAMAGE_TYPES
+from auth_tokens import current_user_id as get_user_id
 
 public_reports_bp = Blueprint('public_reports', __name__)
 
@@ -13,19 +14,6 @@ ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'heic'}
 
 def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
-
-
-def get_user_id():
-    """Extract user ID from session or Authorization header."""
-    from flask import session
-    user_id = session.get('user_id')
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            user_id = int(auth_header.split(' ')[1])
-        except (ValueError, IndexError):
-            pass
-    return user_id
 
 
 @public_reports_bp.route('', methods=['POST'])
