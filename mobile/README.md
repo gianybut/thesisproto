@@ -1,4 +1,4 @@
-# Bantay Kalsada Capture (mobile)
+# OcuLubak capture app (mobile)
 
 Capture-only companion app for iPhone and Android. It records road survey video and a GPS
 track on the same phone, then uploads both to the existing `POST /api/videos/upload`. It
@@ -14,7 +14,31 @@ Expo SDK 57 (React Native 0.86, React 19.2), plain JavaScript, no router. Module
 `expo-camera`, `expo-location` + `expo-task-manager` (background GPS: an Android foreground
 service, iOS background location mode), `expo-file-system`, `expo-secure-store`,
 `expo-network`, `expo-keep-awake`, `expo-build-properties` (allows plain HTTP to the LAN
-server on Android).
+server on Android), `react-native-svg` (icons and logo), `react-native-safe-area-context`
+(notch and home-indicator insets), `expo-font` with `@expo-google-fonts/public-sans`.
+
+## Design
+
+The app follows the web app's design system: [frontend/design.md](../frontend/design.md) is
+the authority for both. Change a value there first, then in both places.
+
+- `src/theme.js` carries the `:root` tokens of `frontend/src/index.css` value for value:
+  navy top bar, white page, logo green `#046B3E` as the one primary colour, Public Sans
+  400/600/700 (loaded in `App.js`), 4px radius on buttons and labels, 8px on panels, 44px
+  tap targets, tabular figures on numbers.
+- `src/icons.js` uses the same SVG paths as `frontend/src/icons.jsx`, plus four capture
+  icons (share, wifi, record, stop) drawn the same way.
+- `src/components/` mirrors the web components: `AppBar` (the navy header, with the account
+  panel holding name, role, server, the Wi-Fi-only switch and Sign out), `PageHeader`,
+  `Notice`, `StatusLabel` + `ProgressBar`, `EmptyState`, `Field` (label, hint, inline error),
+  `Disclosure` (the web's `<details>`), `Sheet` / `ActionMenu` (the "More" menu), `Button`
+  (primary, secondary, quiet, danger, on-dark), `Facts`, `Logo`.
+- `src/labels.js` holds the plain-language words, in the web's terms: *Not uploaded*,
+  *Uploading n%*, then the server's *Waiting to start*, *Analysing n%*, *Ready*,
+  *Analysis failed*.
+- Same rules as the web: at most one filled green button per screen, status always icon plus
+  words, no emoji, sentence case, and the LGU's name appears nowhere in the app. Chrome over
+  the camera is ink at 72% so it reads on any scene.
 
 ## Running it
 
@@ -38,6 +62,9 @@ The phone and the Flask server must be on the same network. `backend/run.py` alr
 `0.0.0.0:5000`. Enter `http://<computer's LAN IP>:5000` as the server address on the login
 screen; it is remembered. iOS asks for "Local Network" access the first time.
 
+`mobile/ios` and `mobile/android` are generated (gitignored). After a change to `app.json` or
+to a native package, regenerate them with `npx expo prebuild --clean` before building.
+
 A free Apple ID signs builds for 7 days. After that, the app stops opening until it is
 rebuilt with `npx expo run:ios --device`. Recordings stored in the app survive the rebuild.
 
@@ -45,17 +72,22 @@ rebuilt with `npx expo run:ios --device`. Recordings stored in the app survive t
 
 | File | Role |
 |---|---|
-| `src/auth.js` | Login, JWT in SecureStore, any 401 (expired, invalid) → back to login with recordings and queue kept. |
+| `src/auth.js` | Sign-in, JWT in SecureStore, any 401 (expired, invalid) → back to sign-in with recordings and queue kept. Remembers the server address; `http://` is added if left out. |
 | `src/locationTask.js` | Background GPS task; appends each fix to `points.jsonl` as it arrives. |
 | `src/gpx.js` | GPX 1.1 writer, stale-fix filter and the `time_offset` calculation. No Expo imports, so it runs under Node. |
 | `src/capture.js` | After stop: moves the video out of the camera cache, checks it is complete, builds the GPX, stores the session. |
 | `src/api.js` | The upload: `XMLHttpRequest` on Android, a streamed file upload on iOS (see below). |
 | `src/platform.js` | Everything that differs by platform, in one place. |
 | `src/mp4.js`, `src/multipart.js` | Movie completeness check and the iOS request body. Pure, tested under Node. |
-| `src/uploadQueue.js` | One upload at a time, backoff 15 s → 30 s → 60 s …, five tries before manual retry, Wi-Fi-only switch. |
+| `src/uploadQueue.js` | One upload at a time, backoff 15 s → 30 s → 60 s …, five tries before manual retry, Wi-Fi-only switch. `describeWait()` says why nothing is uploading. |
+| `src/serverStatus.js` | After upload, polls `GET /api/videos/<id>` every 5 s while the app is open and stores the analysis status, progress and damage count on the session, until *Ready*, *Analysis failed*, or a 404 (deleted on the web app). |
+| `src/labels.js`, `src/surveyActions.js` | The words for each state and the one next step per survey; delete and next-step actions shared by the list and the survey screen. |
 | `src/storage.js` | Session list in `documents/sessions.json`; files in `documents/sessions/<id>/` (`<id>.mov`/`.mp4`, `<id>.gpx`, `thumb.jpg`; sessions recorded before this naming have `video.*`/`track.gpx`). Files are kept after upload until the session is deleted. |
 | `src/media.js` | List thumbnails (`expo-video-thumbnails`, one at a time, made on first view), Save to Photos (`expo-media-library`, add-only) and the share sheet for the video and GPX (`expo-sharing`). |
-| `src/screens/PreviewScreen.js` | Plays a stored session (`expo-video`, native controls, muted) and offers the copy-out actions above; works for uploaded sessions too. |
+| `src/screens/CaptureScreen.js` | Permission gate (re-read on return from Settings), camera with elapsed/remaining time and a GPS status label, record button. |
+| `src/screens/ReviewScreen.js` | After stop: length, size, GPS points, warnings, optional road name, *Upload this survey*. |
+| `src/screens/SessionsScreen.js` | "Surveys on this phone": status per survey, one next-step button, the rest under *More*; a notice when uploads are waiting, with *Upload over mobile data* when Wi-Fi only is the reason. |
+| `src/screens/PreviewScreen.js` | One survey: status, next step, road name (editable until upload), playback (`expo-video`, native controls, muted), the copy-out actions above, *Technical details* (end reason, GPS points, rate, gaps, time offset, web survey number) and delete. Works for uploaded sessions too. |
 
 **Starting a recording.** The record button stays disabled until a fresh fix (under 5 s
 old) is within ±20 m (`MIN_FIX_ACCURACY_M`). This is a requirement, not a preference.
@@ -88,8 +120,8 @@ less than 2 GB free (544 MB while the size cap was on).
 
 **Queue.** Sessions are `recorded → queued → uploading → uploaded`, or `failed`. The queue is
 saved to disk, and on launch an interrupted upload goes back to `queued`. Upload pauses
-while recording. A 401 leaves the session queued and returns to login; it resumes after
-login. A 400 or 413 from the server fails straight away, because a retry would be
+while recording. A 401 leaves the session queued and returns to sign-in; it resumes after
+signing in. A 400 or 413 from the server fails straight away, because a retry would be
 rejected the same way.
 
 ## Platform differences
@@ -122,19 +154,19 @@ OpenCV decoded every frame of both. A truncated `.mov` is flagged by the complet
 ## Device tests (real phone; the simulator has no GPS, camera or heat)
 
 - [ ] `npx expo run:ios --device` installs and opens on a physical iPhone.
-- [ ] Full 590 s session in a moving vehicle; note `achievedHz` and gaps from the Sessions list / GPX.
+- [ ] Full 590 s session in a moving vehicle; note GPS rate (`achievedHz`) and gaps from *Technical details* on the survey screen, or the GPX.
 - [ ] Lock the screen mid-session: confirm video ends, the session is saved as `app_left_foreground`, and GPS logged right up to the stop.
 - [ ] GPX opens in a viewer (GPXSee) and the track matches the road.
-- [ ] Upload accepted, processed end-to-end, detections placed on the web map.
+- [ ] Upload accepted, processed end-to-end, detections placed on the web map. The phone's status goes *Uploaded* → *Analysing n%* → *Ready, n damages found*, matching the web app.
 - [ ] Turn Wi-Fi off mid-upload: the session retries and completes.
-- [ ] Expired token (set `JWT_EXPIRY_HOURS=0.01` on the server) returns to login with recordings kept.
+- [ ] Expired token (set `JWT_EXPIRY_HOURS=0.01` on the server) returns to sign-in with recordings kept.
 - [ ] **Thermal:** windshield mount, screen on, full session at midday. Note throttling, the
       iOS "temperature" warning screen, or recording stopping. Chapter 2 argues from thermal
       throttling, so a capture failure here is material.
 - [ ] **Video start gap:** film a running stopwatch that shows milliseconds. Compare the
       time in the first frame with `videoStart` in the GPX metadata. The difference is the
       measured gap for Chapter 3.
-- [ ] File size per minute at 1080p / 5 Mbit/s (Sessions list shows size and length).
+- [ ] File size per minute at 1080p / 5 Mbit/s (the survey list shows size and length).
 - [ ] Thumbnail appears for each session; preview plays; Save to Photos, Share video → Save to Files and Share GPX all work on an uploaded session.
 - [ ] Repeat the vehicle, lock and upload checks on Android to confirm no regression.
 

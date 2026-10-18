@@ -46,13 +46,15 @@ async function networkAllows() {
   return true;
 }
 
-/** Why the queue is idle, for the session list header. */
+/** Why the queue is idle, for the survey list: { kind, text }, or null when nothing blocks it. */
 export async function describeWait() {
-  if (!getToken()) return 'Log in to upload.';
+  if (!getToken()) return { kind: 'signin', text: 'Sign in to upload.' };
   const n = await Network.getNetworkStateAsync().catch(() => null);
-  if (!n || !n.isConnected) return 'No connection. Uploads will start when one is available.';
+  if (!n || !n.isConnected) {
+    return { kind: 'offline', text: 'No connection. Uploads start by themselves when the phone is back online.' };
+  }
   if (settings.wifiOnly && n.type !== Network.NetworkStateType.WIFI && n.type !== Network.NetworkStateType.ETHERNET) {
-    return 'Waiting for Wi-Fi. Turn off "Wi-Fi only" to upload over mobile data.';
+    return { kind: 'wifi', text: 'Waiting for Wi-Fi. Uploads are set to Wi-Fi only.' };
   }
   return null;
 }
@@ -104,6 +106,7 @@ export async function run() {
     const video = await task.promise;
     updateSession(id, {
       status: 'uploaded', progress: 1, uploadedAt: Date.now(), serverVideoId: video?.id ?? null, lastError: null,
+      serverStatus: video?.status ?? null, // followed from here by serverStatus.js
     });
   } catch (e) {
     const s = getSession(id);
@@ -130,7 +133,10 @@ export async function run() {
 }
 
 export function enqueue(id) {
-  updateSession(id, { status: 'queued', attempts: 0, nextAttemptAt: 0, lastError: null });
+  updateSession(id, {
+    status: 'queued', attempts: 0, nextAttemptAt: 0, lastError: null,
+    serverStatus: null, serverProgress: null, serverDetections: null,
+  });
   run();
 }
 

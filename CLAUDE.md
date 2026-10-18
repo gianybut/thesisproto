@@ -20,7 +20,9 @@ GPX on one phone and posts both to the unchanged `/api/videos/upload`; capture o
 inference). The team captures survey data on iPhones. Platform differences (screen lock, GPS rate,
 `.mov` vs `.mp4`, upload transport) are tabled in [mobile/README.md](mobile/README.md) and all
 platform branches live in `mobile/src/platform.js` / `mobile/src/api.js` — keep them there and keep
-that table current.
+that table current. The mobile UI follows [frontend/design.md](frontend/design.md) as well:
+`mobile/src/theme.js` mirrors the `:root` tokens of `frontend/src/index.css` and `mobile/src/icons.js`
+reuses the paths of `frontend/src/icons.jsx`, so a visual change goes into both.
 
 ## Commands
 

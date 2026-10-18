@@ -1,0 +1,15 @@
+import Svg, { Path } from 'react-native-svg';
+import { C } from '../theme';
+
+// The OcuLubak mark, from frontend/public/oculubak-icon-mono.svg. 449 x 289.
+export default function Logo({ width = 100, color = C.primary }) {
+  return (
+    <Svg width={width} height={(width * 289) / 449} viewBox="83 121 449 289" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Path fill={color} d="M185,357 Q128,318 93,265 C160,180 230,131 307,131 C384,131 454,180 522,265 Q486,318 429,357 L397,331 Q440,302 467,265 C414,200 364,165 307,165 C250,165 200,200 147,265 Q174,302 217,331 Z" />
+      <Path fill={color} fillRule="evenodd" d="M266.2,263.6 A51,51 0 1 1 347.8,263.6 L307,318 Z M307,211 a22,22 0 1 0 0.01,0 Z" />
+      <Path fill="none" stroke={color} strokeWidth={15} d="M247,206 A60,60 0 0 0 247,299 M367,206 A60,60 0 0 1 367,299" />
+      <Path fill={color} fillRule="evenodd" d="M286,316 L296,316 L307,329 L318,316 L328,316 L389,384 Q307,410 225,384 Z M302,339 L312,339 L314,358 L300,358 Z M299,373 L315,373 L317,398 L297,398 Z" />
+      <Path fill={color} d="M273,318 L278,318 L216,378 Q205,374 196,369 Z M341,318 L336,318 L398,378 Q409,374 418,369 Z" />
+    </Svg>
+  );
+}

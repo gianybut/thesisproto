@@ -1,6 +1,7 @@
 # design.md
 
-The authority on every visual decision in the OcuLubak web frontend. It records the redesign
+The authority on every visual decision in the OcuLubak web frontend and the mobile capture app
+(`mobile/src/theme.js` carries the same tokens). It records the redesign
 direction agreed in Stage 1 (`redesign-direction.md`). Every value here is a token in `:root` of
 `src/index.css`; components use the tokens, never their own values.
 

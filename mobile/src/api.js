@@ -38,7 +38,7 @@ function interpretResponse(status, text) {
   if (status >= 200 && status < 300) return body.video;
   if (status === 401) {
     handleUnauthorized();
-    throw new UploadError('Signed out. Log in again to upload.', { status: 401 });
+    throw new UploadError('Signed out. Sign in again to upload.', { status: 401 });
   }
   // 400 (too long, wrong type) and 413 (too large) will fail the same way
   // every time; server errors and anything else are worth retrying.
@@ -90,6 +90,23 @@ function uploadWithXhr(session, onProgress) {
   });
 
   return { promise, cancel: () => xhr.abort() };
+}
+
+/**
+ * The server's record for an uploaded survey (GET /api/videos/<id>), to follow its analysis.
+ * Resolves null when the server no longer has it (deleted on the web app).
+ * Throws on a network error; a 401 signs out like any other call.
+ */
+export async function fetchVideo(videoId) {
+  const res = await fetch(`${getServerUrl()}/api/videos/${videoId}`, { headers: authHeader() });
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new UploadError('Signed out.', { status: 401 });
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) throw new UploadError(`Could not check the survey (HTTP ${res.status})`, { status: res.status });
+  const body = await res.json();
+  return body.video;
 }
 
 const COPY_CHUNK = 4 * 1024 * 1024;

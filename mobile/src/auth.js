@@ -12,19 +12,24 @@ const K_SERVER = 'bk_server_url';
 let token = null;
 let user = null;
 let serverUrl = DEFAULT_SERVER_URL;
+let serverSaved = false;
 const unauthorizedListeners = new Set();
 
 export async function loadAuth() {
   token = await SecureStore.getItemAsync(K_TOKEN);
   const u = await SecureStore.getItemAsync(K_USER);
   user = u ? JSON.parse(u) : null;
-  serverUrl = (await SecureStore.getItemAsync(K_SERVER)) || DEFAULT_SERVER_URL;
+  const saved = await SecureStore.getItemAsync(K_SERVER);
+  serverSaved = Boolean(saved);
+  serverUrl = saved || DEFAULT_SERVER_URL;
   return { token, user, serverUrl };
 }
 
 export const getToken = () => token;
 export const getUser = () => user;
 export const getServerUrl = () => serverUrl;
+/** False until a sign-in has stored an address, so the first run shows the address field open. */
+export const hasSavedServer = () => serverSaved;
 export const authHeader = () => (token ? { Authorization: `Bearer ${token}` } : {});
 
 export function tokenFromLogin(body) {
@@ -32,8 +37,16 @@ export function tokenFromLogin(body) {
   return body.token;
 }
 
+/** "192.168.1.10:5000" -> "http://192.168.1.10:5000"; trailing slashes dropped. */
+export function normalizeServerUrl(url) {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+}
+
 export async function setServerUrl(url) {
-  serverUrl = url.trim().replace(/\/+$/, '');
+  serverUrl = normalizeServerUrl(url);
+  serverSaved = true;
   await SecureStore.setItemAsync(K_SERVER, serverUrl);
 }
 
@@ -46,10 +59,10 @@ export async function login(username, password) {
       body: JSON.stringify({ username, password }),
     });
   } catch {
-    throw new Error(`Could not reach ${serverUrl}. Check the server address and that the phone is on the same network.`);
+    throw new Error(`Could not reach ${serverUrl}. Check the server address, and that this phone is on the same Wi-Fi as the computer running OcuLubak.`);
   }
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `Login failed (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(body.error || `Could not sign in (HTTP ${res.status}). Check your username and password.`);
 
   token = tokenFromLogin(body);
   user = body.user;

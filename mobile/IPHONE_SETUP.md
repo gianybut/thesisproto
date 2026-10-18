@@ -1,4 +1,4 @@
-# Setting up Bantay Kalsada Capture on an iPhone
+# Setting up OcuLubak on an iPhone
 
 The capture app is not on the App Store, so it is built on a Mac and installed on each
 phone over a cable. One Mac and one Apple ID can install it on all three team phones.
@@ -57,15 +57,28 @@ npx expo run:ios --device --configuration Release
 
 Pick the iPhone from the list. The first build takes 10–20 minutes; later ones are faster.
 
+**After pulling a change to `app.json` or to the native packages** (for example the
+OcuLubak redesign, which added `react-native-svg` and `react-native-safe-area-context` and
+renamed the app), regenerate the native project first, then build as above:
+
+```bash
+npx expo prebuild --platform ios --clean
+```
+
+`mobile/ios` is generated and gitignored, so nothing is lost, but `--clean` resets signing:
+do the signing steps below once more. Recordings on the phone are kept, because the bundle
+identifier does not change.
+
 **Use `--configuration Release` for survey work.** A Debug build (the command without
 `--configuration Release`) loads its code from the Mac over Wi-Fi each time it opens, so it
 does not work in a car. Debug is only for changing the app while sitting at the Mac.
 
 If the build complains about **signing** or **"No code signing certificates"**:
 
-1. Open `mobile/ios/BantayKalsadaCapture.xcworkspace` in Xcode.
-2. Click the **BantayKalsadaCapture** project at the top of the file list, then the
-   **BantayKalsadaCapture** target and the **Signing & Capabilities** tab.
+1. Open `mobile/ios/OcuLubak.xcworkspace` in Xcode (`BantayKalsadaCapture.xcworkspace` if
+   the folder was generated before the rename).
+2. Click the **OcuLubak** project at the top of the file list, then the **OcuLubak** target
+   and the **Signing & Capabilities** tab.
 3. Tick **Automatically manage signing** and set **Team** to your Personal Team.
 4. Close Xcode and run the command again.
 
@@ -91,8 +104,11 @@ command.
      Allow**; choose it if you like. The app works with either, and each recording notes
      which one was set.
    - **Local Network:** **Allow**. It is needed to reach the server. If you refused it,
-     turn it on in **Settings › Bantay Kalsada Capture › Local Network**.
+     turn it on in **Settings › OcuLubak › Local Network**.
    - **Microphone:** may appear even though videos are silent. Either answer is fine.
+
+   If Camera or Location was refused, the app lists what is missing, with an **Open
+   Settings** button. Turn them on there and switch back; the camera opens without a restart.
 
 ## 5. Connect to the server
 
@@ -100,35 +116,42 @@ command.
 2. Find that computer's address on the Wi-Fi:
    - Mac: `ipconfig getifaddr en0`
    - Windows: `ipconfig`, then the *IPv4 Address* of the Wi-Fi adapter.
-3. On the phone's login screen, enter `http://<that address>:5000` as the server address,
-   for example `http://192.168.1.23:5000`. Then enter your username and password; the
-   address is remembered.
+3. On the phone's sign-in screen, enter `http://<that address>:5000` as the server address,
+   for example `http://192.168.1.23:5000` (`http://` may be left out). Then enter your
+   username and password and tap **Sign in**. The address is remembered; tap **Change**
+   beside it to use another server.
 
-The phone and server must be on the **same Wi-Fi** to log in and upload. Recording does
+The phone and server must be on the **same Wi-Fi** to sign in and upload. Recording does
 not need a connection.
 
 ## 6. Recording a survey
 
 1. Mount the phone on the windshield in landscape, camera facing the road, with a charger
    connected.
-2. Open the app. Wait until the top bar shows GPS within ±20 m. The **Start recording**
-   button stays grey until then; being under open sky helps.
+2. Open the app. Wait until the GPS label at the top turns green with a tick (within
+   ±20 m). The **Start recording** button stays dimmed until then, and the line above it
+   says why; being under open sky helps.
 3. Tap **Start recording**. Leave the app on screen and **do not lock the phone**: iOS
    stops the camera when the app leaves the screen, and the recording ends there. The app
    keeps the screen from sleeping on its own.
 4. Recording stops by itself at 9:50. Tap **Stop recording** earlier if you like.
-5. Enter the road name, then tap **Queue for upload** or **Keep on phone for now**.
+5. Enter the road name, then tap **Upload this survey** or **Keep on this phone for now**.
 
 ## 7. Uploading
 
-Back on the server's Wi-Fi, open the app and go to **Recorded sessions**. Queued sessions
-upload one at a time, and failed uploads retry by themselves. Keep the app open while it
-uploads: iOS pauses uploads when the app is in the background. The **Upload on Wi-Fi only**
-switch is on by default so a 350 MB video doesn't use mobile data. Uploading needs free
-space about the size of the video for a temporary copy.
+Back on the server's Wi-Fi, open the app and tap **Surveys on this phone** under the record
+button. Surveys waiting to upload go one at a time, and failed uploads retry by themselves.
+Keep the app open while it uploads: iOS pauses uploads when the app is in the background.
+After upload each survey follows the analysis on the server, as the web app does:
+*Waiting to start*, *Analysing n%*, then *Ready* with the number of damages found.
 
-Logins last 12 hours. After that, the app returns to the login screen; your recordings and
-queue are kept and resume after you log in.
+**Upload on Wi-Fi only** is on by default so a 350 MB video doesn't use mobile data. It is
+in the account panel (tap your name at the top right). While a survey is waiting for Wi-Fi,
+the survey list also offers **Upload over mobile data**. Uploading needs free space about
+the size of the video for a temporary copy.
+
+Sign-ins last 12 hours. After that, the app returns to the sign-in screen; your surveys and
+the upload queue are kept and resume after you sign in.
 
 ## 8. Every 7 days: rebuild
 
@@ -145,11 +168,12 @@ can also keep only 3 of your own apps on a phone at a time.
 | Xcode doesn't list the iPhone | Unlock the phone, re-plug the cable, tap Trust, and check Developer Mode (step 2). |
 | App won't open, "Untrusted Developer" | Step 4.1. |
 | App won't open after about a week | Rebuild (step 8). |
-| Login: "Could not reach …" | Check the phone is on the server's Wi-Fi and that the address and `:5000` are right. Check Local Network is allowed (step 4.2) and the backend is running. On the server computer, allow Python through the firewall. |
-| Server is a Mac and login returns an odd 403 | macOS AirPlay Receiver also uses port 5000. Turn it off in **System Settings › General › AirDrop & Handoff › AirPlay Receiver**. |
-| Start recording stays grey | GPS isn't within ±20 m yet. Move to open sky and wait a minute. |
+| App still shows the old name or icon | The native project predates the change. Run `npx expo prebuild --platform ios --clean` (step 3), then build. |
+| Sign in: "Could not reach …" | Check the phone is on the server's Wi-Fi and that the address and `:5000` are right. Check Local Network is allowed (step 4.2) and the backend is running. On the server computer, allow Python through the firewall. |
+| Server is a Mac and sign-in returns an odd 403 | macOS AirPlay Receiver also uses port 5000. Turn it off in **System Settings › General › AirDrop & Handoff › AirPlay Receiver**. |
+| Start recording stays dimmed | The line above it says why: usually GPS isn't within ±20 m yet. Move to open sky and wait a minute. |
 | "Not enough free space" | Needs 2 GB free to record (`MIN_FREE_BYTES` in `src/config.js`); free up storage. |
-| Recording stopped by itself early | The app left the screen (lock, call, app switch). The session keeps what was recorded and says so. |
+| Recording stopped by itself early | The app left the screen (lock, call, app switch). The survey keeps what was recorded and says so. |
 | Debug build shows a red "No bundle URL" screen | That's a Debug build away from the Mac. Rebuild with `--configuration Release`. |
 
 For what each part does, the iPhone/Android differences, and the tests to run before
