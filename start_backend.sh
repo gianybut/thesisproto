@@ -13,14 +13,18 @@ if [ ! -d ".venv" ]; then
     echo ""
     echo "Please run setup first:"
     echo "  python -m venv .venv"
-    echo "  source .venv/Scripts/activate"
+    echo "  source .venv/bin/activate"
     echo "  pip install -r requirements.txt"
     echo ""
     exit 1
 fi
 
 echo "✅ Activating virtual environment..."
-source .venv/Scripts/activate
+if [ -f .venv/bin/activate ]; then
+    source .venv/bin/activate
+else
+    source .venv/Scripts/activate   # Git Bash on Windows
+fi
 
 echo ""
 echo "⚡ Starting Flask backend server..."

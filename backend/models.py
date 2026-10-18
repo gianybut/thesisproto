@@ -55,7 +55,9 @@ class User(db.Model):
     videos = db.relationship('Video', backref='uploader', lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        # pbkdf2 rather than werkzeug's scrypt default: macOS system Python is built
+        # against LibreSSL, whose hashlib has no scrypt.
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
