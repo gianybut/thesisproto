@@ -216,7 +216,7 @@ export default function DamageMapPage() {
               <p className="muted"><span className="num">{selected.detection_count}</span> {selected.detection_count === 1 ? 'damage' : 'damages'} on this survey</p>
               <div className="inline-row">
                 <button type="button" className="btn btn-secondary" onClick={() => selectVideo('')}>Show all surveys</button>
-                <Link to={`/videos/${selected.id}`} className="btn btn-secondary"><Icon name="video" />Open the video</Link>
+                {selected.can_open && <Link to={`/videos/${selected.id}`} className="btn btn-secondary"><Icon name="video" />Open the video</Link>}
               </div>
             </div>
           )}
@@ -240,7 +240,7 @@ export default function DamageMapPage() {
             <div className="map-frame map-frame-main map-empty">
               {selected ? (
                 <EmptyState icon="map-pin-plus" title="This survey has no locations yet"
-                  action={<Link to={`/videos/${selected.id}/georeference`} className="btn btn-primary"><Icon name="map-pin-plus" />Place it on the map</Link>}>
+                  action={selected.can_open && <Link to={`/videos/${selected.id}/georeference`} className="btn btn-primary"><Icon name="map-pin-plus" />Place it on the map</Link>}>
                   Damage was found in this video, but none of it has a place on the map yet. Match a few
                   moments in the video to the map by hand.
                 </EmptyState>
@@ -282,7 +282,7 @@ export default function DamageMapPage() {
                           <p>{STATUS_LABELS[d.inspection_status] || STATUS_LABELS.pending_validation}{d.road_name ? ` · ${d.road_name}` : ''}</p>
                           <p className="num muted">{d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}</p>
                           {d.position_source === 'georeferenced' && <p className="muted">Placed by hand between control points.</p>}
-                          {d.video_id > 0 && (
+                          {d.video_id > 0 && d.can_open_video && (
                             <Link to={`/videos/${d.video_id}?t=${d.timestamp}`} className="link-arrow">
                               Open in the video<Icon name="chevron-right" size={16} />
                             </Link>

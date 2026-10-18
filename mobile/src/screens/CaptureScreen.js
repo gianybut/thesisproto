@@ -25,7 +25,7 @@ import { C, F, S, T, s } from '../theme';
 const KEEP_AWAKE_TAG = 'bk-recording';
 const notUploaded = (list) => list.filter((x) => !x.broken && ['recorded', 'queued', 'uploading', 'failed'].includes(x.status)).length;
 
-export default function CaptureScreen({ onShowSessions, onSignOut }) {
+export default function CaptureScreen({ onShowSessions }) {
   const insets = useSafeAreaInsets();
   const [camPerm, requestCamPerm, getCamPerm] = useCameraPermissions();
   const [locPerm, setLocPerm] = useState(null); // null | 'granted' | 'denied'
@@ -227,14 +227,14 @@ export default function CaptureScreen({ onShowSessions, onSignOut }) {
 
   // ---- Permission gates ----
   if (!camPerm || locPerm === null) {
-    return <View style={s.screen}><AppBar onSignOut={onSignOut} /></View>;
+    return <View style={s.screen}><AppBar /></View>;
   }
   if (!camPerm.granted || locPerm !== 'granted') {
     const askCamera = !camPerm.granted && camPerm.canAskAgain;
     const askLoc = !askCamera && locPerm !== 'granted' && locCanAsk;
     return (
       <View style={s.screen}>
-        <AppBar onSignOut={onSignOut} />
+        <AppBar />
         <ScrollView contentContainerStyle={s.page}>
           <PageHeader title="Allow the camera and location" />
           <View style={s.stack}>
@@ -263,7 +263,7 @@ export default function CaptureScreen({ onShowSessions, onSignOut }) {
 
   // ---- Review after stop ----
   if (phase === 'review') {
-    return <ReviewScreen sessionId={reviewId} onDone={finishReview} onSignOut={onSignOut} />;
+    return <ReviewScreen sessionId={reviewId} onDone={finishReview} />;
   }
 
   // ---- Camera ----

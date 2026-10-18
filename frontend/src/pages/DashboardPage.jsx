@@ -44,7 +44,7 @@ export default function DashboardPage({ user }) {
 
   return (
     <div className="page">
-      <PageHeader title="Overview" />
+      <PageHeader title="Overview" meta={role === 'admin' ? 'Figures cover every account.' : null} />
 
       {error && <Notice kind="error">{error}</Notice>}
 
@@ -55,7 +55,7 @@ export default function DashboardPage({ user }) {
         </div>
       )}
 
-      <ul className="count-grid" aria-label="Your surveys in numbers">
+      <ul className="count-grid" aria-label={role === 'admin' ? 'All surveys in numbers' : 'Your surveys in numbers'}>
         {counts.map(c => (
           <li key={c.label} className="count-tile">
             <Icon name={c.icon} className="count-icon" />

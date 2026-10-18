@@ -13,6 +13,7 @@ import Disclosure from '../components/Disclosure';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RenameVideo from '../components/RenameVideo';
 import { LocationSource, ProgressBar, SurveyStatus } from '../components/StatusLabel';
+import { isAdmin } from '../roles';
 
 // The one visible next step for a survey; everything else lives in its More menu.
 function NextStep({ v }) {
@@ -25,7 +26,9 @@ function NextStep({ v }) {
   return null;
 }
 
-export default function VideoListPage() {
+export default function VideoListPage({ user }) {
+  // An administrator sees every account's surveys (the server decides; this only labels them).
+  const admin = isAdmin(user);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,7 +68,7 @@ export default function VideoListPage() {
     <div className="page">
       <PageHeader
         title="Surveys"
-        meta={!loading && videos.length > 0 ? <><span className="num">{videos.length}</span> {videos.length === 1 ? 'survey' : 'surveys'}, newest first</> : null}
+        meta={!loading && videos.length > 0 ? <><span className="num">{videos.length}</span> {videos.length === 1 ? 'survey' : 'surveys'}{admin ? ' from every account' : ''}, newest first</> : null}
         actions={<Link to="/upload" className="btn btn-primary"><Icon name="upload" />Upload survey</Link>}
       />
 
@@ -92,7 +95,7 @@ export default function VideoListPage() {
                   <div className="survey-main">
                     <Link to={`/videos/${v.id}`} className="row-title">{surveyName(v)}</Link>
                     <p className="survey-meta num">
-                      {[v.road_name, formatDate(v.upload_date), formatDuration(v.duration), formatSize(v.file_size)].filter(Boolean).join(' · ')}
+                      {[admin && v.user_id !== user.id && v.uploaded_by && `By ${v.uploaded_by}`, v.road_name, formatDate(v.upload_date), formatDuration(v.duration), formatSize(v.file_size)].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <div className="survey-state">

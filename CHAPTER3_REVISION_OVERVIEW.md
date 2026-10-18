@@ -25,7 +25,7 @@ revision starts.
 
 | Brief says | What is actually true | Evidence |
 |---|---|---|
-| Roles: two only (Road Maintenance Personnel, System Administrator). | The code has four roles in the web app (`barangay`, `municipal`, `provincial`, `admin`) and five in the backend (adds `public`). Self-registration is still live for `public`, `barangay`, `municipal`, `inspector`. The two-role model exists only in the thesis text. | `frontend/src/App.jsx:16-21`; `backend/models.py:11`; `backend/routes/auth.py:16`; `backend/auth_tokens.py:28` |
+| Roles: two only (Road Maintenance Personnel, System Administrator). | **Resolved (Oct 2026).** The code now has exactly these two roles (`personnel`, `admin`), enforced on the server; older roles are migrated to `personnel` and self-registration is removed. See CHAPTER3_SYSTEM_OVERVIEW §3.8 for the access table. | `backend/models.py` `ROLES`; `backend/auth_tokens.py` `admin_required`, `visible_videos`; `frontend/src/roles.js` |
 | YOLOv8m inference. | The backend currently loads an **external YOLOv8n demo model** (`rdd2022_pretrained.pt`: 7 classes, 3.0 M parameters, imgsz 640), not the project's weights. The code comment says it must never be reported as a thesis result. The project's own `best.pt` is YOLOv8m (25.86 M parameters) but has **one class** (`pothole`) and was trained at imgsz 1024. | `backend/app.py:28-34`; weights inspected with Ultralytics 8.4.155 |
 | Severity scoring removed entirely. | Nothing computes, returns or displays it. The `Detection.severity` / `severity_score` columns remain (never written) and `services/severity_service.py` is kept with no callers. Chapter 3 can say severity is not part of the system; it should not say the code contains no trace of it. | `backend/models.py:171-174`; `backend/services/video_processor.py:92-93` |
 | Mobile app "verified on iOS only". | It has been installed and run on an iPhone 16 during development, but every item in the repo's device-test checklist is unchecked. A save-after-recording bug was fixed on 2026-10-08 and the fix has not yet been confirmed on the phone. No end-to-end record → upload → process → map run has been confirmed. "Verified" is stronger than the evidence. | `mobile/README.md:122-136` |
@@ -345,8 +345,8 @@ cross-entropy), plus CIoU and DFL (`ultralytics/utils/loss.py`, `v8DetectionLoss
 
 **Logout.** No server-side logout. A token stays valid until it expires (`routes/auth.py:162-165`).
 
-**Server-side role checks.** Only `_require_admin()` in `routes/accounts.py:11`. Everything else
-role-related is client-side (`App.jsx:16-31`).
+**Server-side role checks.** `admin_required` and `visible_videos()` in `auth_tokens.py` guard
+every admin-only route and every survey lookup (see CLAUDE.md "Roles").
 
 **Data scoping** (relevant to the ethics section).
 
@@ -456,8 +456,8 @@ Grouped by section, in page order. "Code" gives the actual behaviour with its ci
 | # | Claim (quoted) | Code / reality |
 |---|---|---|
 | 2.48 | "engineers who assess structural damage **severity**" (p. 55) | Severity is out of the system. |
-| 2.49 | "The system serves two primary user roles" (p. 55) | The code has four roles (Section 0). |
-| 2.50 | Use-case diagram (p. 56): two "Authenticate / Login" ellipses; System Administrator use cases "Manage User Accounts", "Manage Detections", "View System Logs" | The first is a duplicate. "Manage User Accounts" exists only as admin-only backend routes; its UI was removed and accounts are created directly in the database. There is no system-log feature. Inspection-status updates are available to every role that can open `/database`, not only admins (`App.jsx:18-20`). |
+| 2.49 | "The system serves two primary user roles" (p. 55) | True since Oct 2026: the code has these two roles. |
+| 2.50 | Use-case diagram (p. 56): two "Authenticate / Login" ellipses; System Administrator use cases "Manage User Accounts", "Manage Detections", "View System Logs" | The duplicate Login remains a diagram error. The three admin use cases now exist: Administration › Accounts, the per-record menu on Damage records (correct, delete) plus resident-report review, and Administration › Activity log. Inspection-status updates stay available to both roles. |
 | 2.51 | The diagram omits real use cases | Missing: georeference a survey (control points), rename/delete a survey, view per-survey routes on the map, update inspection status, record a survey on the mobile app. |
 | 2.52 | "sort by confidence level" (p. 55) | True: the Database page sorts by confidence (`DatabasePage.jsx:145`). |
 
@@ -644,7 +644,7 @@ not used in the PDF).
 | F3 | Detailed end-to-end pipeline (currently Fig. 3.2.1, p. 35) | Raster; D30; 0.3 / 0.5; per-frame; PDF; 26,620 | Moves to 3.4. Two lanes: **Training** (RDD2022 four-class subset + local set → per-class cap → foreign/local splits → YOLOv8m fine-tune → per-subset evaluation) and **Operation** (capture → upload → sample every `fps/5` frame → inference at conf 0.15 / IoU 0.45, or whatever Q3 decides → dedup → positioning branch: GPS interpolation with clamping vs control points without → store → annotate → ffmpeg H.264). Any number not measured is shown as a symbol, not a value. | Yes |
 | F4 | System architecture (Fig. 3.2.2, p. 40) | Raster; three tiers; no mobile; wrong weights file | Must include the mobile capture client. **Proposed structure: still three tiers, with two clients in the presentation tier** (web SPA; mobile capture app with its local storage and upload queue). Application tier: Flask API + JWT middleware, video processing thread, GPS sync service, georeferencing service, ffmpeg. Data tier: SQLite, file storage (uploads, processed, snapshots), fine-tuned weights. The **offline training pipeline** sits outside the runtime tiers, joined by a dashed "weights" arrow. Drawn as a separate tier, the mobile app makes it **four**; recommendation is three tiers with two clients, because the app has no business logic (see Q-F4). | Yes |
 | F5 | YOLOv8m architecture (Fig. 3.3.1, p. 42) | Raster; D30 in head labels; "objectness" implied in text; typos; duplicated label row | Redraw: backbone (Conv, C2f, SPPF) → neck (PAN-FPN with C2f/upsample/concat) → three decoupled heads (P3/P4/P5), each with a cls branch (4 classes, BCE) and a box branch (DFL + CIoU). No objectness. Label the classes D00 / D10 / D20 / D40. Input size as a symbol or the value chosen in Q2. | Yes |
-| F6 | Use case (Fig. 3.5.1, p. 56) | Raster; duplicate Login; "View System Logs" does not exist | **Two actors**: Road Maintenance Personnel, System Administrator. RMP: Log in; Record survey (mobile app); Upload survey video (+GPS); Monitor processing; View detection results / annotated video; Georeference survey (control points); View damage map; Update inspection status; Filter/sort detections; Export CSV/JSON; Rename/delete own survey. Admin: everything RMP can do (generalisation arrow) plus Manage user accounts (only if Q6 says it stays; there is currently no UI). Drop "View System Logs", the duplicate Login and PDF. The «include» to Login is better shown as a precondition or left out. | Yes |
+| F6 | Use case (Fig. 3.5.1, p. 56) | Raster; duplicate Login | **Two actors**: Road Maintenance Personnel, System Administrator. RMP: Log in; Record survey (mobile app); Upload survey video (+GPS); Monitor processing; View detection results / annotated video; Georeference survey (control points); View damage map; Update inspection status; Filter/sort detections; Export CSV/JSON; Rename/delete own survey. Admin: everything RMP can do (generalisation arrow) plus Manage user accounts, Manage detections (correct/delete records, review resident reports), View system logs, and see every survey. Drop the duplicate Login and PDF. The «include» to Login is better shown as a precondition or left out. | Yes |
 | F7 | Formula figures 3.3.2a / b / c (pp. 45, 47, 50) | **Raster images** (`Documents/diagrams/3.3_formulas_*.png`) of typeset equations; contain wrong content (b = 16, Conf = P_obj × IoU, mAP integral) | These are equations, not diagrams. **Recommendation: render them as native Word equations (OMML)**, numbered (1)…(n) on the right, so they stay editable and searchable. If a draw.io source is required anyway, draw.io supports LaTeX through its MathJax option, but the result is still an image in Word (Q16). | Rewrite as equations |
 | F8 | State diagram (`Documents/diagrams/3.5_state_diagram.png`) | Exists as a file; not in the chapter | Optional. If kept, use the real video states `uploaded → processing → completed / failed` (failed also on restart) and the detection states `pending_validation → inspected → scheduled → ongoing_repair → resolved`. | Optional |
 
@@ -717,9 +717,10 @@ proposal, not the department's rule.
    subsets formed? Do you agree the local split must be by survey or route, not by frame?
 5. **Acceptance bar.** Should mAP@50 ≥ 0.50 on the local test subset (`train_model.py:32`) be
    stated in Chapter 3? It is not in Chapter 1.
-6. **Roles.** Chapter 3 will say two roles; the code has four. Will the code be collapsed to two
-   (your backend workstream), or does Chapter 3 describe two *conceptual* roles that map onto the
-   code's four? Does "Manage user accounts" stay as an admin use case even though it has no UI?
+6. **Roles.** *Resolved:* the code was collapsed to the thesis's two roles. "Manage user
+   accounts", "Manage detections" and "View system logs" are real admin-only features (web
+   Administration page, record menu on Damage records), and the admin inherits every personnel
+   use case. Personnel see only their own surveys; the admin sees every survey.
 7. **Out-of-scope features.** Public reports, the inspection-status workflow, survey
    rename/delete: describe them in Chapter 3, or leave them out to stay within §1.7?
 8. **Georeferencing in the evaluation.** Are hand-georeferenced surveys part of the positional

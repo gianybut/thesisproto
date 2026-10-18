@@ -8,6 +8,8 @@ import SkeletonRows from '../components/SkeletonRows';
 import EmptyState from '../components/EmptyState';
 import Notice from '../components/Notice';
 import Disclosure from '../components/Disclosure';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { isAdmin } from '../roles';
 import useMediaQuery, { WIDE } from '../useMediaQuery';
 
 const PER_PAGE = 25;
@@ -24,8 +26,12 @@ const SORT_OPTIONS = [
 
 const confidenceText = (d) => (d.confidence == null ? '–' : `${Math.round(d.confidence * 100)}%`);
 
-export default function DatabasePage() {
+export default function DatabasePage({ user }) {
   const wide = useMediaQuery(WIDE);
+  // Correcting and deleting records is the admin's "Manage detections"; the server enforces it.
+  const admin = isAdmin(user);
+  const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [detections, setDetections] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -87,6 +93,55 @@ export default function DatabasePage() {
     }
   };
 
+  const correctType = async (d, code) => {
+    setSavingId(d.id);
+    setNotice('');
+    try {
+      const res = await databaseAPI.correct(d.id, { damage_type: code });
+      setDetections(prev => prev.map(x => (x.id === d.id ? { ...x, ...res.data.detection } : x)));
+      setNotice(`Record ${d.id} is now a ${damageName(code).toLowerCase()} (${code}).`);
+      setError('');
+    } catch (err) {
+      setError(errorMessage(err, `Could not correct record ${d.id}. Try again.`));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    const d = toDelete;
+    setDeleting(true);
+    try {
+      await databaseAPI.remove(d.id);
+      setDetections(prev => prev.filter(x => x.id !== d.id));
+      setTotal(n => n - 1);
+      setNotice(`Deleted record ${d.id} (${damageName(d.damage_type).toLowerCase()}).`);
+      setError('');
+    } catch (err) {
+      setError(errorMessage(err, `Could not delete record ${d.id}. Try again.`));
+    } finally {
+      setDeleting(false);
+      setToDelete(null);
+    }
+  };
+
+  const adminMenu = (d) => admin && (
+    <Disclosure renderButton={(props) => (
+      <button className="btn btn-icon" aria-label={`More actions for record ${d.id}`} disabled={savingId === d.id} {...props}><Icon name="dots" /></button>
+    )}>
+      {(close) => (
+        <ul className="menu-list">
+          {DAMAGE_CODES.filter(c => c !== d.damage_type).map(c => (
+            <li key={c}><button type="button" className="menu-item" onClick={() => { close(); correctType(d, c); }}>
+              <Icon name="pencil" />Change to {damageName(c).toLowerCase()} <span className="code">{c}</span></button></li>
+          ))}
+          <li className="menu-divider" role="separator" />
+          <li><button type="button" className="menu-item menu-item-danger" onClick={() => { close(); setToDelete(d); }}><Icon name="trash" />Delete record</button></li>
+        </ul>
+      )}
+    </Disclosure>
+  );
+
   const download = async (format) => {
     try {
       const res = await databaseAPI.exportData(format);
@@ -126,7 +181,8 @@ export default function DatabasePage() {
     </select>
   );
 
-  const openInVideo = (d) => d.video_id > 0 && d.source_type !== 'public_report' && (
+  // The records list is shared by both roles; opening the survey follows survey access.
+  const openInVideo = (d) => d.can_open_video && (
     <Link to={`/videos/${d.video_id}?t=${d.timestamp}`} className="link-arrow" aria-label={`Open record ${d.id} in its video`}>
       Open in video<Icon name="chevron-right" size={16} />
     </Link>
@@ -226,6 +282,7 @@ export default function DatabasePage() {
                     {sortHeader('status', 'Inspection status')}
                     {sortHeader('confidence', 'Confidence')}
                     {sortHeader('created_at', 'Recorded')}
+                    {admin && <th scope="col"><span className="visually-hidden">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -245,6 +302,7 @@ export default function DatabasePage() {
                         <span className="cell-main num">{formatDate(d.created_at)}</span>
                         <span className="cell-sub">{openInVideo(d)}</span>
                       </td>
+                      {admin && <td className="cell-end">{adminMenu(d)}</td>}
                     </tr>
                   ))}
                 </tbody>
@@ -265,7 +323,10 @@ export default function DatabasePage() {
                     <label className="field-label" htmlFor={`status-${d.id}`}>Inspection status</label>
                     {statusSelect(d)}
                   </div>
-                  {openInVideo(d)}
+                  <div className="inline-row record-card-foot">
+                    {openInVideo(d) || <span />}
+                    {adminMenu(d)}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -289,6 +350,23 @@ export default function DatabasePage() {
           </nav>
         </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title={toDelete ? `Delete record ${toDelete.id}?` : ''}
+        confirmLabel="Delete record"
+        cancelLabel="Keep record"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      >
+        {toDelete && (
+          <p>
+            This removes the {damageName(toDelete.damage_type).toLowerCase()} {toDelete.road_name ? `on ${toDelete.road_name} ` : ''}
+            from the records and the map, for everyone. Use it for something that is not road damage. This cannot be undone.
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

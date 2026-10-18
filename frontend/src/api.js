@@ -38,7 +38,7 @@ api.interceptors.response.use(
 // query parameter; the backend accepts it on those endpoints only.
 const withToken = (url) => `${url}?token=${encodeURIComponent(getToken() || '')}`;
 
-// Accounts are created directly in the database; there is no self-registration.
+// There is no self-registration: a system administrator creates accounts (accountsAPI).
 export const authAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }),
   me: () => api.get('/auth/me'),
@@ -96,8 +96,27 @@ export const databaseAPI = {
     return api.get(`/database/detections?${query.toString()}`);
   },
   updateStatus: (id, data) => api.put(`/database/detections/${id}/status`, data),
+  // Admin only ("Manage detections"); the server answers 403 to anyone else.
+  correct: (id, data) => api.patch(`/database/detections/${id}`, data),
+  remove: (id) => api.delete(`/database/detections/${id}`),
   exportData: (format = 'csv') => api.get(`/database/export?format=${format}`, { responseType: 'blob' }),
   getStats: () => api.get('/database/stats'),
+};
+
+// Administration (admin only; the server answers 403 to anyone else).
+export const accountsAPI = {
+  list: () => api.get('/accounts'),
+  create: (data) => api.post('/accounts', data),
+  update: (id, data) => api.patch(`/accounts/${id}`, data),
+  resetPassword: (id, password) => api.put(`/accounts/${id}/password`, { password }),
+};
+
+export const activityAPI = {
+  list: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v) query.append(k, v); });
+    return api.get(`/activity?${query.toString()}`);
+  },
 };
 
 export default api;

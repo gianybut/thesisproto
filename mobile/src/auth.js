@@ -55,7 +55,8 @@ export async function login(username, password) {
   try {
     res = await fetch(`${serverUrl}/api/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // X-Client lets the server's activity log say "signed in on the phone app".
+      headers: { 'Content-Type': 'application/json', 'X-Client': 'mobile' },
       body: JSON.stringify({ username, password }),
     });
   } catch {

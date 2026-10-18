@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, send_file, Response
 from werkzeug.utils import secure_filename
 from models import db, Video, Detection, RouteControlPoint
-from auth_tokens import current_user_id as get_user_id
+from auth_tokens import current_user_id as get_user_id, visible_videos
+from services.activity import record
 
 videos_bp = Blueprint('videos', __name__)
 
@@ -109,6 +110,9 @@ def upload_video():
     )
     db.session.add(video)
     db.session.commit()
+    record('survey_uploaded',
+           f'Uploaded "{video.name}" ({duration / 60:.1f} min, {"with" if gps_filename else "without"} a GPS track)',
+           target_type='survey', target_id=video.id)
 
     # Start processing in background thread
     video_id = video.id
@@ -133,7 +137,7 @@ def upload_video():
 def export_videos():
     """Per-video processing statistics — the throughput data for the evaluation chapter.
 
-    ?format=csv (default) or json. One row per video the caller owns:
+    ?format=csv (default) or json. One row per video the caller can see (all for an admin):
       frames            = duration × fps
       sampled_frames    = frames actually run through the model (every fps/INFERENCE_FPS-th)
       processing_seconds= wall-clock from upload complete to processing complete
@@ -144,7 +148,7 @@ def export_videos():
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    videos = Video.query.filter_by(user_id=user_id).order_by(Video.upload_date).all()
+    videos = visible_videos().order_by(Video.upload_date).all()
     rows = []
     for v in videos:
         fps = v.fps or 0
@@ -187,12 +191,12 @@ def export_videos():
 
 @videos_bp.route('', methods=['GET'])
 def list_videos():
-    """List all videos for the current user."""
+    """List the surveys the caller can see: their own, or every survey for an admin."""
     user_id = get_user_id()
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    videos = Video.query.filter_by(user_id=user_id).order_by(Video.upload_date.desc()).all()
+    videos = visible_videos().order_by(Video.upload_date.desc()).all()
     return jsonify({
         'videos': [v.to_dict() for v in videos]
     }), 200
@@ -205,7 +209,7 @@ def get_video(video_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -228,7 +232,7 @@ def rename_video(video_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -240,8 +244,10 @@ def rename_video(video_id):
     if len(name) > 300:
         return jsonify({'error': 'Name must be 300 characters or fewer'}), 400
 
+    old_name = video.name
     video.display_name = name or None
     db.session.commit()
+    record('survey_renamed', f'Renamed "{old_name}" to "{video.name}"', target_type='survey', target_id=video.id)
 
     return jsonify({'message': 'Video renamed', 'video': video.to_dict()}), 200
 
@@ -253,7 +259,7 @@ def delete_video(video_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -279,8 +285,12 @@ def delete_video(video_id):
             if os.path.exists(snap_path):
                 os.remove(snap_path)
 
+    summary = f'Deleted "{video.name}" and its {video.total_detections or 0} damage records'
+    if video.user_id != user_id:
+        summary += f' (uploaded by {video.uploader.username if video.uploader else "a removed account"})'
     db.session.delete(video)
     db.session.commit()
+    record('survey_deleted', summary, target_type='survey', target_id=video_id)
 
     return jsonify({'message': 'Video deleted successfully'}), 200
 
@@ -288,7 +298,7 @@ def delete_video(video_id):
 @videos_bp.route('/<int:video_id>/stream', methods=['GET'])
 def stream_original_video(video_id):
     """Stream the original uploaded video with range request support."""
-    video = Video.query.get(video_id)
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -302,7 +312,7 @@ def stream_original_video(video_id):
 @videos_bp.route('/<int:video_id>/processed', methods=['GET'])
 def stream_processed_video(video_id):
     """Stream the processed video with bounding boxes and range request support."""
-    video = Video.query.get(video_id)
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -351,7 +361,7 @@ def get_control_points(video_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -371,7 +381,7 @@ def save_control_points(video_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -403,6 +413,8 @@ def save_control_points(video_id):
     db.session.refresh(video)
 
     applied = apply_control_points_to_detections(video, db)
+    record('survey_placed', f'Placed "{video.name}" on the map with {len(points)} points '
+           f'({applied["positioned"]} damage records positioned)', target_type='survey', target_id=video.id)
 
     return jsonify(_control_points_payload(
         video, applied,
@@ -420,7 +432,7 @@ def delete_control_point(video_id, cp_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 

@@ -2,13 +2,13 @@
 // (frontend/src/labels.js, frontend/src/roles.js). Screens show these, never raw status values.
 import { MAX_RECORD_S } from './config';
 
+// The two system roles (backend models.ROLES). Both may record and upload on the phone;
+// the admin-only tasks are on the web app.
 export const ROLE_LABELS = {
-  admin: 'Administrator',
-  provincial: 'Provincial office',
-  municipal: 'Municipal office',
-  barangay: 'Barangay',
+  personnel: 'Road maintenance personnel',
+  admin: 'System administrator',
 };
-export const roleLabel = (user) => ROLE_LABELS[user?.role] || ROLE_LABELS.barangay;
+export const roleLabel = (user) => user?.role_label || ROLE_LABELS[user?.role] || ROLE_LABELS.personnel;
 
 /**
  * One status per survey, icon plus words (design.md §4). Before upload it describes the phone's

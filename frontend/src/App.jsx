@@ -9,6 +9,7 @@ import VideoListPage from './pages/VideoListPage';
 import SurveyPage from './pages/SurveyPage';
 import DamageMapPage from './pages/DamageMapPage';
 import DatabasePage from './pages/DatabasePage';
+import AdminPage from './pages/AdminPage';
 import Header from './components/Header';
 import Footer from './components/Footer';
 
@@ -65,20 +66,28 @@ function App() {
             <ProtectedRoute user={user} path="/upload"><UploadPage /></ProtectedRoute>
           } />
           <Route path="/videos" element={
-            <ProtectedRoute user={user} path="/videos"><VideoListPage /></ProtectedRoute>
+            <ProtectedRoute user={user} path="/videos"><VideoListPage user={user} /></ProtectedRoute>
           } />
           {/* Survey detail and "Place on the map" are two tabs of one page; both URLs stay. */}
           <Route path="/videos/:id" element={
-            <ProtectedRoute user={user} path="/videos"><SurveyPage tab="damage" /></ProtectedRoute>
+            <ProtectedRoute user={user} path="/videos"><SurveyPage tab="damage" user={user} /></ProtectedRoute>
           } />
           <Route path="/videos/:id/georeference" element={
-            <ProtectedRoute user={user} path="/videos"><SurveyPage tab="place" /></ProtectedRoute>
+            <ProtectedRoute user={user} path="/videos"><SurveyPage tab="place" user={user} /></ProtectedRoute>
           } />
           <Route path="/map" element={
             <ProtectedRoute user={user} path="/map"><DamageMapPage /></ProtectedRoute>
           } />
           <Route path="/database" element={
-            <ProtectedRoute user={user} path="/database"><DatabasePage /></ProtectedRoute>
+            <ProtectedRoute user={user} path="/database"><DatabasePage user={user} /></ProtectedRoute>
+          } />
+          {/* Administration (system administrator only): two tabs of one page. */}
+          <Route path="/admin" element={<Navigate to="/admin/accounts" replace />} />
+          <Route path="/admin/accounts" element={
+            <ProtectedRoute user={user} path="/admin"><AdminPage tab="accounts" user={user} /></ProtectedRoute>
+          } />
+          <Route path="/admin/activity" element={
+            <ProtectedRoute user={user} path="/admin"><AdminPage tab="activity" user={user} /></ProtectedRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" />} />

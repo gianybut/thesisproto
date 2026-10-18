@@ -372,18 +372,29 @@ The system uses a relational SQLite database managed through SQLAlchemy.
 
 ## 3.8 User Roles and Access
 
-The system follows the Philippine local government hierarchy:
+The system has two user roles. Road maintenance personnel are the primary users, who capture,
+upload and analyse road survey data. System administrators manage the platform, user accounts and
+data integrity. An administrator can do everything road maintenance personnel can, plus the
+administrative tasks.
 
-| Role         | Dashboard | Upload | Videos | Map | Database |
-|--------------|:---------:|:------:|:------:|:---:|:--------:|
-| Barangay     | ✓         | ✓      | ✓      | ✓   |          |
-| Municipal    | ✓         | ✓      | ✓      | ✓   | ✓        |
-| Provincial   | ✓         | ✓      | ✓      | ✓   | ✓        |
-| Administrator| ✓         | ✓      | ✓      | ✓   | ✓        |
+| Task                                                        | Road maintenance personnel | System administrator |
+|-------------------------------------------------------------|:--------------------------:|:--------------------:|
+| Sign in on the web application and the mobile capture app   | ✓                          | ✓                    |
+| Record a survey on the phone; upload a survey video and GPS track | ✓                    | ✓                    |
+| Follow processing; view detection results and annotated video | Own surveys              | Every survey         |
+| Place a survey on the map with control points; rename or delete a survey | Own surveys   | Every survey         |
+| View the damage map and the damage records                  | ✓                          | ✓                    |
+| Filter, sort and export damage records; update inspection status | ✓                     | ✓                    |
+| Correct or delete a damage record; accept or reject resident reports (manage detections) |  | ✓              |
+| Create accounts, change roles, turn accounts off, reset passwords (manage user accounts) |  | ✓              |
+| View the activity log (system logs)                         |                            | ✓                    |
 
-Accounts are created by the administrator; there is no public self-registration screen. A user with
-an unrecognised role gets the most restrictive (Barangay) access. Users see and manage the surveys
-they uploaded, while the map and database show damage records across all surveys.
+There is no self-registration: an administrator creates every account and gives the person a first
+password. Turning an account off keeps its surveys and history and signs the person out on their
+next request. The system always keeps at least one active administrator. The rules are enforced by
+the server on every request, not only by hiding pages in the interface. The activity log records
+sign-ins (including refused ones), uploads, survey changes, inspection-status changes, record
+corrections and deletions, exports and account changes, with the person and the time.
 
 ---
 
@@ -404,7 +415,7 @@ they uploaded, while the map and database show damage records across all surveys
 
 ## 3.10 API Summary
 
-The backend exposes a REST API under `/api`, grouped into seven blueprints:
+The backend exposes a REST API under `/api`, grouped into eight blueprints:
 
 | Area            | Prefix             | Main endpoints                                                                                |
 |-----------------|--------------------|-----------------------------------------------------------------------------------------------|
@@ -412,9 +423,10 @@ The backend exposes a REST API under `/api`, grouped into seven blueprints:
 | Videos          | `/api/videos`      | `POST /upload`, `GET /`, `GET/PATCH/DELETE /:id`, `GET /:id/stream`, `GET /:id/processed`, `GET /:id/snapshot/:file`, `GET/POST /:id/control-points`, `DELETE /:id/control-points/:cp`, `GET /export` |
 | Detections      | `/api`             | `GET /detections/:video_id`, `GET /dashboard/stats`                                           |
 | Map             | `/api/map`         | `GET /videos`, `GET /detections`, `GET /gps-tracks`, `GET /stats`                             |
-| Database        | `/api/database`    | `GET /detections`, `PUT /detections/:id/status`, `GET /export`, `GET /stats`                  |
-| Public reports  | `/api/reports`     | `POST /`, `GET /`, `GET /:id`, `PUT /:id/validate`, `PUT /:id/reject`, `GET /image/:file`     |
-| Accounts        | `/api/accounts`    | Administrator account management                                                              |
+| Database        | `/api/database`    | `GET /detections`, `PUT /detections/:id/status`, `PATCH/DELETE /detections/:id` (admin), `GET /export`, `GET /stats` |
+| Public reports  | `/api/reports`     | `POST /`, `GET /`, `GET /:id`, `PUT /:id/validate` (admin), `PUT /:id/reject` (admin), `GET /image/:file` |
+| Accounts        | `/api/accounts`    | `GET /`, `POST /`, `PATCH /:id`, `PUT /:id/password` (all admin)                              |
+| Activity log    | `/api/activity`    | `GET /` with person and action filters (admin)                                                |
 
 ---
 
@@ -431,9 +443,10 @@ The backend exposes a REST API under `/api`, grouped into seven blueprints:
 4. **Duplicate suppression is approximate.** The grid-and-window rule can still produce more than
    one record for a long crack that spans several grid cells, and can merge two separate damages
    that sit close together.
-5. **Authentication.** Session handling is simplified for the prototype and is not
-   production-grade. Role restrictions are enforced mainly in the user interface. A deployment
-   would need signed, expiring tokens and server-side authorisation checks.
+5. **Authentication.** Sign-in uses signed tokens that expire after 12 hours, and role rules are
+   checked by the server. There is no server-side sign-out: a token stays valid until it expires,
+   although turning an account off stops it at once. The prototype runs over plain HTTP on a local
+   network; a deployment would need HTTPS.
 6. **No severity assessment.** Damage is classified by type only. Severity scoring is future work.
 7. **Browser playback requires FFmpeg.** Without FFmpeg on the server, the annotated video stays as
    an AVI file that most browsers cannot play.
@@ -450,8 +463,9 @@ The backend exposes a REST API under `/api`, grouped into seven blueprints:
 - **Section cross-references.** The code comments cite Sec 3.1.6 (severity future work), Sec 3.2.1
   (training defaults), Sec 3.4 (inference settings / 10-minute cap), Formula 18, Formula 19 and
   Algorithm 1. Keep these numbers in step with the final chapter numbering.
-- **Limitation 5** is worded for a thesis audience. In the code, the bearer token is simply the user
-  ID and only the accounts routes check the role on the server.
+- **Limitation 5** matches the code: HS256 JWTs (`backend/auth_tokens.py`), `admin_required` and
+  `visible_videos()` on the server. Fig. 3.5.1 needs the same two actors with these use cases;
+  "View System Logs" now exists (Administration › Activity log).
 - **Figures.** Figures 3.1–3.3 are in [figures/](figures/), each as a high-resolution PNG (for
   Word: Insert → Pictures) and an SVG (sharper when scaled; Word 365 accepts it too). The `.mmd`
   file next to each is its Mermaid source. To regenerate after an edit:

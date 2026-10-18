@@ -7,8 +7,20 @@ import json
 
 db = SQLAlchemy()
 
-# Valid roles for the hierarchical access system
-VALID_ROLES = ['public', 'barangay', 'municipal', 'provincial', 'admin']
+# The two system roles of the thesis (Chapter 3, Sec 3.5 and Fig. 3.5.1). A system
+# administrator can do everything road maintenance personnel can, plus the admin-only tasks:
+# manage accounts, manage (correct or delete) detections, see every survey, and read the
+# activity log. Older databases used barangay/municipal/provincial/public/inspector;
+# migrate.py maps all of those to 'personnel'.
+ROLES = {
+    'personnel': 'Road maintenance personnel',
+    'admin': 'System administrator',
+}
+VALID_ROLES = list(ROLES)
+
+# Account states. 'inactive' blocks sign-in and ends existing sign-ins on their next request
+# (auth_tokens.verify_request). 'pending'/'rejected' were for the removed self-registration.
+ACCOUNT_STATUSES = ['active', 'inactive']
 
 # The four CRDDC 2022 evaluation classes, using RDD2022's own codes (Arya et al., 2022).
 # Note: there is no D30 in RDD2022 — D00 is longitudinal, D10 transverse, D20 alligator.
@@ -33,7 +45,7 @@ POSITION_SOURCES = ['gps_file', 'georeferenced', 'none']
 
 
 class User(db.Model):
-    """User account — supports hierarchical government roles."""
+    """User account: road maintenance personnel or system administrator (ROLES)."""
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -41,7 +53,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     full_name = db.Column(db.String(150), nullable=False)
     lgu_name = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(50), default='inspector')  # public, barangay, municipal, provincial, admin
+    role = db.Column(db.String(50), default='personnel')  # one of ROLES
     agency = db.Column(db.String(200), nullable=True)
     sector_level = db.Column(db.String(50), nullable=True)
     email = db.Column(db.String(200), nullable=True)
@@ -62,6 +74,10 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -69,6 +85,7 @@ class User(db.Model):
             'full_name': self.full_name,
             'lgu_name': self.lgu_name,
             'role': self.role,
+            'role_label': ROLES.get(self.role, ROLES['personnel']),
             'agency': self.agency,
             'sector_level': self.sector_level,
             'email': self.email,
@@ -135,6 +152,7 @@ class Video(db.Model):
             'processed_date': self.processed_date.isoformat() if self.processed_date else None,
             'total_detections': self.total_detections,
             'user_id': self.user_id,
+            'uploaded_by': (self.uploader.full_name or self.uploader.username) if self.uploader else None,
             'gps_filename': self.gps_filename,
             'gps_original_filename': self.gps_original_filename,
             'time_offset': self.time_offset,
@@ -315,4 +333,35 @@ class PublicReport(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'submitted_by': self.submitted_by,
+        }
+
+
+class ActivityLog(db.Model):
+    """Who did what, and when: the "View system logs" use case (thesis Fig. 3.5.1).
+
+    Written by services/activity.py from the routes; read only by a system administrator
+    (GET /api/activity). The username and summary are copied in at the time, so an entry
+    still reads correctly after the account or the survey is renamed or removed.
+    """
+    __tablename__ = 'activity_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # null: failed sign-in, system
+    username = db.Column(db.String(80), nullable=True)
+    action = db.Column(db.String(40), nullable=False, index=True)  # see services/activity.py ACTIONS
+    target_type = db.Column(db.String(30), nullable=True)  # survey, detection, account, report, export
+    target_id = db.Column(db.Integer, nullable=True)
+    summary = db.Column(db.String(500), nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'user_id': self.user_id,
+            'username': self.username,
+            'action': self.action,
+            'target_type': self.target_type,
+            'target_id': self.target_id,
+            'summary': self.summary,
         }

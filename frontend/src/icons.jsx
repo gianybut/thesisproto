@@ -35,6 +35,10 @@ const PATHS = {
   'user-circle': <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.5 18.5a6.5 6.5 0 0 1 11 0" /></>,
   road: <path d="M8 3 4 21M16 3l4 18M12 4v3M12 11v3M12 18v2" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  shield: <path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z" />,
+  'user-plus': <><circle cx="10" cy="8" r="4" /><path d="M3 20a7 7 0 0 1 12.5-4.3M19 14v6M16 17h6" /></>,
+  key: <><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9M17 6l3 3M14.5 8.5l2 2" /></>,
+  power: <path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0" />,
 };
 
 export default function Icon({ name, size = 20, className = '' }) {

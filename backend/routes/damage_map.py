@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 from models import db, Video, Detection, GpsTrackPoint
-from auth_tokens import current_user_id as get_user_id
+from auth_tokens import can_open_video, current_user_id as get_user_id
 from sqlalchemy import func
 
 damage_map_bp = Blueprint('damage_map', __name__)
@@ -17,7 +17,7 @@ def get_mappable_videos():
 
     rows = db.session.query(
         Video.id, Video.display_name, Video.original_filename, Video.road_name,
-        Video.position_source, func.count(Detection.id)
+        Video.position_source, Video.user_id, func.count(Detection.id)
     ).join(Detection, Detection.video_id == Video.id).filter(
         Detection.latitude.isnot(None)
     ).group_by(Video.id).order_by(Video.upload_date.desc()).all()
@@ -29,7 +29,8 @@ def get_mappable_videos():
             'road_name': road,
             'position_source': source,
             'detection_count': count,
-        } for vid, display, original, road, source, count in rows]
+            'can_open': can_open_video(owner),  # the map is shared; opening the survey is not
+        } for vid, display, original, road, source, owner, count in rows]
     }), 200
 
 
@@ -87,6 +88,7 @@ def get_map_detections():
             'source_type': d.source_type,
             'position_source': d.position_source,
             'created_at': d.created_at.isoformat() if d.created_at else None,
+            'can_open_video': bool(d.video and can_open_video(d.video.user_id)),
         } for d in detections]
     }), 200
 

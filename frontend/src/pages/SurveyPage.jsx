@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { videosAPI } from '../api';
 import { canPlaceByHand, formatDuration, isRunning, surveyName } from '../labels';
 import Icon from '../icons';
+import { isAdmin } from '../roles';
 import PageHeader from '../components/PageHeader';
 import SkeletonRows from '../components/SkeletonRows';
 import Notice from '../components/Notice';
@@ -16,7 +17,7 @@ import SurveyPlaceTab from './SurveyPlaceTab';
  * "Damage found" (/videos/:id) and "Place on the map" (/videos/:id/georeference). The tabs are
  * links styled as tabs; the second one appears only for surveys without GPS that did not fail.
  */
-export default function SurveyPage({ tab }) {
+export default function SurveyPage({ tab, user }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [video, setVideo] = useState(null);
@@ -71,6 +72,7 @@ export default function SurveyPage({ tab }) {
         meta={
           <p className="facts-line">
             <SurveyStatus video={video} />
+            {isAdmin(user) && video.user_id !== user.id && video.uploaded_by && <span>By {video.uploaded_by}</span>}
             {video.road_name && <span>{video.road_name}</span>}
             <span className="num">{formatDuration(video.duration)}</span>
             {video.resolution && <span className="num">{video.resolution}</span>}

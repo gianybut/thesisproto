@@ -1,12 +1,39 @@
-"""Centralized database routes — damage records management and export."""
+"""Centralized database routes — damage records management and export.
+
+Both roles can read every record, change its inspection status and export the list.
+Correcting a record (kind of damage, road name, repair note) and deleting one are the
+"Manage detections" use case and are admin only (thesis Fig. 3.5.1).
+"""
 
 import csv
 import io
 import json
-from flask import Blueprint, request, jsonify, Response
+import os
+from flask import Blueprint, request, jsonify, Response, current_app
 from models import db, Video, Detection, PublicReport, DAMAGE_TYPES, INSPECTION_STATUSES
-from auth_tokens import current_user_id as get_user_id
+from auth_tokens import admin_required, can_open_video, current_user_id as get_user_id, is_admin
+from services.activity import record
 from sqlalchemy import func
+
+STATUS_NAMES = {
+    'pending_validation': 'Not yet checked',
+    'inspected': 'Checked on site',
+    'scheduled': 'Repair scheduled',
+    'ongoing_repair': 'Repair under way',
+    'resolved': 'Repaired',
+}
+
+
+def _record_dict(d):
+    """A detection as the records page needs it: plus whether the caller may open its survey."""
+    row = d.to_dict()
+    row['can_open_video'] = bool(d.video and d.source_type != 'public_report' and can_open_video(d.video.user_id))
+    return row
+
+
+def _describe(d):
+    return f'record #{d.id} ({DAMAGE_TYPES.get(d.damage_type, d.damage_label or "damage").lower()}' + \
+        (f', {d.road_name})' if d.road_name else ')')
 
 database_bp = Blueprint('database', __name__)
 
@@ -73,7 +100,7 @@ def get_all_detections():
         'page': page,
         'per_page': per_page,
         'total_pages': (total + per_page - 1) // per_page,
-        'detections': [d.to_dict() for d in detections]
+        'detections': [_record_dict(d) for d in detections]
     }), 200
 
 
@@ -92,6 +119,11 @@ def update_detection_status(detection_id):
     if not detection:
         return jsonify({'error': 'Detection not found'}), 404
 
+    # Road name and repair note are corrections, which only an administrator makes.
+    if ('road_name' in data or 'repair_status' in data) and not is_admin():
+        return jsonify({'error': 'Only a system administrator can correct a damage record.', 'code': 'admin_only'}), 403
+
+    old_status = detection.inspection_status
     new_status = data.get('inspection_status')
     if new_status and new_status in INSPECTION_STATUSES:
         detection.inspection_status = new_status
@@ -105,6 +137,9 @@ def update_detection_status(detection_id):
         detection.road_name = road_name
 
     db.session.commit()
+    if new_status and new_status != old_status:
+        record('status_changed', f'Marked {_describe(detection)} "{STATUS_NAMES.get(new_status, new_status)}" '
+               f'(was "{STATUS_NAMES.get(old_status, old_status)}")', target_type='detection', target_id=detection.id)
 
     return jsonify({
         'message': 'Detection status updated.',
@@ -123,6 +158,8 @@ def export_data():
 
     detections = Detection.query.order_by(Detection.created_at.desc()).all()
     data = [d.to_dict() for d in detections]
+    record('data_exported', f'Downloaded {len(data)} damage records as {"JSON" if format_type == "json" else "CSV"}',
+           target_type='export')
 
     if format_type == 'json':
         return Response(
@@ -149,6 +186,62 @@ def export_data():
             mimetype='text/csv',
             headers={'Content-Disposition': 'attachment;filename=road_damage_data.csv'}
         )
+
+
+@database_bp.route('/detections/<int:detection_id>', methods=['PATCH'])
+@admin_required
+def correct_detection(detection_id):
+    """Admin: correct a record. Body: any of {damage_type, road_name}."""
+    detection = Detection.query.get(detection_id)
+    if not detection:
+        return jsonify({'error': 'That damage record no longer exists.'}), 404
+
+    data = request.get_json(silent=True) or {}
+    before = _describe(detection)
+    changes = []
+
+    if 'damage_type' in data and data['damage_type'] != detection.damage_type:
+        code = data['damage_type']
+        if code not in DAMAGE_TYPES:
+            return jsonify({'error': 'Choose one of the four kinds of damage.'}), 400
+        changes.append(f'kind of damage to {DAMAGE_TYPES[code].lower()}')
+        detection.damage_type = code
+        detection.damage_label = DAMAGE_TYPES[code]
+
+    if 'road_name' in data:
+        road = (data.get('road_name') or '').strip() or None
+        if road != detection.road_name:
+            changes.append(f'road name to "{road}"' if road else 'removed the road name')
+            detection.road_name = road
+
+    if changes:
+        db.session.commit()
+        record('detection_corrected', f'Corrected {before}: {", ".join(changes)}',
+               target_type='detection', target_id=detection.id)
+    return jsonify({'message': 'Saved.' if changes else 'Nothing changed.', 'detection': _record_dict(detection)}), 200
+
+
+@database_bp.route('/detections/<int:detection_id>', methods=['DELETE'])
+@admin_required
+def delete_detection(detection_id):
+    """Admin: delete a record (a false detection), with its snapshot."""
+    detection = Detection.query.get(detection_id)
+    if not detection:
+        return jsonify({'error': 'That damage record no longer exists.'}), 404
+
+    summary = f'Deleted {_describe(detection)}'
+    if detection.frame_snapshot:
+        snap = os.path.join(current_app.config['SNAPSHOTS_FOLDER'], detection.frame_snapshot)
+        if os.path.exists(snap):
+            os.remove(snap)
+    video = detection.video
+    if video and video.total_detections:
+        video.total_detections -= 1
+        summary += f' from "{video.name}"'
+    db.session.delete(detection)
+    db.session.commit()
+    record('detection_deleted', summary, target_type='detection', target_id=detection_id)
+    return jsonify({'message': 'Record deleted.'}), 200
 
 
 @database_bp.route('/stats', methods=['GET'])

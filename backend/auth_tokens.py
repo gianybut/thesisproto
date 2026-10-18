@@ -7,16 +7,23 @@ caller with `current_user_id()` / `current_user()` instead of parsing headers.
 
 Media endpoints (QUERY_TOKEN_ENDPOINTS) also accept `?token=<jwt>`, because a
 browser <video>/<img> src cannot send an Authorization header.
+
+Roles (models.ROLES) are enforced here on the server, not only by hiding pages:
+`admin_required` guards the admin-only routes, and `visible_videos()` is the one place
+that decides whose surveys a caller may see (an administrator sees every survey; road
+maintenance personnel see their own).
 """
 
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 
 import jwt
 from flask import g, jsonify, request
+from sqlalchemy import true
 
-from models import User
+from models import User, Video
 
 ALGORITHM = 'HS256'
 DEFAULT_EXPIRY_HOURS = 12
@@ -25,7 +32,6 @@ DEFAULT_EXPIRY_HOURS = 12
 PUBLIC_ENDPOINTS = {
     'auth.login',
     'auth.logout',
-    'auth.register',              # still live, UI removed; see CLAUDE.md "Role list drift"
     'public_reports.submit_report',  # anonymous citizen reports; a valid token is used if sent
 }
 
@@ -115,3 +121,33 @@ def current_user():
 def current_user_id():
     user = g.get('user')
     return user.id if user else None
+
+
+def is_admin():
+    user = g.get('user')
+    return bool(user and user.is_admin)
+
+
+def admin_required(view):
+    """Route decorator: 403 unless the caller is a system administrator."""
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if not is_admin():
+            return jsonify({'error': 'Only a system administrator can do this.', 'code': 'admin_only'}), 403
+        return view(*args, **kwargs)
+    return wrapper
+
+
+def video_scope():
+    """Filter clause for the surveys the caller may see: every survey for an admin, else their own.
+    Use it in joins and aggregates; visible_videos() is the same as a ready query."""
+    return true() if is_admin() else (Video.user_id == current_user_id())
+
+
+def visible_videos():
+    return Video.query.filter(video_scope())
+
+
+def can_open_video(video_user_id):
+    """Whether the caller may open a survey owned by `video_user_id` (see visible_videos)."""
+    return is_admin() or video_user_id == current_user_id()

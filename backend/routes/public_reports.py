@@ -5,7 +5,8 @@ import uuid
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from models import db, PublicReport, Detection, DAMAGE_TYPES
-from auth_tokens import current_user_id as get_user_id
+from auth_tokens import admin_required, current_user_id as get_user_id
+from services.activity import record
 
 public_reports_bp = Blueprint('public_reports', __name__)
 
@@ -105,8 +106,10 @@ def get_report(report_id):
 
 
 @public_reports_bp.route('/<int:report_id>/validate', methods=['PUT'])
+@admin_required
 def validate_report(report_id):
-    """Validate a public report — converts to official detection record."""
+    """Validate a public report — converts to official detection record. Admin only
+    ("Manage detections"), because it adds a record every role then sees."""
     user_id = get_user_id()
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
@@ -141,6 +144,8 @@ def validate_report(report_id):
         db.session.add(detection)
 
     db.session.commit()
+    record('report_validated', f'Accepted resident report #{report.id} ({report.damage_label or "damage"})',
+           target_type='report', target_id=report.id)
 
     return jsonify({
         'message': 'Report validated and added to damage database.',
@@ -149,6 +154,7 @@ def validate_report(report_id):
 
 
 @public_reports_bp.route('/<int:report_id>/reject', methods=['PUT'])
+@admin_required
 def reject_report(report_id):
     """Reject a public report."""
     user_id = get_user_id()
@@ -165,6 +171,7 @@ def reject_report(report_id):
     report.validated_by = user_id
     report.rejection_reason = data.get('reason', '')
     db.session.commit()
+    record('report_rejected', f'Rejected resident report #{report.id}', target_type='report', target_id=report.id)
 
     return jsonify({
         'message': 'Report rejected.',

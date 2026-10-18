@@ -55,6 +55,7 @@ def create_app():
     from routes.public_reports import public_reports_bp
     from routes.database import database_bp
     from routes.accounts import accounts_bp
+    from routes.activity import activity_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(videos_bp, url_prefix='/api/videos')
@@ -63,6 +64,7 @@ def create_app():
     app.register_blueprint(public_reports_bp, url_prefix='/api/reports')
     app.register_blueprint(database_bp, url_prefix='/api/database')
     app.register_blueprint(accounts_bp, url_prefix='/api/accounts')
+    app.register_blueprint(activity_bp, url_prefix='/api/activity')
 
     # Processing runs in a plain thread that dies with the server. Anything still marked
     # 'uploaded' or 'processing' at boot was interrupted and will never finish — say so

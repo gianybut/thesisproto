@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
  * Native <dialog> confirmation. Opens as a modal while `open` is true; Escape or
  * "Keep" cancels. The destructive button is the only filled red button in the app.
  */
-export default function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel = 'Cancel', onConfirm, onCancel, busy }) {
+export default function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel = 'Cancel', busyLabel = 'Deleting…', onConfirm, onCancel, busy }) {
   const ref = useRef();
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function ConfirmDialog({ open, title, children, confirmLabel, can
       <div className="dialog-body">{children}</div>
       <div className="dialog-actions">
         <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={busy}>
-          {busy ? 'Deleting…' : confirmLabel}
+          {busy ? busyLabel : confirmLabel}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
           {cancelLabel}

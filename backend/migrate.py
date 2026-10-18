@@ -57,6 +57,12 @@ BACKFILL = [
     ("detections: clear legacy severity values",
      "UPDATE detections SET severity = NULL, severity_score = NULL "
      "WHERE severity IS NOT NULL OR severity_score IS NOT NULL"),
+    # Two system roles (thesis Fig. 3.5.1): every older role is road maintenance personnel.
+    ("users: barangay/municipal/provincial/public/inspector -> personnel",
+     "UPDATE users SET role = 'personnel' WHERE role IS NULL OR role NOT IN ('personnel', 'admin')"),
+    # Self-registration is gone, so an account still waiting for approval can never be used.
+    ("users: pending/rejected registrations -> inactive",
+     "UPDATE users SET account_status = 'inactive' WHERE account_status IN ('pending', 'rejected')"),
     # The partner office is the LGU of Mendez-Nuñez, not the DPWH central office.
     ("users: DPWH Central Office -> Local Government Unit of Mendez-Nuñez",
      "UPDATE users SET lgu_name = 'Local Government Unit of Mendez-Nuñez', "

@@ -20,7 +20,7 @@ import {
 import { C, R, S, s } from '../theme';
 
 // One survey on this phone: the web's survey page, cut down to what a phone can do with it.
-export default function PreviewScreen({ sessionId, onBack, onSignOut }) {
+export default function PreviewScreen({ sessionId, onBack }) {
   const insets = useSafeAreaInsets();
   const [session, setSession] = useState(() => getSession(sessionId));
   const [busy, setBusy] = useState(null);
@@ -48,7 +48,7 @@ export default function PreviewScreen({ sessionId, onBack, onSignOut }) {
   if (!session) {
     return (
       <View style={s.screen}>
-        <AppBar onSignOut={onSignOut} />
+        <AppBar />
         <View style={s.page}>
           <PageHeader title="Survey deleted" back={{ label: 'Surveys', onPress: onBack }} />
         </View>
@@ -70,7 +70,7 @@ export default function PreviewScreen({ sessionId, onBack, onSignOut }) {
 
   return (
     <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <AppBar onSignOut={onSignOut} />
+      <AppBar />
       <ScrollView contentContainerStyle={[s.page, { paddingBottom: insets.bottom + S[7] }]} keyboardShouldPersistTaps="handled">
         <PageHeader
           title={title}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAccount } from '../account';
 import { getServerUrl, getUser } from '../auth';
 import Icon from '../icons';
 import { roleLabel } from '../labels';
@@ -13,10 +14,12 @@ import Sheet from './Sheet';
 /**
  * The one navy bar, as the web header: the logo on a white tile (the green is 2.2:1 on navy)
  * and "OcuLubak" on the left, the account button on the right. The account panel holds the
- * name, role, server, the Wi-Fi-only setting and Sign out.
+ * name, role, server, the Wi-Fi-only setting and Sign out. Signed out, the account button is
+ * replaced by "Sign in"; the rest of the app keeps working.
  */
-export default function AppBar({ onSignOut }) {
+export default function AppBar() {
   const insets = useSafeAreaInsets();
+  const { signedIn, signIn, signOut } = useAccount();
   const [open, setOpen] = useState(false);
   const user = getUser();
   const name = user?.full_name || user?.username || 'Account';
@@ -30,24 +33,28 @@ export default function AppBar({ onSignOut }) {
           </View>
           <Text style={{ fontFamily: F.bold, ...T.md, color: '#FFFFFF' }}>OcuLubak</Text>
         </View>
-        <Pressable
-          onPress={() => setOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Account: ${name}, ${roleLabel(user)}`}
-          style={({ pressed }) => [{
-            flexDirection: 'row', alignItems: 'center', gap: S[2], minHeight: TAP, paddingHorizontal: S[2],
-            borderRadius: R.sm, maxWidth: '55%',
-          }, pressed && { backgroundColor: 'rgba(255,255,255,0.08)' }]}
-        >
-          <Icon name="user-circle" color="#FFFFFF" />
-          <View style={{ flexShrink: 1 }}>
-            <Text style={{ fontFamily: F.semibold, ...T.sm, color: '#FFFFFF' }} numberOfLines={1}>{name}</Text>
-            <Text style={{ fontFamily: F.regular, fontSize: 12, lineHeight: 16, color: C.headerMuted }} numberOfLines={1}>{roleLabel(user)}</Text>
-          </View>
-          <Icon name="chevron-down" size={16} color="#FFFFFF" />
-        </Pressable>
+        {!signedIn ? (
+          <Button label="Sign in" icon="user-circle" variant="onDark" onPress={() => { setOpen(false); signIn(); }} />
+        ) : (
+          <Pressable
+            onPress={() => setOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Account: ${name}, ${roleLabel(user)}`}
+            style={({ pressed }) => [{
+              flexDirection: 'row', alignItems: 'center', gap: S[2], minHeight: TAP, paddingHorizontal: S[2],
+              borderRadius: R.sm, maxWidth: '55%',
+            }, pressed && { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+          >
+            <Icon name="user-circle" color="#FFFFFF" />
+            <View style={{ flexShrink: 1 }}>
+              <Text style={{ fontFamily: F.semibold, ...T.sm, color: '#FFFFFF' }} numberOfLines={1}>{name}</Text>
+              <Text style={{ fontFamily: F.regular, fontSize: 12, lineHeight: 16, color: C.headerMuted }} numberOfLines={1}>{roleLabel(user)}</Text>
+            </View>
+            <Icon name="chevron-down" size={16} color="#FFFFFF" />
+          </Pressable>
+        )}
       </View>
-      <AccountSheet visible={open} onClose={() => setOpen(false)} name={name} user={user} onSignOut={onSignOut} />
+      <AccountSheet visible={open && signedIn} onClose={() => setOpen(false)} name={name} user={user} onSignOut={signOut} />
     </View>
   );
 }
@@ -81,7 +88,7 @@ function AccountSheet({ visible, onClose, name, user, onSignOut }) {
 
         <View style={{ gap: S[2] }}>
           <Button label="Sign out" icon="logout" block onPress={() => { onClose(); onSignOut(); }} />
-          <Text style={s.fieldHint}>Surveys on this phone are kept, and waiting uploads continue after you sign in again.</Text>
+          <Text style={s.fieldHint}>Surveys on this phone are kept, and you can still record. Uploads wait until you sign in again.</Text>
         </View>
       </View>
     </Sheet>

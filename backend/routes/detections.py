@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 from models import db, Video, Detection, PublicReport
-from auth_tokens import current_user_id as get_user_id
+from auth_tokens import current_user_id as get_user_id, is_admin, video_scope, visible_videos
 from sqlalchemy import func
 
 detections_bp = Blueprint('detections', __name__)
@@ -15,7 +15,7 @@ def get_detections(video_id):
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
-    video = Video.query.filter_by(id=video_id, user_id=user_id).first()
+    video = visible_videos().filter_by(id=video_id).first()
     if not video:
         return jsonify({'error': 'Video not found'}), 404
 
@@ -30,31 +30,33 @@ def get_detections(video_id):
 
 @detections_bp.route('/dashboard/stats', methods=['GET'])
 def get_dashboard_stats():
-    """Get aggregate dashboard statistics with damage type and status breakdowns."""
+    """Overview statistics over the surveys the caller can see (every survey for an admin)."""
     user_id = get_user_id()
     if not user_id:
         return jsonify({'error': 'Authentication required'}), 401
 
+    scope = video_scope()
+
     # Total videos
-    total_videos = Video.query.filter_by(user_id=user_id).count()
+    total_videos = Video.query.filter(scope).count()
 
     # Videos by status
-    completed_videos = Video.query.filter_by(user_id=user_id, status='completed').count()
-    processing_videos = Video.query.filter_by(user_id=user_id, status='processing').count()
+    completed_videos = Video.query.filter(scope, Video.status == 'completed').count()
+    processing_videos = Video.query.filter(scope, Video.status == 'processing').count()
 
     # Total detections
     total_detections = db.session.query(func.sum(Video.total_detections)).filter(
-        Video.user_id == user_id
+        scope
     ).scalar() or 0
 
     # Average confidence
     avg_confidence = db.session.query(func.avg(Detection.confidence)).join(Video).filter(
-        Video.user_id == user_id
+        scope
     ).scalar() or 0
 
     # Total video duration processed
     total_duration = db.session.query(func.sum(Video.duration)).filter(
-        Video.user_id == user_id,
+        scope,
         Video.status == 'completed'
     ).scalar() or 0
 
@@ -62,19 +64,19 @@ def get_dashboard_stats():
     type_counts = db.session.query(
         Detection.damage_type, Detection.damage_label, func.count(Detection.id)
     ).join(Video).filter(
-        Video.user_id == user_id
+        scope
     ).group_by(Detection.damage_type, Detection.damage_label).all()
 
     # Status breakdown
     status_counts = db.session.query(
         Detection.inspection_status, func.count(Detection.id)
     ).join(Video).filter(
-        Video.user_id == user_id
+        scope
     ).group_by(Detection.inspection_status).all()
 
     # Geo-located count
     geolocated_count = Detection.query.join(Video).filter(
-        Video.user_id == user_id,
+        scope,
         Detection.latitude.isnot(None)
     ).count()
 
@@ -83,15 +85,16 @@ def get_dashboard_stats():
 
     # Recent detections
     recent_detections = Detection.query.join(Video).filter(
-        Video.user_id == user_id
+        scope
     ).order_by(Detection.created_at.desc()).limit(10).all()
 
     # Recent videos
-    recent_videos = Video.query.filter_by(user_id=user_id).order_by(
+    recent_videos = Video.query.filter(scope).order_by(
         Video.upload_date.desc()
     ).limit(5).all()
 
     return jsonify({
+        'scope': 'all' if is_admin() else 'own',
         'total_videos': total_videos,
         'completed_videos': completed_videos,
         'processing_videos': processing_videos,

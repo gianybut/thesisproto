@@ -559,6 +559,36 @@ select.input { cursor: pointer; }
 .pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); }
 
 /* ===========================================================================
+   Administration: accounts and activity log
+   =========================================================================== */
+.admin-toolbar, .record-card-foot { justify-content: space-between; }
+.stack > .records-filters { margin-bottom: 0; }
+.form-panel { max-width: var(--form-max); }
+.choice-list { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); }
+.choice { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-tint); }
+.choice input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--color-primary); flex: 0 0 auto; }
+.choice-label { display: block; font-weight: var(--weight-semibold); }
+fieldset.field { border: 0; min-width: 0; }
+
+.account-list, .activity-list { padding: 0 var(--space-5); }
+.account-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 16rem 8rem auto; align-items: center; gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) 0; border-top: 1px solid var(--color-border);
+}
+.account-row:first-child, .activity-row:first-child { border-top: 0; }
+.account-main { min-width: 0; }
+.account-facts { display: flex; flex-direction: column; }
+.account-form { grid-column: 1 / -1; max-width: var(--form-max); }
+.activity-row {
+  display: grid; grid-template-columns: 11rem 9rem minmax(0, 1fr); gap: var(--space-1) var(--space-5);
+  padding: var(--space-3) 0; border-top: 1px solid var(--color-border);
+}
+.activity-when, .activity-who { font-size: var(--text-sm); }
+.activity-who { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+.activity-what p { max-width: none; overflow-wrap: anywhere; }
+
+/* ===========================================================================
    Login
    =========================================================================== */
 .login-page { min-height: 100vh; background: var(--color-subtle); }
@@ -584,13 +614,20 @@ select.input { cursor: pointer; }
   .survey-state { grid-column: 1 / -1; grid-row: 2; }
   .survey-actions { grid-column: 1 / -1; grid-row: 3; justify-content: space-between; }
   .survey-row > .survey-main { grid-column: 1 / -1; }
+  .account-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .account-row > .account-main { grid-column: 1; }
+  .account-row > .survey-actions { grid-column: 2; grid-row: 1; }
+  .account-facts, .account-state { grid-column: 1 / -1; }
+  .activity-row { grid-template-columns: 1fr; }
+  .activity-what { margin-top: var(--space-1); }
 }
 
 @media (max-width: 40rem) {
   :root { --gutter: 1rem; --text-xl: 1.5rem; }
   .page { padding-top: var(--space-5); }
   .panel { padding: var(--space-4); }
-  .survey-list { padding: 0 var(--space-4); }
+  .survey-list, .account-list, .activity-list { padding: 0 var(--space-4); }
+  .admin-toolbar .btn { width: 100%; }
   .damage-panel { padding: var(--space-4) 0 0; }
   .start-panel .btn { width: 100%; }
   .page-head-actions, .page-head-actions .btn, .page-head-actions .disclosure, .page-head-actions .disclosure > .btn { width: 100%; }

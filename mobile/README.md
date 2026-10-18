@@ -72,7 +72,8 @@ rebuilt with `npx expo run:ios --device`. Recordings stored in the app survive t
 
 | File | Role |
 |---|---|
-| `src/auth.js` | Sign-in, JWT in SecureStore, any 401 (expired, invalid) → back to sign-in with recordings and queue kept. Remembers the server address; `http://` is added if left out. |
+| `src/auth.js` | Sign-in, JWT in SecureStore, any 401 (expired, invalid) signs the phone out with recordings and queue kept. Remembers the server address; `http://` is added if left out. |
+| `src/account.js` | Signed-in state for the screens. Signed out is a working state: recording and the survey list stay available, uploads wait, and the header and survey list offer *Sign in*. Only a phone's first launch requires signing in (to set the server address). |
 | `src/locationTask.js` | Background GPS task; appends each fix to `points.jsonl` as it arrives. |
 | `src/gpx.js` | GPX 1.1 writer, stale-fix filter and the `time_offset` calculation. No Expo imports, so it runs under Node. |
 | `src/capture.js` | After stop: moves the video out of the camera cache, checks it is complete, builds the GPX, stores the session. |
@@ -120,8 +121,8 @@ less than 2 GB free (544 MB while the size cap was on).
 
 **Queue.** Sessions are `recorded → queued → uploading → uploaded`, or `failed`. The queue is
 saved to disk, and on launch an interrupted upload goes back to `queued`. Upload pauses
-while recording. A 401 leaves the session queued and returns to sign-in; it resumes after
-signing in. A 400 or 413 from the server fails straight away, because a retry would be
+while recording. A 401 leaves the session queued and signs the phone out without leaving the
+current screen, so an expired sign-in never interrupts the camera; it resumes after signing in. A 400 or 413 from the server fails straight away, because a retry would be
 rejected the same way.
 
 ## Platform differences
@@ -159,7 +160,7 @@ OpenCV decoded every frame of both. A truncated `.mov` is flagged by the complet
 - [ ] GPX opens in a viewer (GPXSee) and the track matches the road.
 - [ ] Upload accepted, processed end-to-end, detections placed on the web map. The phone's status goes *Uploaded* → *Analysing n%* → *Ready, n damages found*, matching the web app.
 - [ ] Turn Wi-Fi off mid-upload: the session retries and completes.
-- [ ] Expired token (set `JWT_EXPIRY_HOURS=0.01` on the server) returns to sign-in with recordings kept.
+- [ ] Expired token (set `JWT_EXPIRY_HOURS=0.01` on the server): the app stays usable, recording still works, the header shows *Sign in*, and queued surveys upload after signing in.
 - [ ] **Thermal:** windshield mount, screen on, full session at midday. Note throttling, the
       iOS "temperature" warning screen, or recording stopping. Chapter 2 argues from thermal
       throttling, so a capture failure here is material.

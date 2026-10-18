@@ -150,8 +150,11 @@ in the account panel (tap your name at the top right). While a survey is waiting
 the survey list also offers **Upload over mobile data**. Uploading needs free space about
 the size of the video for a temporary copy.
 
-Sign-ins last 12 hours. After that, the app returns to the sign-in screen; your surveys and
-the upload queue are kept and resume after you sign in.
+Sign-ins last 12 hours (`JWT_EXPIRY_HOURS` on the server). After that the app keeps working:
+you can still record and see your surveys, and the header shows **Sign in** instead of your
+name. Surveys wait on the phone and upload once you sign in again. The sign-in screen only
+appears by itself the first time, to set the server address; after that it has **Record
+without signing in**.
 
 ## 8. Every 7 days: rebuild
 
@@ -165,6 +168,7 @@ can also keep only 3 of your own apps on a phone at a time.
 |---|---|
 | Build: "iOS xx.x is not installed" | Step 1.2: install the iOS platform in Xcode › Settings › Components. |
 | Build: signing / certificate / provisioning errors | Step 3: set your Personal Team in Xcode once. |
+| Build succeeds, then install fails with `ApplicationVerificationFailed` | Run `xcrun devicectl device install app --device <id> <path to OcuLubak.app>` to see the reason. If it names an unsigned framework (`hermesvm.framework`, `React.framework` …), an earlier Debug build left stale copies. Delete `~/Library/Developer/Xcode/DerivedData/OcuLubak-*` and `mobile/ios/build`, run `pod install` in `mobile/ios` (it regenerates `ios/build`), then build again. |
 | Xcode doesn't list the iPhone | Unlock the phone, re-plug the cable, tap Trust, and check Developer Mode (step 2). |
 | App won't open, "Untrusted Developer" | Step 4.1. |
 | App won't open after about a week | Rebuild (step 8). |

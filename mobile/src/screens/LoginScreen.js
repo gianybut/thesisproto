@@ -10,7 +10,8 @@ import { C, F, S, T, s } from '../theme';
 
 // The web sign-in page (frontend/src/pages/LoginPage.jsx) plus the server address, which a
 // phone has to be told. Once an address has been used it folds into one line with "Change".
-export default function LoginScreen({ onLoggedIn, notice }) {
+// onCancel (null on a phone's first sign-in) leads back to recording without signing in.
+export default function LoginScreen({ onLoggedIn, onCancel, notice }) {
   const insets = useSafeAreaInsets();
   const [server, setServer] = useState(getServerUrl());
   const [editServer, setEditServer] = useState(!hasSavedServer());
@@ -110,6 +111,9 @@ export default function LoginScreen({ onLoggedIn, notice }) {
           />
 
           <Button label={busy ? 'Signing in…' : 'Sign in'} variant="primary" block disabled={busy} onPress={submit} />
+          {onCancel && (
+            <Button label="Record without signing in" icon="video" variant="quiet" block onPress={onCancel} />
+          )}
           <Text style={[s.muted, { textAlign: 'center' }]}>Accounts are set up by your system administrator.</Text>
         </View>
       </ScrollView>

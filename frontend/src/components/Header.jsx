@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: '/videos', label: 'Surveys', icon: 'video' },
   { path: '/map', label: 'Damage map', icon: 'map' },
   { path: '/database', label: 'Damage records', icon: 'table' },
+  { path: '/admin', label: 'Administration', icon: 'shield' },
 ];
 
 

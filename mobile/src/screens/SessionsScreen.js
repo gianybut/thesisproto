@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAccount } from '../account';
 import { ensureThumbnail } from '../media';
 import { checkNow } from '../serverStatus';
 import { getSessions, subscribe } from '../storage';
@@ -21,12 +22,13 @@ import {
 } from '../labels';
 import { C, F, R, S, T, s } from '../theme';
 
-export default function SessionsScreen({ onBack, onSignOut, onPreview }) {
+export default function SessionsScreen({ onBack, onPreview }) {
   const insets = useSafeAreaInsets();
   const [sessions, setSessions] = useState(getSessions());
   const [settings, setSettingsState] = useState(getSettings());
   const [wait, setWait] = useState(null);
   const [menuFor, setMenuFor] = useState(null);
+  const { signedIn, signIn } = useAccount();
 
   useEffect(() => subscribe(setSessions), []);
   useEffect(() => onSettings(setSettingsState), []);
@@ -48,7 +50,16 @@ export default function SessionsScreen({ onBack, onSignOut, onPreview }) {
   const header = (
     <>
       <PageHeader title="Surveys on this phone" back={{ label: 'Camera', onPress: onBack }} meta={meta} />
-      {pending && wait && (
+      {!signedIn && toUpload > 0 && (
+        <Notice
+          kind="info"
+          style={{ marginBottom: S[5] }}
+          action={<Button label="Sign in" icon="user-circle" variant="quiet" onPress={signIn} style={{ marginLeft: -S[3] }} />}
+        >
+          You are signed out. These surveys stay on this phone and upload after you sign in.
+        </Notice>
+      )}
+      {signedIn && pending && wait && (
         <Notice
           kind="info"
           style={{ marginBottom: S[5] }}
@@ -66,7 +77,7 @@ export default function SessionsScreen({ onBack, onSignOut, onPreview }) {
 
   return (
     <View style={s.screen}>
-      <AppBar onSignOut={onSignOut} />
+      <AppBar />
       <FlatList
         data={sessions}
         keyExtractor={(x) => x.id}

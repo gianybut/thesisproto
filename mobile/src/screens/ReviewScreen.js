@@ -15,7 +15,7 @@ import { S, s } from '../theme';
  * Straight after a recording stops: what was saved, an optional road name, and one main action.
  * onDone({ upload, roadName }) hands back to the camera screen.
  */
-export default function ReviewScreen({ sessionId, onDone, onSignOut }) {
+export default function ReviewScreen({ sessionId, onDone }) {
   const insets = useSafeAreaInsets();
   const [roadName, setRoadName] = useState('');
   const sess = getSession(sessionId);
@@ -23,7 +23,7 @@ export default function ReviewScreen({ sessionId, onDone, onSignOut }) {
 
   return (
     <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <AppBar onSignOut={onSignOut} />
+      <AppBar />
       <ScrollView contentContainerStyle={[s.page, { paddingBottom: insets.bottom + S[7] }]} keyboardShouldPersistTaps="handled">
         <PageHeader title={saved ? 'Survey recorded' : 'The survey was not saved'} />
         <View style={s.stack}>

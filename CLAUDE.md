@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 "OcuLubak" — a road damage detection system for Philippine LGUs. A YOLOv8 model scores road
 survey videos for the four CRDDC 2022 classes (D00 longitudinal, D10 transverse, D20 alligator,
 D40 pothole — RDD2022's own codes; there is no D30), detections are geo-located from an uploaded
-GPS track or from user-placed control points, and surfaced through a React web app with LGU roles
-(barangay → municipal → provincial → admin). The partner office is the Local Government Unit of
+GPS track or from user-placed control points, and surfaced through a React web app with the thesis's two roles
+(road maintenance personnel and system administrator, see "Roles"). The partner office is the Local Government Unit of
 Mendez-Nuñez, Cavite (the seeded admin's `lgu_name`); never "DPWH Central Office". The web UI deliberately does not
 show the LGU name anywhere (header, footer, login, metadata); keep it out of new UI copy too. Severity
 scoring was dropped from the product: nothing computes, stores, returns or displays it.
@@ -103,7 +103,7 @@ default 12) plus `user`. [backend/auth_tokens.py](backend/auth_tokens.py) regist
 `before_request` hook: every `/api/*` request needs `Authorization: Bearer <jwt>` for an existing,
 `active` user, or it gets a 401 with `code` = `token_missing` / `token_expired` / `token_invalid` /
 `user_inactive` before the route runs. Exceptions are the endpoint names in `PUBLIC_ENDPOINTS`
-(login, logout, register, anonymous report submission). The media endpoints in
+(login, logout, anonymous report submission). The media endpoints in
 `QUERY_TOKEN_ENDPOINTS` also accept `?token=`, because `<video>`/`<img>` cannot send headers.
 There is no Flask session and no server-side logout; a token is valid until it expires.
 
@@ -114,30 +114,42 @@ Routes read the caller with `current_user_id()` / `current_user()` from `auth_to
 files import it as `get_user_id`). A new route is protected by default; add its endpoint name to
 `PUBLIC_ENDPOINTS` only if it must work logged out.
 
-What is still true:
-
-- **Role enforcement is almost entirely client-side.** `ROLE_ROUTE_ACCESS` in
-  [frontend/src/roles.js](frontend/src/roles.js) hides routes and nav links; the only server-side role check is
-  `_require_admin()` in [backend/routes/accounts.py](backend/routes/accounts.py).
-- **Data scoping varies per route file, not through a shared layer.** `videos`, `detections`, and
-  `dashboard/stats` filter by `Video.user_id`; `map`, `database`, and `reports` return everything to
-  any logged-in caller.
+Survey scoping goes through one place: `visible_videos()` / `video_scope()` in `auth_tokens` (every
+survey for an admin, the caller's own otherwise). `videos` (including the stream endpoints),
+`detections` and `dashboard/stats` use it. `map` and `database` return every record to both roles, and
+mark each with `can_open_video` / `can_open` so the UI only links to surveys the caller may open.
 
 The web client keeps the token in `localStorage` (`token`); [api.js](frontend/src/api.js) attaches it,
 appends it to media URLs, and on any 401 outside login clears it and fires `auth:expired`, which
 `App.jsx` turns into the login screen with a notice.
 
-### Role list drift
+### Roles
 
-The frontend knows four roles — `barangay`, `municipal`, `provincial`, `admin` — defined once in
-[frontend/src/roles.js](frontend/src/roles.js) (`ROLE_ROUTE_ACCESS`, `ROLE_LABELS`, `canAccess`).
-`App.jsx` guards routes with it, the navbar builds its menu from it, and the overview page uses it to
-hide tasks a role cannot open. Unknown roles fall back to `barangay` (the most restrictive set).
+Two roles, matching the thesis (Chapter 3 §3.5, Fig. 3.5.1): `personnel` (Road maintenance personnel)
+and `admin` (System administrator), defined in `models.ROLES`. The admin can do everything personnel
+can, plus:
 
-The backend still carries the older, wider list: `models.VALID_ROLES` has `public`,
-`auth.SELF_REGISTER_ROLES` has `public`/`inspector`, and `/api/auth/register` plus `/api/accounts/*`
-are still live although their UI was removed. Accounts are meant to be created directly in the
-database; backend cleanup of these routes is pending and is the user's own workstream.
+| Admin only | Server check | UI |
+|---|---|---|
+| Manage user accounts (create, change name/role, turn off/on, reset password) | `admin_required` on `/api/accounts` | Administration › Accounts |
+| View the activity log | `admin_required` on `/api/activity` | Administration › Activity log |
+| Manage detections: correct the kind of damage or road name, delete a record, accept/reject resident reports | `admin_required` on `PATCH`/`DELETE /api/database/detections/<id>` and report validate/reject; `PUT .../status` refuses `road_name`/`repair_status` from personnel | More menu per record on Damage records |
+| See every survey | `visible_videos()` | Surveys list shows "By <name>" |
+
+Both roles: upload and record (web and phone), their own surveys, the damage map, the damage records
+list, inspection status, export. The server enforces all of this; `ROLE_ROUTE_ACCESS` in
+[frontend/src/roles.js](frontend/src/roles.js) only decides what the web app shows, and unknown roles
+fall back to `personnel`. There is no self-registration (`/api/auth/register` was removed). Accounts are
+never deleted; `account_status = 'inactive'` blocks sign-in and fails the next request with
+`user_inactive`. The last active admin cannot be demoted or turned off, nor can an admin change their
+own role or status. `migrate.py` maps the older roles (`barangay`, `municipal`, `provincial`,
+`public`, `inspector`) to `personnel` and old pending/rejected registrations to `inactive`.
+
+**Activity log.** [backend/services/activity.py](backend/services/activity.py) `record()` writes one
+`ActivityLog` row per action (sign-ins and refusals, survey upload/rename/delete/placement, status
+changes, record corrections and deletions, exports, report review, account changes) after the
+route's own commit; a logging failure never breaks the action. `ACTIONS` there is the list of codes
+and labels, and the API sends it to the web app. A new action goes there first.
 
 ### Video processing pipeline
 
@@ -222,6 +234,8 @@ the database and map views mix both sources.
 3. New page in `frontend/src/pages/` (start it with `<PageHeader>`), plus a `<Route>` in `App.jsx`,
    an entry in `NAV_ITEMS` ([Header.jsx](frontend/src/components/Header.jsx), with an icon from
    `icons.jsx`), and the path added to `ROLE_ROUTE_ACCESS` in `roles.js`.
+4. Decide who may call it. Admin only: `@admin_required`. Survey data: query through
+   `visible_videos()`. Log user actions with `services.activity.record()`.
 
 ### Frontend conventions
 
