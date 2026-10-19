@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader';
 import SkeletonRows from '../components/SkeletonRows';
 import Notice from '../components/Notice';
 import { SurveyStatus } from '../components/StatusLabel';
+import PhoneConnect from '../components/PhoneConnect';
 
 const SHORTCUTS = [
   { path: '/map', label: 'Damage map', icon: 'map' },
@@ -86,20 +87,23 @@ export default function DashboardPage({ user }) {
           )}
         </section>
 
-        <nav className="panel" aria-labelledby="goto-title">
-          <h2 id="goto-title" className="panel-title">Go to</h2>
-          <ul className="shortcut-list">
-            {SHORTCUTS.filter(x => canAccess(role, x.path)).map(x => (
-              <li key={x.path}>
-                <Link to={x.path} className="shortcut">
-                  <Icon name={x.icon} className="shortcut-icon" />
-                  <span className="shortcut-label">{x.label}</span>
-                  <Icon name="chevron-right" size={16} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="overview-side">
+          <PhoneConnect />
+          <nav className="panel" aria-labelledby="goto-title">
+            <h2 id="goto-title" className="panel-title">Go to</h2>
+            <ul className="shortcut-list">
+              {SHORTCUTS.filter(x => canAccess(role, x.path)).map(x => (
+                <li key={x.path}>
+                  <Link to={x.path} className="shortcut">
+                    <Icon name={x.icon} className="shortcut-icon" />
+                    <span className="shortcut-label">{x.label}</span>
+                    <Icon name="chevron-right" size={16} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>
   );

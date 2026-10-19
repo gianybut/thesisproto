@@ -415,7 +415,7 @@ corrections and deletions, exports and account changes, with the person and the 
 
 ## 3.10 API Summary
 
-The backend exposes a REST API under `/api`, grouped into eight blueprints:
+The backend exposes a REST API under `/api`, grouped into nine blueprints:
 
 | Area            | Prefix             | Main endpoints                                                                                |
 |-----------------|--------------------|-----------------------------------------------------------------------------------------------|
@@ -427,6 +427,7 @@ The backend exposes a REST API under `/api`, grouped into eight blueprints:
 | Public reports  | `/api/reports`     | `POST /`, `GET /`, `GET /:id`, `PUT /:id/validate` (admin), `PUT /:id/reject` (admin), `GET /image/:file` |
 | Accounts        | `/api/accounts`    | `GET /`, `POST /`, `PATCH /:id`, `PUT /:id/password` (all admin)                              |
 | Activity log    | `/api/activity`    | `GET /` with person and action filters (admin)                                                |
+| Server          | `/api/server`      | `GET /info`: this computer's network address, shown to connect the phone app                  |
 
 ---
 

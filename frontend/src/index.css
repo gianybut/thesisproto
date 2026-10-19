@@ -414,6 +414,14 @@ select.input { cursor: pointer; }
 .shortcut:hover .shortcut-label { text-decoration: underline; }
 .shortcut-icon { color: var(--color-primary); }
 .shortcut-label { flex: 1; color: var(--color-ink); }
+.overview-side { display: flex; flex-direction: column; gap: var(--space-5); }
+.phone-connect { display: flex; flex-direction: column; gap: var(--space-3); }
+.phone-connect .panel-title { display: flex; align-items: center; gap: var(--space-2); }
+.server-address {
+  font-size: var(--text-md); font-weight: var(--weight-semibold); overflow-wrap: anywhere; max-width: none;
+  padding: var(--space-2) var(--space-3); background: var(--color-subtle); border-radius: var(--radius-sm);
+}
+.server-address-loading { width: 14rem; height: 2.5rem; }
 
 /* ===========================================================================
    Upload

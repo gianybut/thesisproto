@@ -65,7 +65,7 @@ export default function LoginScreen({ onLoggedIn, onCancel, notice }) {
           {editServer ? (
             <Field
               label="Server address"
-              hint="The computer running OcuLubak, on the same Wi-Fi as this phone"
+              hint="Shown on the web app's Overview page under Connect a phone. This phone must be on the same Wi-Fi."
               error={fieldErrors.server}
               value={server}
               onChangeText={setServer}

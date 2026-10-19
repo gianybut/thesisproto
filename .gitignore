@@ -37,3 +37,6 @@ Thumbs.db
 
 # Signs auth tokens; generated on first boot when SECRET_KEY is not set
 backend/.secret_key
+
+# Launcher runtime: logs, process ids, recorded paths (install_mac.command / install_windows.bat)
+.oculubak/

@@ -64,6 +64,11 @@ export const videosAPI = {
   deleteControlPoint: (id, cpId) => api.delete(`/videos/${id}/control-points/${cpId}`),
 };
 
+// This computer's address on the local network, for the phone app's sign-in screen.
+export const serverAPI = {
+  info: () => api.get('/server/info'),
+};
+
 export const dashboardAPI = {
   stats: () => api.get('/dashboard/stats'),
 };

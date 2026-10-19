@@ -52,7 +52,9 @@ cd mobile && npm install && npx expo run:ios --device    # or: npx expo run:andr
 npx expo lint
 ```
 
-The backend binds `0.0.0.0:5000` so phones on the same LAN can reach it. The mobile app's server URL
+The backend binds `0.0.0.0:5000` so phones on the same LAN can reach it. `GET /api/server/info`
+([backend/routes/server_info.py](backend/routes/server_info.py)) reports the address phones should use,
+and the Overview page shows it in a "Connect a phone" panel (`PhoneConnect.jsx`), hidden until **Show**. The mobile app's server URL
 is set on its login screen and persisted in SecureStore; `DEFAULT_SERVER_URL` in
 [mobile/src/config.js](mobile/src/config.js) is only the first-run default.
 

@@ -113,7 +113,9 @@ command.
 ## 5. Connect to the server
 
 1. Start the backend on the server computer (`./start_backend.sh` or `start_backend.bat` from the repo root).
-2. Find that computer's address on the Wi-Fi:
+2. Find that computer's address on the Wi-Fi. The easiest way: sign in to the web app on that
+   computer; the **Overview** page has a **Connect a phone** panel with the address (press
+   **Show**, or **Copy**). Or look it up:
    - Mac: `ipconfig getifaddr en0`
    - Windows: `ipconfig`, then the *IPv4 Address* of the Wi-Fi adapter.
 3. On the phone's sign-in screen, enter `http://<that address>:5000` as the server address,
