@@ -68,6 +68,22 @@ ok "Python packages installed"
 (cd frontend && npm install --no-fund --no-audit) || fail "Installing the website packages failed. Check your internet connection and run this installer again."
 ok "Website packages installed"
 
+# The model weights (ml/models/*.pt) are stored with Git LFS. A clone made without Git LFS has
+# 130-byte text placeholders instead, and every survey analysis then fails at 0%.
+is_placeholder() { head -c 40 "$1" 2>/dev/null | grep -q 'git-lfs'; }
+need_models=0
+for f in ml/models/*.pt; do is_placeholder "$f" && need_models=1; done
+if [ "$need_models" = 1 ]; then
+  if ! git lfs version >/dev/null 2>&1; then
+    command -v brew >/dev/null 2>&1 || fail "The detection model needs Git LFS to download. Install it from git-lfs.com, then run this installer again."
+    brew install git-lfs || fail "Could not install Git LFS. Install it from git-lfs.com, then run this installer again."
+  fi
+  git lfs install --local >/dev/null && git lfs pull --include "ml/models/*.pt" \
+    || fail "Could not download the detection model. Check your internet connection and access to the project's GitHub repository, then run this installer again."
+  for f in ml/models/*.pt; do is_placeholder "$f" && fail "$f is still a placeholder after downloading. Ask the team for the model file."; done
+fi
+ok "Detection model present"
+
 mkdir -p "$RUN"
 # The apps are opened from Finder with a bare PATH, so remember where node is.
 printf 'NODE_DIR=%q\n' "$(dirname "$(command -v node)")" >"$RUN/paths.sh"

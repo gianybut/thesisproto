@@ -109,6 +109,24 @@ export async function fetchVideo(videoId) {
   return body.video;
 }
 
+/**
+ * Ask the server to analyse a failed survey again from the files it already has
+ * (POST /api/videos/<id>/reprocess). Resolves to the survey, or null when the server no longer
+ * has it (404) or its video (410), in which case the phone has to upload it again.
+ * Other refusals throw with the server's own sentence.
+ */
+export async function reprocessVideo(videoId) {
+  const res = await fetch(`${getServerUrl()}/api/videos/${videoId}/reprocess`, { method: 'POST', headers: authHeader() });
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new UploadError('Signed out. Sign in again first.', { status: 401 });
+  }
+  if (res.status === 404 || res.status === 410) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new UploadError(body.error || `Could not start the analysis again (HTTP ${res.status})`, { status: res.status });
+  return body.video;
+}
+
 const COPY_CHUNK = 4 * 1024 * 1024;
 const yieldToUi = () => new Promise((r) => setTimeout(r, 0));
 

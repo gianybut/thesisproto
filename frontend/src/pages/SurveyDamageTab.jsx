@@ -4,11 +4,12 @@ import { videosAPI } from '../api';
 import { DAMAGE_CODES, canPlaceByHand, damageName, hasLocation, isRunning } from '../labels';
 import Icon from '../icons';
 import Notice from '../components/Notice';
+import AnalysisFailed from '../components/AnalysisFailed';
 import EmptyState from '../components/EmptyState';
 import { ProgressBar } from '../components/StatusLabel';
 
 /** "Damage found" tab: the video beside the list of damage found in it. */
-export default function SurveyDamageTab({ video, detections }) {
+export default function SurveyDamageTab({ video, detections, onChange }) {
   const [searchParams] = useSearchParams();
   const videoRef = useRef();
   const [activeId, setActiveId] = useState(null);
@@ -57,12 +58,7 @@ export default function SurveyDamageTab({ video, detections }) {
         </div>
       )}
 
-      {video.status === 'failed' && (
-        <Notice kind="error" title="The analysis stopped before it finished">
-          Delete this survey from <Link to="/videos">Surveys</Link> and upload the video again. If it fails twice,
-          tell your system administrator.
-        </Notice>
-      )}
+      {video.status === 'failed' && <AnalysisFailed video={video} onRestarted={onChange} />}
 
       {video.status === 'completed' && detections.length > 0 && !hasLocation(video) && canPlaceByHand(video) && (
         <Notice kind="info"

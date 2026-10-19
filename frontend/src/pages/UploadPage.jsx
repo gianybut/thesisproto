@@ -9,6 +9,7 @@ import Icon from '../icons';
 import PageHeader from '../components/PageHeader';
 import ErrorSummary from '../components/ErrorSummary';
 import Notice from '../components/Notice';
+import AnalysisFailed from '../components/AnalysisFailed';
 import { ProgressBar } from '../components/StatusLabel';
 
 const extOf = (name) => name.split('.').pop().toLowerCase();
@@ -54,10 +55,7 @@ function UploadResult({ initialVideo, hadGps, onReset }) {
         </h2>
 
         {video.status === 'failed' ? (
-          <Notice kind="error" title="Analysis failed">
-            The analysis stopped before it finished. Delete this survey from Surveys and upload it
-            again. If it fails twice, tell your system administrator.
-          </Notice>
+          <AnalysisFailed video={video} title="Analysis failed" onRestarted={setVideo} />
         ) : video.status === 'completed' ? (
           <p className="result-done">
             <Icon name="check" />Ready, <span className="num">{video.total_detections}</span>

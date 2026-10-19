@@ -7,6 +7,7 @@ import { isAdmin } from '../roles';
 import PageHeader from '../components/PageHeader';
 import SkeletonRows from '../components/SkeletonRows';
 import Notice from '../components/Notice';
+import AnalysisFailed from '../components/AnalysisFailed';
 import RenameVideo from '../components/RenameVideo';
 import { LocationSource, SurveyStatus } from '../components/StatusLabel';
 import SurveyDamageTab from './SurveyDamageTab';
@@ -99,14 +100,13 @@ export default function SurveyPage({ tab, user }) {
             Its damage is placed from the measured GPS positions, so it cannot be placed by hand.
           </Notice>
         ) : video.status === 'failed' ? (
-          <Notice kind="error" title="The analysis of this survey failed">
-            There is no damage to place. Delete the survey from Surveys and upload the video again.
-          </Notice>
+          <AnalysisFailed video={video} title="The analysis of this survey failed, so there is no damage to place"
+            onRestarted={(v) => setVideo(v)} />
         ) : (
           <SurveyPlaceTab video={video} detections={detections} onSaved={(v) => { setVideo(v); load(); }} />
         )
       ) : (
-        <SurveyDamageTab video={video} detections={detections} />
+        <SurveyDamageTab video={video} detections={detections} onChange={(v) => { setVideo(v); setDetections([]); }} />
       )}
     </div>
   );

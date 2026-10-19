@@ -49,8 +49,9 @@ export function nextStep(x) {
   if (x.status === 'failed') return { kind: 'upload', label: 'Try the upload again', icon: 'refresh' };
   if (x.status === 'queued' && (x.nextAttemptAt || 0) > Date.now()) return { kind: 'upload', label: 'Upload now', icon: 'upload' };
   if (x.status === 'uploading') return { kind: 'cancel', label: 'Cancel upload', icon: 'x' };
-  // The phone still has the files, so a failed analysis can be sent again as a new survey.
-  if (x.status === 'uploaded' && x.serverStatus === 'failed') return { kind: 'upload', label: 'Upload again', icon: 'refresh' };
+  // The server keeps the files, so a failed analysis is rerun there; re-uploading is only the
+  // fallback when the server no longer has them (surveyActions.runNextStep).
+  if (x.status === 'uploaded' && x.serverStatus === 'failed') return { kind: 'reanalyse', label: 'Analyse again', icon: 'refresh' };
   return null;
 }
 
@@ -58,7 +59,9 @@ export function nextStep(x) {
 export function surveyNote(x) {
   if (x.status === 'uploaded') {
     if (x.serverStatus === 'completed' && x.serverDetections != null) return { text: damageCount(x.serverDetections) };
-    if (x.serverStatus === 'failed') return { text: 'The analysis stopped before it finished. Upload it again from this phone.', danger: true };
+    if (x.serverStatus === 'failed') {
+      return { text: x.serverError || 'The server could not finish analysing this survey.', danger: true };
+    }
     if (x.serverStatus === 'missing') return { text: 'This survey was deleted on the web app. The copy on this phone is still here.' };
     return null;
   }

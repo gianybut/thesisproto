@@ -28,17 +28,24 @@ export default function App() {
 
   // An expired sign-in does not lock the app (see src/account.js): the screen stays where it
   // is, uploads wait, and the survey list offers "Sign in".
+  // The app opens on what the phone has stored; the token is checked with the server afterwards,
+  // because away from the server's Wi-Fi that request can hang for a minute.
   useEffect(() => {
     (async () => {
-      recoverAfterRestart();
-      const { token } = await loadAuth();
-      const ok = token ? await verifyToken() : false;
-      if (token && !ok) {
+      let token = null;
+      try {
+        recoverAfterRestart();
+        ({ token } = await loadAuth());
+      } catch {
+        // Unreadable storage: open signed out rather than stay on the blank first frame.
+      }
+      setLoggedIn(Boolean(token));
+      setReady(true);
+      if (token && !(await verifyToken())) {
         await logout();
         setNotice(SIGNED_OUT);
+        setLoggedIn(false);
       }
-      setLoggedIn(ok);
-      setReady(true);
     })();
     return onUnauthorized(() => {
       setNotice(SIGNED_OUT);

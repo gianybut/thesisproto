@@ -125,6 +125,9 @@ class Video(db.Model):
     # How detections were positioned: gps_file (uploaded track), georeferenced (manual control points), none
     position_source = db.Column(db.String(20), default='none')
 
+    # Why the analysis failed, in words a user can act on (set with status='failed').
+    error_message = db.Column(db.String(500), nullable=True)
+
     detections = db.relationship('Detection', backref='video', lazy=True, cascade='all, delete-orphan')
     gps_track_points = db.relationship('GpsTrackPoint', backref='video', lazy=True, cascade='all, delete-orphan')
     control_points = db.relationship('RouteControlPoint', backref='video', lazy=True, cascade='all, delete-orphan',
@@ -148,6 +151,7 @@ class Video(db.Model):
             'resolution': self.resolution,
             'status': self.status,
             'processing_progress': self.processing_progress,
+            'error_message': self.error_message if self.status == 'failed' else None,
             'upload_date': self.upload_date.isoformat() if self.upload_date else None,
             'processed_date': self.processed_date.isoformat() if self.processed_date else None,
             'total_detections': self.total_detections,

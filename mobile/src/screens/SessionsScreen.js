@@ -5,7 +5,7 @@ import { useAccount } from '../account';
 import { ensureThumbnail } from '../media';
 import { checkNow } from '../serverStatus';
 import { getSessions, subscribe } from '../storage';
-import { confirmDelete, runNextStep } from '../surveyActions';
+import { confirmDelete, confirmReanalyse, confirmReupload, runNextStep } from '../surveyActions';
 import {
   describeWait, getSettings, onSettings, run, setWifiOnly,
 } from '../uploadQueue';
@@ -104,6 +104,11 @@ export default function SessionsScreen({ onBack, onPreview }) {
         title={menuItem ? surveyTitle(menuItem) : ''}
         items={menuItem ? [
           { label: menuItem.videoUri ? 'Play and copy off the phone' : 'See details', icon: menuItem.videoUri ? 'play' : 'info-circle', onPress: () => onPreview(menuItem.id) },
+          // Testing a changed model or setting: rerun on the server, or send the video again.
+          menuItem.status === 'uploaded' && menuItem.serverVideoId != null && ['completed', 'failed'].includes(menuItem.serverStatus)
+            && { label: 'Analyse again on the server', icon: 'refresh', onPress: () => confirmReanalyse(menuItem) },
+          menuItem.status === 'uploaded' && menuItem.videoUri && !menuItem.broken
+            && { label: 'Upload again as a new survey', icon: 'upload', onPress: () => confirmReupload(menuItem) },
           menuItem.status !== 'uploading' && menuItem.status !== 'recording'
             && { label: 'Delete survey', icon: 'trash', danger: true, onPress: () => confirmDelete(menuItem) },
         ] : []}

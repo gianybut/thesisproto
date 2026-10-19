@@ -52,17 +52,14 @@ revision starts.
 
 **Deduplication.** This decides what makes two detections "the same damage".
 
-- Key = `((int(x1/100), int(y1/100)), frame_number // int(fps*2))` (`:316-317`). In words: the
-  top-left corner of the box in a 100-pixel grid cell, within the same fixed 2-second window of
-  video.
-- The first detection with a given key becomes a database row. Later ones with the same key are
-  drawn on the video but not stored (`:319-320`).
-- The key ignores the damage class. Two different classes whose boxes start in the same cell
-  within the same window collapse into one row.
-- The windows are fixed buckets, not sliding. The same pothole seen at 1.9 s and 2.1 s falls into
-  two windows and produces two rows.
-- Nothing links detections across windows. The same pothole visible for 6 s produces about three
-  rows.
+- **Changed (Oct 2026).** The grid-cell + 2-second key stored the same pothole again each time its
+  box moved into a new 100-pixel cell, which happens on almost every sample as it moves down the
+  picture (seen on a real survey: one pothole at 20% and again at 50%). It is replaced by
+  cross-frame tracking in `services/damage_tracker.py`: overlap or reachable-area matching between
+  consecutive samples, a 1-second gap closes a track, and the record is the highest-confidence
+  sighting. CHAPTER3_SYSTEM_OVERVIEW §3.4.4 describes it.
+- The damage class is taken from the best sighting, so a pothole called an alligator crack in one
+  frame is still one record.
 
 **Thresholds.**
 
@@ -551,7 +548,8 @@ The code introduces further factors that Objective 3's "such as" covers but Chap
 name, or the error analysis will be incomplete:
 
 - Inference sampling at 5 per second, which quantises the detection time.
-- The 2-second deduplication window: which frame of a pothole's visibility becomes the record.
+- Tracking: the record is the highest-confidence sighting, usually when the damage is close, so
+  the GPS position is taken at that moment.
 - Clamping outside the track.
 - The 1-frame timestamp offset.
 

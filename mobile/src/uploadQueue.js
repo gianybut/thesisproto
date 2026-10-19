@@ -135,7 +135,7 @@ export async function run() {
 export function enqueue(id) {
   updateSession(id, {
     status: 'queued', attempts: 0, nextAttemptAt: 0, lastError: null,
-    serverStatus: null, serverProgress: null, serverDetections: null,
+    serverStatus: null, serverProgress: null, serverDetections: null, serverError: null,
   });
   run();
 }

@@ -214,18 +214,39 @@ Each predicted class is mapped to an RDD2022 code in three steps:
    "crack" or "manhole" class) are dropped. They are not relabelled as potholes, so the system only
    reports the four classes it claims to detect.
 
+### 3.4.3a Road region
+
+The camera also sees buildings, walls, signs and trees above the road, where the detector reports
+false damage. Only detections whose box centre lies in the lower half of the frame
+(`ROAD_REGION_TOP = 0.5`) are kept. The model still receives the whole frame, so its behaviour is
+unchanged; only its output above the line is discarded. The rule relies on the camera pointing
+level: a level camera places the horizon on the middle line, so everything below it is road. The
+mobile capture app helps with this. Its camera screen draws the middle line, dims the part above
+it, and reads the phone's motion sensors to show whether the camera points level, more than 3° up,
+more than 15° down, or is turned more than 5° sideways. The tilt at the start of each recording is
+stored in the GPX metadata. The annotated video shows the line.
+
 ### 3.4.4 Duplicate suppression
 
 A single pothole stays in view for several seconds as the vehicle approaches it and is detected on
-many sampled frames. To store one record per physical damage instead of one per frame, each
-detection gets a de-duplication key:
+many sampled frames: small and high in the picture at first, larger and lower as the vehicle gets
+closer, usually with rising confidence. To store one record per physical damage, the detections are
+joined across sampled frames into tracks. First, within one frame, a box lying at least half inside
+another box is treated as the same damage boxed twice, and only the more confident one is kept.
+Then:
 
-```
-key = ( ⌊x₁ / 100⌋, ⌊y₁ / 100⌋, ⌊frame_number / (2 × FPS)⌋ )
-```
+1. A detection continues a track when its box overlaps the track's last box with IoU ≥ 0.15.
+2. Otherwise it continues a track when its centre lies in the area the damage can reach before the
+   next sampled frame. With s the larger side of the last box, that is the box widened by s on each
+   side, raised by s/2 and lowered by 3s. Road damage moves down the picture as the vehicle
+   approaches it: a 0.5 m pothole at 30 km/h, sampled five times a second, moves about three box
+   heights per sample at any distance.
+3. Each detection and each track is matched at most once per frame, best overlap first, then
+   nearest centre. Unmatched detections start new tracks.
+4. A track not seen for 1 second has left the view and is closed.
 
-In words, the frame is divided into a 100-pixel grid and time into 2-second windows. Only the first
-detection whose top-left corner falls in a given grid cell within a given window is saved.
+Each closed track becomes one record taken from its best sighting, the one with the highest
+confidence: its box, damage class, timestamp (and therefore position) and snapshot.
 
 ### 3.4.5 Evidence and output generation
 
@@ -420,7 +441,7 @@ The backend exposes a REST API under `/api`, grouped into nine blueprints:
 | Area            | Prefix             | Main endpoints                                                                                |
 |-----------------|--------------------|-----------------------------------------------------------------------------------------------|
 | Authentication  | `/api/auth`        | `POST /login`, `GET /me`, `POST /logout`                                                      |
-| Videos          | `/api/videos`      | `POST /upload`, `GET /`, `GET/PATCH/DELETE /:id`, `GET /:id/stream`, `GET /:id/processed`, `GET /:id/snapshot/:file`, `GET/POST /:id/control-points`, `DELETE /:id/control-points/:cp`, `GET /export` |
+| Videos          | `/api/videos`      | `POST /upload`, `GET /`, `GET/PATCH/DELETE /:id`, `GET /:id/stream`, `GET /:id/processed`, `GET /:id/snapshot/:file`, `POST /:id/reprocess`, `GET/POST /:id/control-points`, `DELETE /:id/control-points/:cp`, `GET /export` |
 | Detections      | `/api`             | `GET /detections/:video_id`, `GET /dashboard/stats`                                           |
 | Map             | `/api/map`         | `GET /videos`, `GET /detections`, `GET /gps-tracks`, `GET /stats`                             |
 | Database        | `/api/database`    | `GET /detections`, `PUT /detections/:id/status`, `PATCH/DELETE /detections/:id` (admin), `GET /export`, `GET /stats` |
@@ -441,9 +462,9 @@ The backend exposes a REST API under `/api`, grouped into nine blueprints:
 3. **Geolocation accuracy depends on the input.** GPS positioning is only as good as the phone or
    logger GPS and the time offset the user enters. Control-point positioning assumes constant speed
    between two neighbouring control points.
-4. **Duplicate suppression is approximate.** The grid-and-window rule can still produce more than
-   one record for a long crack that spans several grid cells, and can merge two separate damages
-   that sit close together.
+4. **Duplicate suppression is approximate.** A damage the model misses for more than a second
+   (glare, a passing vehicle) is recorded twice, and two damages that touch in the picture can be
+   joined into one record.
 5. **Authentication.** Sign-in uses signed tokens that expire after 12 hours, and role rules are
    checked by the server. There is no server-side sign-out: a token stays valid until it expires,
    although turning an account off stops it at once. The prototype runs over plain HTTP on a local

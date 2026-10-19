@@ -15,7 +15,8 @@
           "NSAllowsLocalNetworking": true
         },
         "NSLocalNetworkUsageDescription": "OcuLubak uploads survey videos to your office's server on the local network."
-      }
+      },
+      "appleTeamId": "MKYMJ366S6"
     },
     "android": {
       "package": "com.bantaykalsada.capture",
@@ -76,7 +77,13 @@
           ]
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": false
+        }
+      ]
     ]
   }
 }

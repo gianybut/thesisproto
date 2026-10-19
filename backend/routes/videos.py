@@ -9,7 +9,7 @@ import threading
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, send_file, Response
 from werkzeug.utils import secure_filename
-from models import db, Video, Detection, RouteControlPoint
+from models import db, Video, Detection, GpsTrackPoint, RouteControlPoint
 from auth_tokens import current_user_id as get_user_id, visible_videos
 from services.activity import record
 
@@ -55,11 +55,10 @@ def upload_video():
 
     # Get video metadata using OpenCV
     import cv2
-    cap = cv2.VideoCapture(upload_path)
+    from services.video_processor import open_upright
+    cap, _rotate, width, height = open_upright(upload_path)   # width x height as displayed
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     duration = frame_count / fps if fps > 0 else 0
     cap.release()
 
@@ -114,8 +113,16 @@ def upload_video():
            f'Uploaded "{video.name}" ({duration / 60:.1f} min, {"with" if gps_filename else "without"} a GPS track)',
            target_type='survey', target_id=video.id)
 
-    # Start processing in background thread
-    video_id = video.id
+    _start_processing(video.id)
+
+    return jsonify({
+        'message': 'Video uploaded successfully. Processing started.',
+        'video': video.to_dict()
+    }), 201
+
+
+def _start_processing(video_id):
+    """Run the analysis in a background thread (it dies with the server; see create_app)."""
     app = current_app._get_current_object()
 
     def process_async():
@@ -127,10 +134,45 @@ def upload_video():
     thread.daemon = True
     thread.start()
 
-    return jsonify({
-        'message': 'Video uploaded successfully. Processing started.',
-        'video': video.to_dict()
-    }), 201
+
+@videos_bp.route('/<int:video_id>/reprocess', methods=['POST'])
+def reprocess_video(video_id):
+    """Analyse a survey again from the files already on the server, so nobody has to upload the
+    video a second time: after a failure (for example the model was missing), or to test a
+    changed model or setting on a finished survey. Its damage records are replaced, including any
+    inspection status set on them; the clients ask for confirmation first."""
+    from services.video_processor import model_file_problem
+
+    video = visible_videos().filter_by(id=video_id).first()
+    if not video:
+        return jsonify({'error': 'Video not found'}), 404
+    if video.status not in ('failed', 'completed'):
+        return jsonify({'error': 'This survey is still being analysed. Wait for it to finish.'}), 409
+    if not os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], video.filename)):
+        return jsonify({'error': 'The video file is no longer on the server. Upload the survey again.'}), 410
+    problem = model_file_problem(current_app.config['MODEL_PATH'])
+    if problem:
+        return jsonify({'error': problem}), 503
+
+    replaced = video.total_detections or 0
+    # Clear what a partial run may have left; the GPS track is read again from its file.
+    for d in video.detections:
+        if d.frame_snapshot:
+            snap = os.path.join(current_app.config['SNAPSHOTS_FOLDER'], d.frame_snapshot)
+            if os.path.exists(snap):
+                os.remove(snap)
+    Detection.query.filter_by(video_id=video.id).delete()
+    GpsTrackPoint.query.filter_by(video_id=video.id).delete()
+    video.status = 'uploaded'
+    video.processing_progress = 0
+    video.total_detections = 0
+    video.error_message = None
+    db.session.commit()
+    record('survey_reanalysed', f'Started the analysis of "{video.name}" again'
+           + (f', replacing {replaced} damage records' if replaced else ''), target_type='survey', target_id=video.id)
+
+    _start_processing(video.id)
+    return jsonify({'message': 'Analysing the survey again.', 'video': video.to_dict()}), 202
 
 
 @videos_bp.route('/export', methods=['GET'])

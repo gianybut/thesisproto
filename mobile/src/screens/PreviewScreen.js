@@ -4,7 +4,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveVideoToPhotos, shareSessionFile } from '../media';
 import { getSession, subscribe, updateSession } from '../storage';
-import { confirmDelete, runNextStep } from '../surveyActions';
+import { confirmDelete, confirmReanalyse, confirmReupload, runNextStep } from '../surveyActions';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Disclosure from '../components/Disclosure';
@@ -170,6 +170,19 @@ export default function PreviewScreen({ sessionId, onBack }) {
             </View>
           )}
 
+          {session.status === 'uploaded' && session.videoUri && !session.broken && (
+            <Disclosure title="Test again" icon="refresh">
+              <Text style={s.fieldHint}>
+                For trying a changed model or setting. Analysing again reruns the video already on the server and replaces its
+                damage records. Uploading again sends this phone&apos;s copy as a new, second survey.
+              </Text>
+              {session.serverVideoId != null && ['completed', 'failed'].includes(session.serverStatus) && (
+                <Button label="Analyse again on the server" icon="refresh" block onPress={() => confirmReanalyse(session)} />
+              )}
+              <Button label="Upload again as a new survey" icon="upload" block onPress={() => confirmReupload(session)} />
+            </Disclosure>
+          )}
+
           <Disclosure title="Technical details">
             <Facts rows={[
               ['Recorded', formatDateTime(session.createdAt)],
@@ -178,6 +191,7 @@ export default function PreviewScreen({ sessionId, onBack }) {
               ['GPS rate', session.achievedHz ? `${session.achievedHz.toFixed(2)} per second` : null],
               ['GPS gaps', session.gaps ? (session.gaps.length ? `${session.gaps.length}, longest ${Math.max(...session.gaps.map((g) => g.seconds))} s` : 'None') : null],
               ['Time offset', session.timeOffsetS != null ? `${session.timeOffsetS.toFixed(2)} s` : null],
+              ['Camera tilt at start', session.cameraPitchDeg != null ? `${session.cameraPitchDeg}° up/down, ${session.cameraRollDeg}° sideways` : null],
               ['Video file', session.videoExt ? `.${session.videoExt}` : null],
               ['Web app survey', session.serverVideoId != null ? `#${session.serverVideoId}` : null],
             ]}

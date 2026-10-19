@@ -23,6 +23,8 @@ NEW_COLUMNS = [
     ('detections', 'position_source', "position_source VARCHAR(20)"),
     # user-chosen video labels
     ('videos', 'display_name', "display_name VARCHAR(300)"),
+    # why an analysis failed, shown to the user
+    ('videos', 'error_message', "error_message VARCHAR(500)"),
 ]
 
 # (label, SQL) — must be safe to re-run

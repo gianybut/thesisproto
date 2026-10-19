@@ -55,6 +55,8 @@ export const videosAPI = {
   get: (id) => api.get(`/videos/${id}`),
   rename: (id, name) => api.patch(`/videos/${id}`, { name }),
   delete: (id) => api.delete(`/videos/${id}`),
+  // Run a failed analysis again from the files already on the server.
+  reprocess: (id) => api.post(`/videos/${id}/reprocess`),
   streamUrl: (id) => withToken(`${API_BASE}/videos/${id}/stream`),
   processedUrl: (id) => withToken(`${API_BASE}/videos/${id}/processed`),
   snapshotUrl: (videoId, filename) => withToken(`${API_BASE}/videos/${videoId}/snapshot/${filename}`),

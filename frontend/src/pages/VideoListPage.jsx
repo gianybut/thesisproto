@@ -36,6 +36,8 @@ export default function VideoListPage({ user }) {
   const [renamingId, setRenamingId] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [toReanalyse, setToReanalyse] = useState(null);
+  const [reanalysing, setReanalysing] = useState(false);
 
   const fetchVideos = useCallback(() => videosAPI.list()
     .then(res => { setVideos(res.data.videos); setError(''); })
@@ -48,6 +50,23 @@ export default function VideoListPage({ user }) {
     const t = setInterval(fetchVideos, 5000);
     return () => clearInterval(t);
   }, [fetchVideos]);
+
+  // A failed survey has nothing to lose, so it starts at once; a finished one asks first
+  // (its damage records are replaced, with any inspection status set on them).
+  const reanalyse = async (v) => {
+    setNotice('');
+    setReanalysing(true);
+    try {
+      const res = await videosAPI.reprocess(v.id);
+      setVideos(prev => prev.map(x => (x.id === v.id ? res.data.video : x)));
+      setNotice(`Analysing "${surveyName(v)}" again.`);
+    } catch (err) {
+      setError(errorMessage(err, `Could not start the analysis of "${surveyName(v)}" again. Try again.`));
+    } finally {
+      setReanalysing(false);
+      setToReanalyse(null);
+    }
+  };
 
   const confirmDelete = async () => {
     const v = toDelete;
@@ -125,6 +144,10 @@ export default function VideoListPage({ user }) {
                         <ul className="menu-list">
                           <li><Link to={`/videos/${v.id}`} className="menu-item"><Icon name="video" />Open survey</Link></li>
                           <li><button type="button" className="menu-item" onClick={() => { close(); setRenamingId(v.id); }}><Icon name="pencil" />Rename</button></li>
+                          {(v.status === 'failed' || v.status === 'completed') && (
+                            <li><button type="button" className="menu-item" onClick={() => { close(); if (v.status === 'failed') reanalyse(v); else setToReanalyse(v); }}>
+                              <Icon name="refresh" />Analyse again</button></li>
+                          )}
                           {v.position_source === 'georeferenced' && !v.has_gps && (
                             <li><Link to={`/videos/${v.id}/georeference`} className="menu-item"><Icon name="map-pin" />Adjust map position</Link></li>
                           )}
@@ -140,6 +163,24 @@ export default function VideoListPage({ user }) {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={Boolean(toReanalyse)}
+        title={toReanalyse ? `Analyse "${surveyName(toReanalyse)}" again?` : ''}
+        confirmLabel="Replace damage records"
+        cancelLabel="Keep them"
+        busyLabel="Starting…"
+        busy={reanalysing}
+        onConfirm={() => reanalyse(toReanalyse)}
+        onCancel={() => setToReanalyse(null)}
+      >
+        {toReanalyse && (
+          <p>
+            The video is analysed again with the current model and settings. Its <span className="num">{toReanalyse.total_detections || 0}</span>
+            {' '}damage records are replaced by the new results, and any inspection status set on them is lost.
+          </p>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={Boolean(toDelete)}

@@ -5,6 +5,27 @@ Welcome to the Pothole Detection System. This guide provides the exact steps nee
 > [!IMPORTANT]
 > **Always run the startup scripts from the root directory of the project** (`thesisproto`). Do not navigate into the `backend` or `frontend` folders to run these scripts.
 
+## The easy way: install once, then click OcuLubak
+
+You need **Python 3.10–3.12**, **Node.js 20 or newer** and **Git** (with Git LFS; the Mac installer
+adds Git LFS through Homebrew if it is missing). Then, in the project folder, double-click:
+
+- **Mac:** `install_mac.command` (if macOS blocks it, right-click › Open). It creates **OcuLubak**
+  and **Stop OcuLubak** in your Applications folder and can add OcuLubak to the Dock.
+- **Windows:** `install_windows.bat`. It creates **OcuLubak** on the Desktop and in the Start menu,
+  and **Stop OcuLubak** in the Start menu.
+
+The installer sets up the Python and website packages and downloads the detection model with
+Git LFS. The first run can take 10 minutes or more. After that, clicking **OcuLubak** starts the
+server and the website in the background and opens http://localhost:5173. Clicking it again while
+it runs just opens the browser. Logs are in the `.oculubak` folder.
+
+- The first time on a Mac, allow OcuLubak to access your Documents folder when asked.
+- If every survey's analysis fails at 0%, the model was not downloaded. Run `git lfs pull` in the
+  project folder (or the installer again), then choose **Analyse again** on the survey.
+
+The manual steps below still work if you prefer two terminals.
+
 ## Step 0: Install ffmpeg (once)
 
 The backend re-encodes every annotated video to browser-playable MP4 with ffmpeg. Without it

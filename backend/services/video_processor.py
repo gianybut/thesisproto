@@ -12,6 +12,12 @@ from datetime import datetime, timezone
 INFERENCE_FPS = 5        # frames analysed per second of video — every (fps / INFERENCE_FPS)-th frame
 CONF_THRESHOLD = 0.15    # minimum confidence for a prediction to be kept
 IOU_THRESHOLD = 0.45     # non-maximum-suppression overlap threshold
+# Road region: only damage whose box centre is below this line (a fraction of the frame height,
+# from the top) is kept. With the camera level, the horizon is the middle of the picture and
+# everything below it is road; above it are buildings, trees and sky, where the model finds
+# "damage" in walls and signs. The phone app's level guide helps hold the camera level.
+# The model still sees the whole frame; only its detections above the line are dropped.
+ROAD_REGION_TOP = 0.5
 
 # Model class name -> (RDD2022 code, label). Codes follow CRDDC 2022 (Arya et al., 2022):
 # D00 longitudinal, D10 transverse, D20 alligator, D40 pothole. There is no D30.
@@ -38,6 +44,49 @@ DAMAGE_COLORS = {
 }
 
 
+# Phones save a recording held sideways or upside down with a rotation flag, not rotated
+# pixels. Browsers honour the flag; OpenCV reports it (CAP_PROP_ORIENTATION_META) but by default
+# hands over the frames as stored. Same mapping OpenCV's own auto-rotation uses.
+_ROTATIONS = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}
+
+
+def open_upright(path):
+    """Open a video for upright reading. Returns (cap, rotate_code or None, width, height),
+    with width/height as displayed. Apply cv2.rotate(frame, rotate_code) to every frame read.
+    We rotate ourselves (auto-rotation off) so the output size is known before the first frame.
+    """
+    cap = cv2.VideoCapture(path)
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 0)
+    angle = int(round(cap.get(cv2.CAP_PROP_ORIENTATION_META) or 0)) % 360
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    if angle in (90, 270):
+        width, height = height, width
+    return cap, _ROTATIONS.get(angle), width, height
+
+
+class ModelUnavailable(Exception):
+    """The model file cannot be used. Its message is shown to the user as the failure reason."""
+
+
+def model_file_problem(model_path):
+    """Plain-language reason the model file is unusable, or None. Checked at startup and per run.
+
+    A Git LFS placeholder is the common case: a clone without `git lfs pull` has a ~130-byte
+    text file where the weights should be, and every analysis then fails at 0%.
+    """
+    name = os.path.relpath(model_path, os.path.join(os.path.dirname(__file__), '..', '..'))
+    if not os.path.exists(model_path):
+        return f'The detection model {name} is missing on the server.'
+    with open(model_path, 'rb') as f:
+        head = f.read(64)
+    if head.startswith(b'version https://git-lfs'):
+        return (f'The detection model on the server ({name}) was never downloaded: it is a Git LFS '
+                'placeholder. On the server computer run "git lfs pull" in the project folder '
+                '(or run the installer again), then choose "Analyse again" on the survey.')
+    return None
+
+
 def process_video(video_id, config):
     """
     Process an uploaded video:
@@ -60,6 +109,7 @@ def process_video(video_id, config):
     # Update status
     video.status = 'processing'
     video.processing_progress = 0
+    video.error_message = None
     db.session.commit()
 
     try:
@@ -109,6 +159,11 @@ def process_video(video_id, config):
         traceback.print_exc()
         video.status = 'failed'
         video.processing_progress = 0
+        # Shown to the user (web survey page, phone survey list). Known causes get their own
+        # sentence; anything else is reported as an internal error with the details in the log.
+        video.error_message = (str(e) if isinstance(e, ModelUnavailable)
+                               else 'The server hit an error while analysing this survey. '
+                                    'The details are in the server log.')[:500]
         db.session.commit()
 
 
@@ -116,6 +171,9 @@ def _load_model(model_path):
     """Load YOLOv8 model, falling back to pretrained if custom model not found."""
     from ultralytics import YOLO
 
+    problem = model_file_problem(model_path)
+    if problem and os.path.exists(model_path):
+        raise ModelUnavailable(problem)
     if os.path.exists(model_path):
         print(f"📦 Loading custom model from: {model_path}")
         model = YOLO(model_path)
@@ -205,18 +263,18 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     from models import Detection
     from services.gps_service import interpolate_gps
     from services.georeference_service import interpolate_from_control_points
+    from services.damage_tracker import DamageTracker
 
-    cap = cv2.VideoCapture(input_path)
+    cap, rotate, width, height = open_upright(input_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     # Ensure dimensions are even (required by most video codecs)
     width = width - (width % 2)
     height = height - (height % 2)
 
-    print(f"📹 Video info: {width}x{height} @ {fps} fps, {total_frames} frames")
+    print(f"📹 Video info: {width}x{height} @ {fps} fps, {total_frames} frames"
+          + (" (rotated upright from the phone's orientation flag)" if rotate is not None else ""))
 
     # === VIDEO WRITER SETUP ===
     # Strategy: Use OpenCV MJPG writer (fast, hardware-optimized) to write AVI,
@@ -260,8 +318,58 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     frame_number = 0
     process_every_n = max(1, int(fps / INFERENCE_FPS))  # sample ~INFERENCE_FPS frames per second
 
-    recent_detection_frames = set()
-    detection_cooldown = int(fps * 2)
+    tracker = DamageTracker(fps)
+    road_top_px = int(height * ROAD_REGION_TOP)
+
+    def save_track(track):
+        """Store one damage from its best sighting: that frame's box, time, position and snapshot."""
+        best = track.best
+        best_frame = best['frame']
+        x1, y1, x2, y2 = best['box']
+
+        # Formula 18: t_frame = frame_number / FPS
+        timestamp = float(best_frame) / float(fps)
+
+        # GPS Synchronization (Formula 19)
+        latitude = None
+        longitude = None
+        position_source = 'none'
+        if gps_points:
+            gps_coord = interpolate_gps(gps_points, timestamp, time_offset)
+            if gps_coord:
+                latitude = gps_coord['latitude']
+                longitude = gps_coord['longitude']
+                position_source = 'gps_file'
+        elif control_points:
+            # Manual control points — piecewise between bracketing points, no clamping
+            cp_coord = interpolate_from_control_points(control_points, timestamp)
+            if cp_coord:
+                latitude, longitude = cp_coord
+                position_source = 'georeferenced'
+
+        snapshot_name = f"snap_{video_id}_{best_frame}_{track.id}.jpg"
+        snap_frame = track.best_image
+        _draw_detection(snap_frame, x1, y1, x2, y2, best['conf'], best['code'], best['label'], best['color'])
+        cv2.imwrite(os.path.join(snapshots_dir, snapshot_name), snap_frame)
+        track.best_image = None   # free the frame copy
+
+        detection = Detection(
+            video_id=video_id,
+            frame_number=best_frame,
+            timestamp=timestamp,
+            confidence=best['conf'],
+            bbox_x1=x1, bbox_y1=y1, bbox_x2=x2, bbox_y2=y2,
+            frame_snapshot=snapshot_name,
+            damage_type=best['code'],
+            damage_label=best['label'],
+            latitude=latitude,
+            longitude=longitude,
+            position_source=position_source,
+            road_name=video.road_name,
+            source_type='ai_detection',
+        )
+        db.session.add(detection)
+        all_detections.append(detection)
 
     active_boxes = {}
     box_persistence = int(fps * 0.5)
@@ -272,6 +380,11 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
         ret, frame = cap.read()
         if not ret:
             break
+        if rotate is not None:
+            frame = cv2.rotate(frame, rotate)
+        if frame.shape[0] != height or frame.shape[1] != width:
+            # The writer silently drops any frame of another size (odd dimensions were trimmed).
+            frame = frame[:height, :width]
 
         frame_number += 1
 
@@ -288,6 +401,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
             active_boxes.clear()
 
             results = model(frame, verbose=False, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD)
+            sightings = []
 
             for result in results:
                 boxes = result.boxes
@@ -301,6 +415,8 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
 
                         if is_damage or _is_pothole_class(class_name, cls_id, model):
                             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                            if (y1 + y2) / 2 < road_top_px:
+                                continue   # above the road region: buildings, trees, sky
 
                             box_id = f"{frame_number}_{int(x1)}_{int(y1)}"
                             damage_color = DAMAGE_COLORS.get(damage_code, (0, 69, 255))
@@ -313,60 +429,22 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                                 'color': damage_color,
                             }
 
-                            grid_key = (int(x1 / 100), int(y1 / 100))
-                            frame_key = (grid_key, frame_number // detection_cooldown)
+                            sightings.append({
+                                'frame': frame_number,
+                                'box': (float(x1), float(y1), float(x2), float(y2)),
+                                'conf': conf,
+                                'code': damage_code,
+                                'label': damage_label,
+                                'color': damage_color,
+                            })
 
-                            if frame_key not in recent_detection_frames:
-                                recent_detection_frames.add(frame_key)
+            # One record per damage: sightings are joined into tracks, and a track is saved once
+            # it leaves the view, from its best sighting (services/damage_tracker.py).
+            for track in tracker.update(frame_number, sightings, frame):
+                save_track(track)
 
-                                # Formula 18: t_frame = frame_number / FPS
-                                timestamp = float(frame_number) / float(fps)
-
-                                # GPS Synchronization (Formula 19)
-                                latitude = None
-                                longitude = None
-                                position_source = 'none'
-                                if gps_points:
-                                    gps_coord = interpolate_gps(gps_points, timestamp, time_offset)
-                                    if gps_coord:
-                                        latitude = gps_coord['latitude']
-                                        longitude = gps_coord['longitude']
-                                        position_source = 'gps_file'
-                                elif control_points:
-                                    # Manual control points — piecewise between bracketing points, no clamping
-                                    cp_coord = interpolate_from_control_points(control_points, timestamp)
-                                    if cp_coord:
-                                        latitude, longitude = cp_coord
-                                        position_source = 'georeferenced'
-
-                                snapshot_name = f"snap_{video_id}_{frame_number}.jpg"
-                                snapshot_path = os.path.join(snapshots_dir, snapshot_name)
-
-                                snap_frame = frame.copy()
-                                _draw_detection(snap_frame, x1, y1, x2, y2, conf,
-                                                damage_code, damage_label, damage_color)
-                                cv2.imwrite(snapshot_path, snap_frame)
-
-                                detection = Detection(
-                                    video_id=video_id,
-                                    frame_number=frame_number,
-                                    timestamp=timestamp,
-                                    confidence=conf,
-                                    bbox_x1=float(x1),
-                                    bbox_y1=float(y1),
-                                    bbox_x2=float(x2),
-                                    bbox_y2=float(y2),
-                                    frame_snapshot=snapshot_name,
-                                    damage_type=damage_code,
-                                    damage_label=damage_label,
-                                    latitude=latitude,
-                                    longitude=longitude,
-                                    position_source=position_source,
-                                    road_name=video.road_name,
-                                    source_type='ai_detection',
-                                )
-                                db.session.add(detection)
-                                all_detections.append(detection)
+        # Mark the road region on the annotated video, so viewers see what was analysed.
+        cv2.line(frame, (0, road_top_px), (width, road_top_px), (255, 255, 255), 1, cv2.LINE_AA)
 
         for box_info in active_boxes.values():
             _draw_detection(frame, box_info['x1'], box_info['y1'],
@@ -379,6 +457,11 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
         out.write(frame)
 
     cap.release()
+
+    # Damage still in view when the video ends.
+    for track in tracker.finish_all():
+        save_track(track)
+    all_detections.sort(key=lambda d: d.frame_number)
 
     # Finalize video output
     if out:

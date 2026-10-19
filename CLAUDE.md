@@ -29,7 +29,12 @@ reuses the paths of `frontend/src/icons.jsx`, so a visual change goes into both.
 Run everything from the repo root. The launcher scripts `cd` into the right subdirectory themselves.
 
 ```bash
-# One-time setup
+# Easiest: double-click install_mac.command / install_windows.bat once. They install the packages,
+# download the model weights with Git LFS, and create an "OcuLubak" app/shortcut that starts both
+# servers hidden and opens the browser ("Stop OcuLubak" stops them). Scripts live in launcher/;
+# logs and pids in the gitignored .oculubak/.
+
+# One-time setup (manual)
 python -m venv .venv && .venv\Scripts\activate   # Windows; source .venv/bin/activate elsewhere
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
@@ -160,7 +165,13 @@ then spawns a bare `threading.Thread` running
 [backend/services/video_processor.py](backend/services/video_processor.py). No queue, no worker
 process — processing dies with the server and does not survive a restart; `create_app()` marks any
 video still `uploaded`/`processing` as `failed` on boot so nothing spins forever. Uploads longer than
-`MAX_VIDEO_DURATION_S` (600 s) are rejected with 400 before a thread is spawned. There is currently
+`MAX_VIDEO_DURATION_S` (600 s) are rejected with 400 before a thread is spawned. A failed analysis
+stores a user-facing reason in `Video.error_message` (shown on the web and the phone), and
+`POST /api/videos/<id>/reprocess` reruns a failed or finished survey from the files already on the
+server ("Analyse again"; it replaces the damage records, so the clients confirm first for a finished
+one). The phone's survey screen also has "Upload again as a new survey", for testing changes.
+`model_file_problem()` in `video_processor.py` catches a missing model or a Git LFS placeholder
+(a clone without `git lfs pull`): the backend warns at startup and the analysis fails with that reason. There is currently
 **no size cap**: `MAX_CONTENT_LENGTH = None` in `app.py` and `MAX_VIDEO_BYTES = null` in
 `mobile/src/config.js` (iPhone recordings outgrew 500 MB). The mobile limits in `config.js` mirror the
 backend ones with a margin (`MAX_RECORD_S = 590`), so change both sides together. Progress is written
@@ -170,11 +181,25 @@ throughput data for the thesis evaluation chapter.
 
 Inside `_run_detection_pipeline`:
 
+- Only detections with their box centre below `ROAD_REGION_TOP` (0.5: the lower half of the frame)
+  are kept, so buildings and trees above the road are not reported. The model still sees the whole
+  frame. The phone's camera screen has a level guide ([mobile/src/level.js](mobile/src/level.js))
+  so the horizon lands on that line; the annotated video draws it.
+- Frames are read through `open_upright()`: a phone recording held sideways or upside down carries a
+  rotation flag, not rotated pixels, and OpenCV does not apply it by default. Without this the model
+  sees upside-down frames and the annotated video plays upside down. The upload route uses the same
+  helper, so `resolution` is the displayed size.
 - Inference runs on every `fps/INFERENCE_FPS`-th frame at `CONF_THRESHOLD` / `IOU_THRESHOLD` — module
   constants at the top of `video_processor.py` that the thesis cites; change them there only. Between
   inference frames the last boxes are re-drawn for `fps*0.5` frames so the annotated video does not flicker.
-- Detections are deduplicated by a `(100px grid cell, frame // (fps*2))` key, so one pothole seen
-  across consecutive frames yields one row.
+- Each damage is recorded once: [services/damage_tracker.py](backend/services/damage_tracker.py) joins
+  sightings across analysed frames into tracks (after dropping same-frame boxes lying mostly inside a
+  more confident one, `TRACK_NESTED`; then overlap `TRACK_MIN_IOU`, or the centre landing in
+  the area below the last box the damage can move to; a track ends after `TRACK_MAX_GAP_S` unseen),
+  and each track becomes one row from its best (highest-confidence) sighting: that frame's box,
+  time, position and snapshot. Run `python services/damage_tracker.py` for its self-checks. It
+  replaced a `(100px grid cell, 2 s window)` key that stored the same pothole again as it moved
+  down the picture.
 - `_classify_damage` maps model class names to RDD2022 codes (D00/D10/D20/D40) by substring, then
   (for models with ≤5 classes) falls back to class index in the `ml/dataset_prep.py` order; a
   single-class model maps everything to `D40`. For models with more than 5 classes,
@@ -278,7 +303,10 @@ OpenStreetMap tiles, one solid navy route per survey with labelled Start/End mar
 `CircleMarker` dot per detection coloured by damage class. A GPS-measured dot is solid with a white
 halo; a hand-placed one has a dashed stroke over a 35% fill. The four class colours (`DAMAGE_CLASSES` at
 the top of that file) encode data and appear only on the map (dots, legend, popup swatch). No heatmap,
-no clustering: `leaflet.markercluster` is a dependency but must stay unused.
+no clustering: `leaflet.markercluster` is a dependency but must stay unused. Every `<MapContainer>`
+takes `OSM_TILES` / `OSM_ATTRIBUTION` and a `<MapResizeFix />` child
+([components/MapResizeFix.jsx](frontend/src/components/MapResizeFix.jsx)), which re-measures the map
+when its box changes; without it the map can stay grey or load only some tiles.
 
 ## Documentation in the repo
 

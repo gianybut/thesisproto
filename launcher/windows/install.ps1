@@ -86,6 +86,23 @@ Pop-Location
 if ($npmExit -ne 0) { Fail 'Installing the website packages failed. Check your internet connection and run this installer again.' }
 Ok 'Website packages installed'
 
+# The model weights (ml\models\*.pt) are stored with Git LFS. A clone made without Git LFS has
+# 130-byte text placeholders instead, and every survey analysis then fails at 0%.
+function Is-Placeholder($path) {
+  $bytes = Get-Content -Path $path -Encoding Byte -TotalCount 40 -ErrorAction SilentlyContinue
+  return ($bytes -and ([System.Text.Encoding]::ASCII.GetString($bytes) -match 'git-lfs'))
+}
+$models = Get-ChildItem (Join-Path $Repo 'ml\models\*.pt') -ErrorAction SilentlyContinue
+if ($models | Where-Object { Is-Placeholder $_.FullName }) {
+  $null = & git lfs version 2>$null
+  if ($LASTEXITCODE -ne 0) { Fail 'The detection model needs Git LFS to download. Install Git for Windows (it includes Git LFS) or run: winget install GitHub.GitLFS. Then run this installer again.' }
+  & git lfs install --local | Out-Null
+  & git lfs pull --include "ml/models/*.pt"
+  if ($LASTEXITCODE -ne 0) { Fail "Could not download the detection model. Check your internet connection and access to the project's GitHub repository, then run this installer again." }
+  foreach ($m in $models) { if (Is-Placeholder $m.FullName) { Fail "$($m.Name) is still a placeholder after downloading. Ask the team for the model file." } }
+}
+Ok 'Detection model present'
+
 New-Item -ItemType Directory -Force -Path $Run | Out-Null
 
 # ---------------------------------------------------------------- 3. Shortcuts

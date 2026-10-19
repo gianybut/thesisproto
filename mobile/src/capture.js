@@ -104,6 +104,8 @@ export async function finalizeSession(session, { videoUri, videoStartMs, stopMs,
         stalePointsDropped: stalePoints,
         platform: `${Platform.OS} ${Platform.Version}`,
         locationPermission: session.locationPermission || 'unknown',
+        cameraPitchDegAtStart: session.cameraPitchDeg ?? 'unknown',
+        cameraRollDegAtStart: session.cameraRollDeg ?? 'unknown',
         videoContainer: ext,
       },
     }));

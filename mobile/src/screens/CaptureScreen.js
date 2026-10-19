@@ -19,8 +19,9 @@ import PageHeader from '../components/PageHeader';
 import StatusLabel from '../components/StatusLabel';
 import Icon from '../icons';
 import { formatClock } from '../labels';
+import { levelStatus, useLevel } from '../level';
 import ReviewScreen from './ReviewScreen';
-import { C, F, S, T, s } from '../theme';
+import { C, F, R, S, T, s } from '../theme';
 
 const KEEP_AWAKE_TAG = 'bk-recording';
 const notUploaded = (list) => list.filter((x) => !x.broken && ['recorded', 'queued', 'uploading', 'failed'].includes(x.status)).length;
@@ -40,6 +41,7 @@ export default function CaptureScreen({ onShowSessions }) {
   const [reviewId, setReviewId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [toUpload, setToUpload] = useState(() => notUploaded(getSessions()));
+  const level = useLevel();
 
   const cameraRef = useRef(null);
   const rec = useRef(null); // { session, startMs, stopReason }
@@ -150,6 +152,9 @@ export default function CaptureScreen({ onShowSessions }) {
       id, createdAt: Date.now(), status: 'recording', roadName: '',
       // Recorded for the write-up; on iOS "while_using" still logs in the background (see effect above).
       locationPermission: IS_IOS ? (iosAlways ? 'always' : 'while_using') : 'foreground_service',
+      // Camera tilt when recording started, for the write-up (src/level.js); null if no sensor.
+      cameraPitchDeg: level.available ? level.pitch : null,
+      cameraRollDeg: level.available ? level.roll : null,
     };
     addSession(session);
 
@@ -278,6 +283,8 @@ export default function CaptureScreen({ onShowSessions }) {
   else gps = { icon: 'check', tone: 'ready', text: `GPS ±${fix.acc.toFixed(0)} m` };
 
   const canStart = phase === 'idle' && cameraReady && fixGood;
+  // Advice only; recording is never blocked on the level (a mount cannot always be adjusted).
+  const tilt = levelStatus(level);
   // design.md §7: a disabled button always shows why.
   let hint = null;
   if (phase === 'idle' && !cameraReady) hint = 'Starting the camera…';
@@ -298,6 +305,17 @@ export default function CaptureScreen({ onShowSessions }) {
         onCameraReady={() => setCameraReady(true)}
         onMountError={(e) => setMessage(`The camera could not start: ${e.message}. Close the app and open it again.`)}
       />
+
+      {/* The road region (ROAD_REGION_TOP on the server): only damage below the middle line is
+          looked for. The top half is dimmed so it reads as left out; the preview is centred, so
+          the screen's middle is the video's middle. */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', backgroundColor: 'rgba(23, 32, 27, 0.28)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: '50%', left: 0, right: 0, alignItems: 'center' }}>
+        <View style={{ alignSelf: 'stretch', borderTopWidth: 2, borderStyle: 'dashed', borderColor: tilt.status.tone === 'ready' ? '#FFFFFF' : C.headerMuted }} />
+        <Text style={{ marginTop: S[1], paddingHorizontal: S[2], paddingVertical: 2, borderRadius: R.sm, backgroundColor: C.scrim, fontFamily: F.semibold, ...T.sm, color: '#FFFFFF' }}>
+          Line this up with the horizon. Damage is looked for below it.
+        </Text>
+      </View>
 
       <View style={{
         position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: C.scrim,
@@ -322,7 +340,10 @@ export default function CaptureScreen({ onShowSessions }) {
             </Text>
           )}
         </View>
-        <StatusLabel status={gps} />
+        <View style={[s.row, { gap: S[2], flexWrap: 'wrap' }]}>
+          <StatusLabel status={gps} />
+          <StatusLabel status={tilt.status} />
+        </View>
       </View>
 
       <View style={{
@@ -332,6 +353,7 @@ export default function CaptureScreen({ onShowSessions }) {
       >
         {message && <Notice kind="error">{message}</Notice>}
         {hint && <Text style={{ fontFamily: F.regular, ...T.sm, color: '#FFFFFF' }}>{hint}</Text>}
+        {tilt.advice && <Text style={{ fontFamily: F.regular, ...T.sm, color: '#FFFFFF' }}>{tilt.advice}</Text>}
         {phase === 'finishing' ? (
           <View style={{ minHeight: 64, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontFamily: F.semibold, ...T.base, color: '#FFFFFF' }}>Saving the video and GPS track…</Text>

@@ -16,6 +16,7 @@ ACTIONS = {
     'survey_renamed': 'Renamed a survey',
     'survey_deleted': 'Deleted a survey',
     'survey_placed': 'Placed a survey on the map',
+    'survey_reanalysed': 'Analysed a survey again',
     'status_changed': 'Changed an inspection status',
     'detection_corrected': 'Corrected a damage record',
     'detection_deleted': 'Deleted a damage record',

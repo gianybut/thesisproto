@@ -38,9 +38,10 @@ export async function checkNow() {
         serverStatus: video.status,
         serverProgress: video.processing_progress ?? null,
         serverDetections: video.total_detections ?? null,
+        serverError: video.error_message ?? null,
       };
       if (patch.serverStatus !== x.serverStatus || patch.serverProgress !== x.serverProgress
-        || patch.serverDetections !== x.serverDetections) {
+        || patch.serverDetections !== x.serverDetections || patch.serverError !== x.serverError) {
         updateSession(x.id, patch);
       }
     }

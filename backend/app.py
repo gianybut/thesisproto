@@ -71,6 +71,11 @@ def create_app():
     # Processing runs in a plain thread that dies with the server. Anything still marked
     # 'uploaded' or 'processing' at boot was interrupted and will never finish — say so
     # instead of leaving it spinning forever in the UI.
+    from services.video_processor import model_file_problem
+    model_problem = model_file_problem(app.config['MODEL_PATH'])
+    if model_problem:
+        print(f"⚠️  {model_problem}\n   Every upload will fail its analysis until this is fixed.")
+
     if shutil.which('ffmpeg') is None:
         print("⚠️  ffmpeg is not on PATH — annotated videos will be saved as AVI, which most "
               "browsers cannot play. Install it: winget install Gyan.FFmpeg")
@@ -89,6 +94,7 @@ def create_app():
             for v in stale:
                 v.status = 'failed'
                 v.processing_progress = 0
+                v.error_message = 'The server was restarted while this survey was being analysed. Choose "Analyse again" on the survey.'
             db.session.commit()
             print(f"⚠️  Marked {len(stale)} interrupted upload(s) as failed (server restarted mid-processing)")
 

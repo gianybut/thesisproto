@@ -85,11 +85,15 @@ export async function logout() {
  */
 export async function verifyToken() {
   if (!token) return false;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 10000);
   try {
-    const res = await fetch(`${serverUrl}/api/auth/me`, { headers: authHeader() });
+    const res = await fetch(`${serverUrl}/api/auth/me`, { headers: authHeader(), signal: abort.signal });
     if (res.status === 401) return false;
   } catch {
-    // offline: keep the session
+    // offline or timed out: keep the session
+  } finally {
+    clearTimeout(timer);
   }
   return true;
 }

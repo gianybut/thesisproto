@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
+import MapResizeFix, { OSM_ATTRIBUTION, OSM_TILES } from '../components/MapResizeFix';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { videosAPI } from '../api';
@@ -272,10 +273,8 @@ export default function SurveyPlaceTab({ video, detections, onSaved }) {
             </div>
           )}
           <MapContainer center={DEFAULT_CENTER} zoom={14} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_TILES} />
+            <MapResizeFix />
             <ClickCapture active={pendingTime != null} onPick={placePoint} />
             <FitOnce points={list} />
             {list.length >= 2 && <Polyline positions={list.map(p => [p.latitude, p.longitude])} pathOptions={{ color: POINT_LINE, weight: 3, opacity: 0.8 }} />}

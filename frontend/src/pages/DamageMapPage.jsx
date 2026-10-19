@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import MapResizeFix, { OSM_ATTRIBUTION, OSM_TILES } from '../components/MapResizeFix';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { mapAPI } from '../api';
@@ -259,10 +260,8 @@ export default function DamageMapPage() {
           ) : !error && (
             <div className="map-frame map-frame-main" role="region" aria-label="Damage map">
               <MapContainer center={center} zoom={14} style={{ height: '100%', width: '100%' }}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
+                <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_TILES} />
+                <MapResizeFix />
                 <FitBounds points={boundsPoints} fitKey={videoId} />
 
                 {/* Route under the dots. With several surveys, the label also names the survey. */}
