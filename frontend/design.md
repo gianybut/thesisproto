@@ -18,7 +18,7 @@ The value is that a two-hour survey becomes a located list in minutes. Nothing a
 
 ## 2. Principles
 
-1. One main action per screen: at most one filled green button per view.
+1. One main action per screen: at most one filled primary button per view.
 2. Content first: a page header is one line (title plus actions). Explanations go into hint text, empty states, or a closed "How this works".
 3. Group with space and surfaces, not lines. Dividers only between rows inside a list or table.
 4. Show what is needed now, reveal the rest ("More" menu, closed optional sections).
@@ -38,39 +38,37 @@ Plain, specific, calm. Write like a competent friend, not like a marketing page.
 
 ## 4. Colour (contrast measured, WCAG 2.1)
 
+Calm, modern, lighter blue. Every colour is a token in `:root`; map code reads them with `cssVar()` (`src/theme.js`).
+
 | Token | Hex | Use | Contrast |
 |---|---|---|---|
-| `--color-header` | #13294B | Navy header bar, phone menu panel | white text 14.52 |
-| `--color-header-muted` | #C5D0E0 | Role, inactive nav on navy | 9.31 on navy |
-| `--color-bg` / `--color-surface` | #FFFFFF | Page, panels, inputs | |
-| `--color-subtle` | #F5F6F3 | Count tiles, table heads, skeletons, hover fills, footer | ink 15.38, muted 7.15 |
-| `--color-ink` | #17201B | Body text, headings | 16.68 on white |
-| `--color-muted` | #4A5550 | Hints, meta lines | 7.76 on white |
-| `--color-primary` | #046B3E | Logo green: primary buttons, links | 6.61 |
-| `--color-primary-hover` | #03552F | Primary hover | 8.96 |
-| `--color-primary-tint` / `-strong` | #E5F1EA / #035230 | "Ready", success notices, selected rows | 8.03 |
-| `--color-danger` | #A1262B | Delete, error text | 7.43 |
-| `--color-danger-tint` / `-strong` | #FBECEC / #8E1F24 | "Analysis failed", error summary | 7.72 |
-| `--color-border` | #D3D9D4 | Panel outlines, row dividers (decorative) | 1.43 |
-| `--color-border-strong` | #7A847E | Inputs, secondary buttons | 3.87 |
-| `--color-focus` | #17201B | 3px outline, 2px offset | |
-| `--color-focus-on-header` | #FFFFFF | Focus ring and current-page underline in the header | |
+| `--color-bg` | #F6F8FB | Page background | |
+| `--color-surface` | #FFFFFF | Header, cards, panels, inputs | |
+| `--color-subtle` | #F1F5F9 | Table heads, skeletons, hover fills | muted 4.95 |
+| `--color-ink` | #1E293B | Headings and body | 14.63 on white |
+| `--color-muted` | #5B6B82 | Hints, meta lines | 4.77+ on every surface (#64748B failed on bg and primary-soft) |
+| `--color-primary` / `-hover` | #3B6FA8 / #2F5C8C | Buttons, links, progress, focus | white text 5.22 / 6.93 |
+| `--color-primary-soft` | #EAF1F9 | Stat tiles, active nav pill, selected rows, info notices | primary-hover text 6.09 |
+| `--color-success` on `-soft` | #1F7A55 on #E6F4EE | "Ready", success notices | 4.67 |
+| `--color-warning` on `-soft` | #B45309 on #FDF1E3 | "Analysing" | 4.51 |
+| `--color-danger` | #C2413B | Danger buttons, error text on white | 5.11 |
+| `--color-danger-strong` on `-soft` | #AD3A34 on #FCEBEA | "Analysis failed", error notices | 5.31 (#C2413B was 4.43) |
+| `--color-border` | #E2E8F0 | Panel outlines, row dividers (decorative) | |
+| `--color-border-strong` | #8592A6 | Inputs, secondary buttons | 3.15 |
 
-- No amber or yellow anywhere. Pothole #D55E00 stays unique to the map.
-- The logo green is 2.2:1 on navy, so in the header the logo sits on a 40px white tile.
-- Navy appears only in the header, the phone menu, and chrome drawn on maps (route line, control-point pins).
-- The footer is light grey with a 1px top border.
-- The interface never names the LGU (no "Local Government Unit of Mendez-Nuñez, Cavite" in the header, footer, login or page metadata).
-- Map class colours: D00 #009E73, D10 #0072B2, D20 #CC79A7, D40 #D55E00, unknown #5C635A. They pass 3:1 for graphics and are never used as text. A GPS dot has a 2px white halo; a hand-placed dot has a dashed class-colour stroke over a 35% fill.
+- The header is white with a 1px bottom border; the current page is a primary-soft pill. The logo keeps its own green (`--color-logo`), never used for UI.
+- One main colour: primary blue. At most one filled primary button per view (the landing page may repeat "Log in" in its top bar).
+- The interface never names the LGU, except the landing-page footer, which credits the partner office (DPWH Cavite 2nd District Engineering Office).
+- Map class colours (`--damage-*`): D00 #0E9384 teal, D10 #D97706 amber, D20 #7C5CC4 violet, D40 #D64545 red, unknown #64748B. Route and control pins `--map-route` #1E293B. Graphics only, never text. A GPS dot has a 2px white halo; a hand-placed dot has a dashed class-colour stroke over a 35% fill.
 
-Survey status labels (4px radius, icon plus text, 14px semibold):
+Survey status labels (8px radius, icon plus text, 14px semibold):
 
 | Status | Icon | Colours |
 |---|---|---|
 | Waiting to start | clock | muted on white, 1px border |
-| Analysing n% | half-filled circle, plus green progress bar | ink on subtle |
-| Ready | check | primary-strong on primary-tint |
-| Analysis failed | alert circle | danger-strong on danger-tint |
+| Analysing n% | half-filled circle, plus blue progress bar | warning on warning-soft |
+| Ready | check | success on success-soft |
+| Analysis failed | alert circle | danger-strong on danger-soft |
 
 Inspection statuses stay plain text. Confidence is plain "27%": no bar, colour or warning.
 
@@ -92,23 +90,23 @@ Public Sans, weights 400, 600 and 700 only. Monospace is for code only (a raw er
 - Spacing on a 4px base: `--space-1` 0.25rem … `--space-8` 4rem.
 - Page gutters 16px on phones, 32px on desktop. 32px between sections. Panel padding 24px (16px on phones).
 - Content max width 72rem; forms 40rem; the damage map runs full width.
-- Radius 4px for buttons, inputs and labels; 8px for panels, menus, dialogs and popups. No pills.
+- Radius 8px for buttons, inputs and labels; 12px for panels, cards, menus, dialogs and popups. Only the active nav item is a pill.
 - Borders: 1px `--color-border` around panels and between rows in lists and tables only. Inputs 1px `--color-border-strong`.
-- Elevation: level 0 is flat. Level 1 (`--elevation-1`) only for floating things: menus, the dialog, map popups, the phone menu.
+- Elevation: `--elevation-0` is a very soft shadow on cards and panels. `--elevation-1` only for floating things: menus, the dialog, map popups, the phone menu.
 - The header collapses to a "Menu" button below 64rem.
 
 ## 7. Actions
 
-All buttons are at least 44px tall, 4px radius, weight 600.
+All buttons are at least 44px tall, 8px radius, weight 600.
 
 | Kind | Look | Examples |
 |---|---|---|
-| Primary | Filled green, white text, one per view | Upload video, Save points and place damage |
+| Primary | Filled blue, white text, one per view | Upload video, Save points and place damage |
 | Secondary | White, ink text, 1px strong border | See on the map, Download, Show all surveys |
-| Quiet | No border, green text, subtle fill on hover | Reload, Clear filters, Rename, Cancel |
+| Quiet | No border, blue text, subtle fill on hover | Reload, Clear filters, Rename, Cancel |
 | Danger | Filled red | Only the confirm button in the delete dialog. In menus "Delete survey" is red text with a bin icon |
 | Icon-only | 44x44 with `aria-label` | Only "More actions for <name>" and "Remove point <n>" |
-| Link | Green, underlined | Navigation inside text. Row titles are bold ink, underlined on hover and focus |
+| Link | Blue, underlined | Navigation inside text. Row titles are bold ink, underlined on hover and focus |
 
 Disabled buttons always show the reason next to them.
 
@@ -123,7 +121,8 @@ About 30 hand-written inline SVG icons in `src/icons.jsx`, outline style (24px v
 
 ## 9. Information architecture
 
-- One navy header: logo tile and "OcuLubak"; role-filtered nav (Overview, Upload, Surveys, Damage map, Damage records), current page white with a 3px underline; account button opening a panel with the name, role and Sign out.
+- One white header: logo and "OcuLubak"; role-filtered nav (Overview, Upload, Surveys, Damage map, Damage records), current page as a primary-soft pill; account button opening a panel with the name, role, "About OcuLubak" and Sign out.
+- Public landing page (`LandingPage.jsx`): "/" for visitors, "/about" for everyone; login is at "/login". Signed-in users get the Overview at "/".
 - Survey detail and "Place on the map" are two tabs of one survey page (both URLs kept). The second tab appears only for surveys without GPS that did not fail.
 - Survey list: the title opens the survey; one visible next-step button; everything else in a "More" menu.
 - Menus use the disclosure pattern (button with `aria-expanded`, Escape and outside click close). Delete confirmation is a native `<dialog>`. Optional sections ("Add a GPS track", "How this works", phone "Filters") are native `<details>`.
@@ -142,7 +141,7 @@ Every number must trace to a column in the database. If you cannot name the colu
 - Invented statistics or scores, "Powered by AI" labels
 - Emoji anywhere in the interface
 - Pill-shaped badges
-- Marketing heroes; amber or yellow
+- Amber or yellow outside the "Analysing" label and the D10 map colour
 - Map class colours anywhere except the map
 - A second filled button in the same view
 
@@ -157,7 +156,7 @@ Designed at the same time as the default view, not after.
 ## 13. Quality floor
 
 - Responsive from 360px up, with no horizontal page scroll.
-- Visible keyboard focus: 3px outline, 2px offset (white inside the header).
+- Visible keyboard focus: 3px primary outline, 2px offset.
 - Text contrast 4.5:1 minimum; text never below 0.875rem; rem units.
 - Tap targets 44px minimum.
 - Motion limited to state transitions under 200ms. No entrance animations.

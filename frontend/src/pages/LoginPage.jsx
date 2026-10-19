@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { authAPI } from '../api';
 import { errorMessage } from '../labels';
 import ErrorSummary from '../components/ErrorSummary';
@@ -64,6 +65,7 @@ export default function LoginPage({ onLogin, notice }) {
           </form>
 
           <p className="login-note">Accounts are set up by your system administrator.</p>
+          <p className="login-note"><Link to="/">What is OcuLubak?</Link></p>
         </div>
       </main>
     </div>

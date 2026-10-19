@@ -10,21 +10,20 @@ import Notice from '../components/Notice';
 import EmptyState from '../components/EmptyState';
 import SkeletonRows from '../components/SkeletonRows';
 import useMediaQuery, { WIDE } from '../useMediaQuery';
+import { cssVar } from '../theme';
 
 // Map data palette. These four hues encode the RDD2022 damage classes and are used only on the
-// map (dots, legend, popup swatch). Okabe–Ito: distinct from each other, from the OpenStreetMap
-// base, and under common colour-vision deficiency.
+// map (dots, legend, popup swatch). The values are the --damage-* tokens in index.css: four hues
+// far apart (teal, amber, violet, red) that stay distinct on the OpenStreetMap base.
 const DAMAGE_CLASSES = [
-  { code: 'D00', label: 'Longitudinal crack', color: '#009E73' },
-  { code: 'D10', label: 'Transverse crack',   color: '#0072B2' },
-  { code: 'D20', label: 'Alligator crack',    color: '#CC79A7' },
-  { code: 'D40', label: 'Pothole',            color: '#D55E00' },
+  { code: 'D00', label: 'Longitudinal crack', token: '--damage-d00' },
+  { code: 'D10', label: 'Transverse crack',   token: '--damage-d10' },
+  { code: 'D20', label: 'Alligator crack',    token: '--damage-d20' },
+  { code: 'D40', label: 'Pothole',            token: '--damage-d40' },
 ];
 const CLASS_BY_CODE = Object.fromEntries(DAMAGE_CLASSES.map(c => [c.code, c]));
-const UNKNOWN_CLASS = { code: '', label: 'Unclassified damage', color: '#5C635A' };
+const UNKNOWN_CLASS = { code: '', label: 'Unclassified damage', token: '--damage-unknown' };
 
-const ROUTE_COLOR = '#13294B';   // --color-header: the route is chrome, not data
-const ROUTE_CASING = '#FFFFFF';  // light casing so the route reads over dark roads
 const DOT_RADIUS = 8;
 
 const classFor = (d) => CLASS_BY_CODE[d.damage_type] || UNKNOWN_CLASS;
@@ -32,10 +31,10 @@ const classFor = (d) => CLASS_BY_CODE[d.damage_type] || UNKNOWN_CLASS;
 // GPS-measured: solid dot with a 2px white halo. Placed by hand: dashed class-colour stroke over a
 // 35% fill.
 const dotStyle = (d) => {
-  const color = classFor(d).color;
+  const color = cssVar(classFor(d).token);
   return d.position_source === 'georeferenced'
     ? { color, weight: 2.5, dashArray: '3 3', fillColor: color, fillOpacity: 0.35 }
-    : { color: '#FFFFFF', weight: 2, fillColor: color, fillOpacity: 1 };
+    : { color: cssVar('--map-casing'), weight: 2, fillColor: color, fillOpacity: 1 };
 };
 
 // Fit the view to everything drawn. Re-fits when the survey changes so switching moves the view.
@@ -51,14 +50,17 @@ function Route({ track, label }) {
   const start = track.points[0];
   const end = track.points[track.points.length - 1];
   const line = { lineCap: 'round', lineJoin: 'round', opacity: 1 };
+  // The route is chrome, not data; the light casing keeps it readable over dark roads.
+  const routeColor = cssVar('--map-route');
+  const casing = cssVar('--map-casing');
   return (
     <>
-      <Polyline positions={track.points} pathOptions={{ ...line, color: ROUTE_CASING, weight: 9 }} />
-      <Polyline positions={track.points} pathOptions={{ ...line, color: ROUTE_COLOR, weight: 5 }} />
-      <CircleMarker center={start} radius={7} pathOptions={{ color: ROUTE_COLOR, weight: 3, fillColor: ROUTE_CASING, fillOpacity: 1 }}>
+      <Polyline positions={track.points} pathOptions={{ ...line, color: casing, weight: 9 }} />
+      <Polyline positions={track.points} pathOptions={{ ...line, color: routeColor, weight: 5 }} />
+      <CircleMarker center={start} radius={7} pathOptions={{ color: routeColor, weight: 3, fillColor: casing, fillOpacity: 1 }}>
         <Tooltip permanent direction="top" offset={[0, -8]} className="route-label">Start{label}</Tooltip>
       </CircleMarker>
-      <CircleMarker center={end} radius={7} pathOptions={{ color: ROUTE_CASING, weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }}>
+      <CircleMarker center={end} radius={7} pathOptions={{ color: casing, weight: 2, fillColor: routeColor, fillOpacity: 1 }}>
         <Tooltip permanent direction="top" offset={[0, -8]} className="route-label">End{label}</Tooltip>
       </CircleMarker>
     </>
@@ -72,7 +74,7 @@ function Legend({ counts, hasHandPlaced, hasRoute, routeFromPoints }) {
       <ul className="legend-list">
         {DAMAGE_CLASSES.map(c => (
           <li key={c.code}>
-            <span className="legend-dot" style={{ background: c.color }} />
+            <span className="legend-dot" style={{ background: `var(${c.token})` }} />
             <span>{c.label} <span className="code">{c.code}</span></span>
             <span className="num legend-count">{counts[c.code] || 0}</span>
           </li>
@@ -276,7 +278,7 @@ export default function DamageMapPage() {
                       <Popup>
                         <div className="map-popup">
                           <p className="map-popup-title">
-                            <span className="legend-dot" style={{ background: cls.color }} />{cls.label}
+                            <span className="legend-dot" style={{ background: `var(${cls.token})` }} />{cls.label}
                           </p>
                           <p className="num">{d.damage_type || '—'} · {Math.round(d.confidence * 100)}% confidence</p>
                           <p>{STATUS_LABELS[d.inspection_status] || STATUS_LABELS.pending_validation}{d.road_name ? ` · ${d.road_name}` : ''}</p>

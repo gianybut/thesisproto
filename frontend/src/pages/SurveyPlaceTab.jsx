@@ -8,12 +8,12 @@ import { errorMessage, isRunning } from '../labels';
 import Icon from '../icons';
 import Notice from '../components/Notice';
 import SkeletonRows from '../components/SkeletonRows';
+import { cssVar } from '../theme';
 
 // Must match backend/services/georeference_service.py
 const PH_BOUNDS = { latMin: 4.5, latMax: 21.5, lonMin: 116.0, lonMax: 127.0 };
 const MIN_POINTS = 2;
 const DEFAULT_CENTER = [14.1294, 120.9056]; // Mendez-Nuñez, Cavite — same as the damage map
-const POINT_LINE = '#13294B';                // --color-header: pins are not damage, so not a class colour
 
 const formatTime = (s) => {
   if (s == null || isNaN(s)) return '—';
@@ -278,7 +278,7 @@ export default function SurveyPlaceTab({ video, detections, onSaved }) {
             />
             <ClickCapture active={pendingTime != null} onPick={placePoint} />
             <FitOnce points={list} />
-            {list.length >= 2 && <Polyline positions={list.map(p => [p.latitude, p.longitude])} pathOptions={{ color: POINT_LINE, weight: 3, opacity: 0.8 }} />}
+            {list.length >= 2 && <Polyline positions={list.map(p => [p.latitude, p.longitude])} pathOptions={{ color: cssVar('--map-route'), weight: 3, opacity: 0.8 }} />}
             {list.map((p, i) => (
               <Marker key={p.id ?? `new-${p.video_time_s}`} position={[p.latitude, p.longitude]} icon={numberedIcon(i + 1)}
                 eventHandlers={{ click: () => seekTo(p.video_time_s) }} />

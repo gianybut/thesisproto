@@ -14,7 +14,7 @@ const NAV_ITEMS = [
 ];
 
 
-/** One navy bar: brand, role-filtered navigation, account. Collapses to "Menu" below 64rem. */
+/** One white bar: brand, role-filtered navigation, account. Collapses to "Menu" below 64rem. */
 export default function Header({ user, onLogout }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -29,9 +29,7 @@ export default function Header({ user, onLogout }) {
     <header className="app-header">
       <div className="header-inner">
         <Link to="/" className="brand" onClick={() => setMenuOpen(false)}>
-          <span className="brand-tile">
-            <img src="/oculubak-icon-mono.svg" alt="" width="32" height="21" />
-          </span>
+          <img src="/oculubak-icon-mono.svg" alt="" width="44" height="28" />
           <span className="brand-name">OcuLubak</span>
         </Link>
 
@@ -66,6 +64,7 @@ export default function Header({ user, onLogout }) {
               <>
                 <p className="account-panel-name">{name}</p>
                 <p className="account-panel-meta">{ROLE_LABELS[role]}</p>
+                <Link to="/about" className="menu-item account-about"><Icon name="info-circle" />About OcuLubak</Link>
                 <button type="button" className="btn btn-secondary btn-block" onClick={signOut}>
                   <Icon name="logout" />Sign out
                 </button>
@@ -96,9 +95,14 @@ export default function Header({ user, onLogout }) {
           <div className="phone-account">
             <p className="phone-account-name">{name}</p>
             <p className="phone-account-meta">{ROLE_LABELS[role]}</p>
-            <button type="button" className="btn btn-on-dark" onClick={signOut}>
-              <Icon name="logout" />Sign out
-            </button>
+            <div className="inline-row">
+              <Link to="/about" className="btn btn-secondary" onClick={() => setMenuOpen(false)}>
+                <Icon name="info-circle" />About
+              </Link>
+              <button type="button" className="btn btn-secondary" onClick={signOut}>
+                <Icon name="logout" />Sign out
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,8 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AUTH_EXPIRED, TOKEN_KEY } from './api';
 import { canAccess, roleOf } from './roles';
 import LoginPage from './pages/LoginPage';
+import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import UploadPage from './pages/UploadPage';
 import VideoListPage from './pages/VideoListPage';
@@ -19,6 +20,17 @@ function ProtectedRoute({ user, path, children }) {
     return <Navigate to="/" replace />;
   }
   return children;
+}
+
+// Logged out: any app URL goes to the login form, which returns there after signing in.
+function ToLogin() {
+  const { pathname, search } = useLocation();
+  return <Navigate to="/login" replace state={{ from: pathname + search }} />;
+}
+
+function AfterLogin() {
+  const { state } = useLocation();
+  return <Navigate to={state?.from || '/'} replace />;
 }
 
 function App() {
@@ -49,17 +61,34 @@ function App() {
     localStorage.removeItem(TOKEN_KEY);
   };
 
-  if (!user) {
-    return <LoginPage onLogin={handleLogin} notice={notice} />;
-  }
-
+  // The landing page is "/" for visitors and "/about" for everyone (the account menu links there).
   return (
     <Router>
+      <Routes>
+        <Route path="/about" element={<LandingPage user={user} />} />
+        {user ? (
+          <Route path="*" element={<AppShell user={user} onLogout={handleLogout} />} />
+        ) : (
+          <>
+            <Route path="/" element={<LandingPage user={null} />} />
+            <Route path="/login" element={<LoginPage onLogin={handleLogin} notice={notice} />} />
+            <Route path="*" element={<ToLogin />} />
+          </>
+        )}
+      </Routes>
+    </Router>
+  );
+}
+
+function AppShell({ user, onLogout }) {
+  return (
+    <>
       <a className="skip-link" href="#main">Skip to main content</a>
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={user} onLogout={onLogout} />
       <main id="main" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<DashboardPage user={user} />} />
+          <Route path="/login" element={<AfterLogin />} />
 
           <Route path="/upload" element={
             <ProtectedRoute user={user} path="/upload"><UploadPage /></ProtectedRoute>
@@ -85,7 +114,7 @@ function App() {
         </Routes>
       </main>
       <Footer />
-    </Router>
+    </>
   );
 }
 

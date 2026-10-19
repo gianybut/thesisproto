@@ -10,7 +10,8 @@ D40 pothole — RDD2022's own codes; there is no D30), detections are geo-locate
 GPS track or from user-placed control points, and surfaced through a React web app with LGU roles
 (barangay → municipal → provincial → admin). The partner office is the Local Government Unit of
 Mendez-Nuñez, Cavite (the seeded admin's `lgu_name`); never "DPWH Central Office". The web UI deliberately does not
-show the LGU name anywhere (header, footer, login, metadata); keep it out of new UI copy too. Severity
+show the LGU name anywhere (header, footer, login, metadata) except the public landing page footer,
+which credits the partner office (DPWH Cavite 2nd District Engineering Office); keep it out of other UI copy. Severity
 scoring was dropped from the product: nothing computes, stores, returns or displays it.
 
 Four independent parts: [backend/](backend/) (Flask API), [frontend/](frontend/) (React + Vite),
@@ -227,16 +228,16 @@ The Vite dev server talks to `http://localhost:5000/api`, hard-coded in `api.js`
 and no env var, so changing the backend port means editing that constant. All styling lives in one
 global [frontend/src/index.css](frontend/src/index.css) whose `:root` tokens (`--color-*`, `--text-*`,
 `--space-*`, `--radius-*`, `--elevation-1`) are the only source of values, built against
-[frontend/design.md](frontend/design.md), the authority on every visual decision. In brief: one navy
-header bar, white page, the logo green `#046B3E` as the single primary/link colour, at most one filled
-green button per view, grouping by space and panels rather than lines, Public Sans (400/600/700) with
+[frontend/design.md](frontend/design.md), the authority on every visual decision. In brief: a white
+header bar with a 1px border, a `#F6F8FB` page, primary blue `#3B6FA8` as the single primary/link colour
+(the logo keeps its own green), at most one filled primary button per view, soft-shadowed cards, Public Sans (400/600/700) with
 tabular figures (`.num`), status always as icon plus words, monospace for code only. There are no CSS
 modules or component-scoped styles, and no UI or icon library: icons are hand-written SVG in
 [icons.jsx](frontend/src/icons.jsx). Pages are plain function components using `useState`/`useEffect`
 polling, with no state library and no data-fetching library.
 
 Shared pieces in `frontend/src/components/`:
-- `Header` (navy bar, role-filtered nav, account menu, phone menu below 64rem) and `Footer`
+- `Header` (white bar, role-filtered nav, account menu with "About", phone menu below 64rem) and `Footer`
   (`SUPPORT_CONTACT` renders nothing while empty).
 - `PageHeader` (back link, title, meta line, actions, tabs slot) and `Notice` (info/success/error).
 - `StatusLabel` (`SurveyStatus`, `LocationSource`, `ProgressBar`), `EmptyState`, `SkeletonRows` and
@@ -250,16 +251,20 @@ statuses, the upload limits, and the survey predicates `isRunning` / `hasLocatio
 `useMediaQuery(WIDE)` is used only where phone and desktop need different markup (map filters and
 legend, records table vs cards).
 
+Routing: logged-out visitors get the public [LandingPage.jsx](frontend/src/pages/LandingPage.jsx) at `/`
+and the login form at `/login` (any other URL redirects there and returns after sign-in); signed-in
+users get the Overview at `/`. `/about` shows the landing page to everyone.
+
 Survey detail and "Place on the map" are two tabs of one page,
 [SurveyPage.jsx](frontend/src/pages/SurveyPage.jsx) (shared header and polling), with bodies in
 `SurveyDamageTab.jsx` and `SurveyPlaceTab.jsx`. Both URLs (`/videos/:id`, `/videos/:id/georeference`)
 stay; the second tab only shows for surveys without GPS that did not fail.
 
 The map page ([DamageMapPage.jsx](frontend/src/pages/DamageMapPage.jsx)) is deliberately plain:
-OpenStreetMap tiles, one solid navy route per survey with labelled Start/End markers, and one
+OpenStreetMap tiles, one solid dark route per survey with labelled Start/End markers, and one
 `CircleMarker` dot per detection coloured by damage class. A GPS-measured dot is solid with a white
-halo; a hand-placed one has a dashed stroke over a 35% fill. The four class colours (`DAMAGE_CLASSES` at
-the top of that file) encode data and appear only on the map (dots, legend, popup swatch). No heatmap,
+halo; a hand-placed one has a dashed stroke over a 35% fill. The four class colours (`--damage-*` tokens in `index.css`, read through `cssVar()` in
+[theme.js](frontend/src/theme.js) because Leaflet needs real values) encode data and appear only on the map (dots, legend, popup swatch). No heatmap,
 no clustering: `leaflet.markercluster` is a dependency but must stay unused.
 
 ## Documentation in the repo
