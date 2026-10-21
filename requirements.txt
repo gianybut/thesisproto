@@ -11,6 +11,7 @@ opencv-python>=4.8.0
 numpy>=1.24.0
 torch>=2.0.0
 torchvision>=0.15.0
+transformers>=4.44,<5      # AI check (CLIP), backend/services/damage_verifier.py
 
 # GPS Processing
 gpxpy>=1.6.0

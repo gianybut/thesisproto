@@ -9,6 +9,8 @@ import EmptyState from '../components/EmptyState';
 import Notice from '../components/Notice';
 import Disclosure from '../components/Disclosure';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DamagePreview, { DamageThumb } from '../components/DamagePreview';
+import { AiCheck } from '../components/StatusLabel';
 import { isAdmin } from '../roles';
 import useMediaQuery, { WIDE } from '../useMediaQuery';
 
@@ -22,6 +24,13 @@ const SORT_OPTIONS = [
   { value: 'confidence|asc', label: 'Lowest confidence' },
   { value: 'damage_type|asc', label: 'Kind of damage' },
   { value: 'status|asc', label: 'Inspection status' },
+  { value: 'ai_check|asc', label: 'AI check, least likely damage first' },
+];
+
+const AI_FILTERS = [
+  { value: 'flagged', label: 'Likely not road damage' },
+  { value: 'passed', label: 'Looks like road damage' },
+  { value: 'unchecked', label: 'AI check not run' },
 ];
 
 const confidenceText = (d) => (d.confidence == null ? '–' : `${Math.round(d.confidence * 100)}%`);
@@ -41,7 +50,9 @@ export default function DatabasePage({ user }) {
   const [stats, setStats] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [searchText, setSearchText] = useState('');
-  const [filters, setFilters] = useState({ damage_type: '', status: '', search: '', sort: 'created_at', dir: 'desc' });
+  const [filters, setFilters] = useState({ damage_type: '', status: '', ai: '', search: '', sort: 'created_at', dir: 'desc' });
+  // The record whose close-up is open beside the table (wide screens). Phones show it in each card.
+  const [selectedId, setSelectedId] = useState(null);
 
   // One key per (filters, page) request; loading until that exact request has completed.
   const requestKey = JSON.stringify({ filters, page });
@@ -72,11 +83,11 @@ export default function DatabasePage({ user }) {
   const applySearch = (e) => { e.preventDefault(); setFilter('search', searchText.trim()); };
   const clearAll = () => {
     setSearchText('');
-    setFilters(prev => ({ ...prev, damage_type: '', status: '', search: '' }));
+    setFilters(prev => ({ ...prev, damage_type: '', status: '', ai: '', search: '' }));
     setPage(1);
   };
-  const anyFilter = Boolean(filters.damage_type || filters.status || filters.search);
-  const filterCount = [filters.damage_type, filters.status, filters.search].filter(Boolean).length;
+  const anyFilter = Boolean(filters.damage_type || filters.status || filters.ai || filters.search);
+  const filterCount = [filters.damage_type, filters.status, filters.ai, filters.search].filter(Boolean).length;
 
   const updateStatus = async (d, value) => {
     setSavingId(d.id);
@@ -113,6 +124,12 @@ export default function DatabasePage({ user }) {
     setDeleting(true);
     try {
       await databaseAPI.remove(d.id);
+      // Reviewing in the close-up: move on to the next record, so false detections can be
+      // cleared one after another without going back to the table.
+      if (d.id === selectedId) {
+        const i = detections.findIndex(x => x.id === d.id);
+        setSelectedId((detections[i + 1] || detections[i - 1])?.id ?? null);
+      }
       setDetections(prev => prev.filter(x => x.id !== d.id));
       setTotal(n => n - 1);
       setNotice(`Deleted record ${d.id} (${damageName(d.damage_type).toLowerCase()}).`);
@@ -173,10 +190,11 @@ export default function DatabasePage({ user }) {
     );
   };
 
-  const statusSelect = (d) => (
-    <select id={`status-${d.id}`} className="input input-compact" value={d.inspection_status || 'pending_validation'}
+  // `labelled`: a visible <label> names it (cards, the close-up pane); in the table it has none.
+  const statusSelect = (d, id = `status-${d.id}`, labelled = !wide) => (
+    <select id={id} className="input input-compact" value={d.inspection_status || 'pending_validation'}
       disabled={savingId === d.id} onChange={(e) => updateStatus(d, e.target.value)}
-      aria-label={wide ? `Inspection status for record ${d.id}` : undefined}>
+      aria-label={labelled ? undefined : `Inspection status for record ${d.id}`}>
       {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
     </select>
   );
@@ -191,6 +209,89 @@ export default function DatabasePage({ user }) {
   const location = (d) => (d.latitude && d.longitude
     ? <span className="num">{d.latitude.toFixed(5)}, {d.longitude.toFixed(5)}</span>
     : <span className="muted">No location</span>);
+
+  const selected = detections.find(d => d.id === selectedId) || null;
+  const selectedIndex = selected ? detections.indexOf(selected) : -1;
+  const showPane = wide && selected;
+  const toggleSelected = (d) => setSelectedId(id => (id === d.id ? null : d.id));
+
+  useEffect(() => {
+    if (!showPane) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !toDelete) setSelectedId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showPane, toDelete]);
+
+  // The close-up of the chosen record with everything needed to judge it and act on it.
+  const reviewPane = (d) => (
+    <aside className="panel record-pane" aria-label={`Record ${d.id}`}>
+      <DamagePreview
+        key={d.id}
+        detection={d}
+        onClose={() => setSelectedId(null)}
+        title={<><span className="num muted">#{d.id}</span> {damageName(d.damage_type)} <span className="code">{d.damage_type}</span></>}
+      >
+        <div className="damage-preview-facts">
+          <p className="num">
+            {d.source_type === 'public_report'
+              ? 'Resident report'
+              : `${confidenceText(d)} confidence · ${d.timestamp_formatted} into the video`}
+          </p>
+          <p>{d.road_name || <span className="muted">No road name</span>}</p>
+          <p>{location(d)}</p>
+          <p className="muted">Recorded <span className="num">{formatDate(d.created_at)}</span></p>
+          {d.can_open_video && <p>{openInVideo(d)}</p>}
+          {d.source_type !== 'public_report' && (
+            <div className="ai-check">
+              <AiCheck detection={d} withScore />
+              <p className="field-hint">The AI check is a second model that looks at the close-up. It only advises: check the picture before deleting.</p>
+            </div>
+          )}
+        </div>
+      </DamagePreview>
+
+      <div className="record-pane-section">
+        <div className="field">
+          <label className="field-label" htmlFor="pane-status">Inspection status</label>
+          {statusSelect(d, 'pane-status', true)}
+        </div>
+        {admin && (
+          <>
+            <div className="field">
+              <label className="field-label" htmlFor="pane-kind">Kind of damage</label>
+              <select id="pane-kind" className="input input-compact" value={d.damage_type} disabled={savingId === d.id}
+                onChange={(e) => correctType(d, e.target.value)}>
+                {DAMAGE_CODES.map(c => <option key={c} value={c}>{damageName(c)} ({c})</option>)}
+              </select>
+            </div>
+            <div>
+              <button type="button" className="btn btn-quiet text-danger record-pane-delete"
+                disabled={savingId === d.id} onClick={() => setToDelete(d)}>
+                <Icon name="trash" />Delete record
+              </button>
+              <p className="field-hint">For something that is not road damage. You are asked to confirm.</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="record-pane-section">
+        <div className="record-pane-nav">
+          <button type="button" className="btn btn-secondary" disabled={selectedIndex <= 0}
+            onClick={() => setSelectedId(detections[selectedIndex - 1].id)}>
+            <Icon name="chevron-left" size={16} />Previous
+          </button>
+          <button type="button" className="btn btn-secondary" disabled={selectedIndex >= detections.length - 1}
+            onClick={() => setSelectedId(detections[selectedIndex + 1].id)}>
+            Next<Icon name="chevron-right" size={16} />
+          </button>
+        </div>
+        <p className="muted">Record <span className="num">{selectedIndex + 1}</span> of <span className="num">{detections.length}</span> on this page</p>
+      </div>
+    </aside>
+  );
 
   const filterFields = (
     <div className="records-filters">
@@ -215,12 +316,19 @@ export default function DatabasePage({ user }) {
           {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
       </div>
+      <div className="field">
+        <label className="field-label" htmlFor="db-ai">AI check</label>
+        <select id="db-ai" className="input" value={filters.ai} onChange={e => setFilter('ai', e.target.value)}>
+          <option value="">All records</option>
+          {AI_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
       {anyFilter && <button type="button" className="btn btn-quiet" onClick={clearAll}><Icon name="x" />Clear filters</button>}
     </div>
   );
 
   return (
-    <div className="page">
+    <div className="page page-records">
       <PageHeader
         title="Damage records"
         meta={stats && <><span className="num">{stats.total_detections ?? 0}</span> records · <span className="num">{stats.total_geolocated ?? 0}</span> with a location</>}
@@ -270,24 +378,31 @@ export default function DatabasePage({ user }) {
           </EmptyState>
         )
       ) : detections.length > 0 && (
-        <>
+        <div className={`records-review${showPane ? ' has-pane' : ''}`}>
+        <div>
           {wide ? (
             <div className="panel panel-flush table-wrap" aria-busy={loading}>
               <table className="table records-table">
                 <caption className="visually-hidden">Damage records. Headers with a button can be sorted.</caption>
                 <thead>
                   <tr>
+                    <th scope="col">Picture</th>
                     {sortHeader('damage_type', 'Damage')}
                     <th scope="col">Location</th>
                     {sortHeader('status', 'Inspection status')}
                     {sortHeader('confidence', 'Confidence')}
+                    {sortHeader('ai_check', 'AI check')}
                     {sortHeader('created_at', 'Recorded')}
                     {admin && <th scope="col"><span className="visually-hidden">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
                   {detections.map(d => (
-                    <tr key={d.id}>
+                    <tr key={d.id} className={d.id === selectedId ? 'is-selected' : undefined}>
+                      <td>
+                        <DamageThumb detection={d} selected={d.id === selectedId} onClick={() => toggleSelected(d)}
+                          label={`Close-up of record ${d.id}, ${damageName(d.damage_type).toLowerCase()}`} />
+                      </td>
                       <td>
                         <span className="cell-main"><span className="num muted">#{d.id}</span> {damageName(d.damage_type)} <span className="code">{d.damage_type}</span></span>
                         <span className="cell-sub">{sourceText(d)}</span>
@@ -298,6 +413,7 @@ export default function DatabasePage({ user }) {
                       </td>
                       <td>{statusSelect(d)}</td>
                       <td className="num">{confidenceText(d)}</td>
+                      <td><AiCheck detection={d} /></td>
                       <td>
                         <span className="cell-main num">{formatDate(d.created_at)}</span>
                         <span className="cell-sub">{openInVideo(d)}</span>
@@ -312,6 +428,7 @@ export default function DatabasePage({ user }) {
             <ul className="record-cards" aria-busy={loading}>
               {detections.map(d => (
                 <li key={d.id} className="panel record-card">
+                  <DamagePreview key={d.id} detection={d} />
                   <p className="record-card-head">
                     <span><span className="num muted">#{d.id}</span> · {damageName(d.damage_type)} <span className="code">{d.damage_type}</span></span>
                     <span className="num">{confidenceText(d)}</span>
@@ -319,6 +436,7 @@ export default function DatabasePage({ user }) {
                   {d.road_name && <p>{d.road_name}</p>}
                   <p>{location(d)}</p>
                   <p className="muted">{sourceText(d)} · <span className="num">{formatDate(d.created_at)}</span></p>
+                  <AiCheck detection={d} />
                   <div className="field">
                     <label className="field-label" htmlFor={`status-${d.id}`}>Inspection status</label>
                     {statusSelect(d)}
@@ -348,7 +466,9 @@ export default function DatabasePage({ user }) {
               </div>
             )}
           </nav>
-        </>
+        </div>
+        {showPane && reviewPane(selected)}
+        </div>
       )}
 
       <ConfirmDialog

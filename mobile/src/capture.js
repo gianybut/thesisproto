@@ -1,27 +1,33 @@
-// Turning a finished recording into an upload-ready session: move the video out
-// of the camera's cache, build the GPX from the logged fixes, and compute
+// Turning a finished clip into an upload-ready session: move the video out of
+// the camera's cache, build the GPX from the logged fixes, and compute
 // time_offset.
 import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
 import { buildGpx, cleanPoints, computeTimeOffset, dropStalePoints, findGaps } from './gpx';
 import { movieIsFinalized, videoTypeFor } from './platform';
-import { readPoints, stopLogging } from './locationTask';
-import { sessionDir, updateSession } from './storage';
+import { readPoints } from './locationTask';
+import { runDir, sessionDir, updateSession } from './storage';
 
-export function pointsFileFor(id) {
-  return new File(sessionDir(id), 'points.jsonl');
+// GPS is logged once per recording, across all its clips. Each clip's GPX takes the fixes
+// from this long before its start to this long after its end, so the server can place damage
+// in the first and last seconds of a clip (it interpolates between the bracketing fixes).
+export const CLIP_GPS_PAD_MS = 10_000;
+
+/** The GPS log of one recording (all of its clips). */
+export function runPointsFile(runId) {
+  return new File(runDir(runId), 'points.jsonl');
 }
 
 /**
- * @param session       the session record created at record start
+ * @param session       the session record created when the clip started
  * @param videoUri      what recordAsync resolved with (may be null if the camera failed)
  * @param videoStartMs  device clock immediately before recordAsync() was called
- * @param stopMs        device clock when recording ended
- * @param endReason     'stopped' | 'duration_cap' | 'size_cap' | 'camera_stopped' | 'app_left_foreground' | 'camera_error'
+ * @param stopMs        device clock when the clip ended
+ * @param endReason     'stopped' | 'next_clip' | 'storage_full' | 'size_cap' | 'camera_stopped' | 'app_left_foreground' | 'camera_error'
  * @param recovered     iOS: the camera reported a failure and the file was found in its cache instead
+ * @param pointsFile    the recording's GPS log (runPointsFile); only this clip's stretch is used
  */
-export async function finalizeSession(session, { videoUri, videoStartMs, stopMs, endReason, cameraError, recovered }) {
-  await stopLogging();
+export async function finalizeSession(session, { videoUri, videoStartMs, stopMs, endReason, cameraError, recovered, pointsFile }) {
   const dir = sessionDir(session.id);
 
   if (!videoUri) {
@@ -77,7 +83,10 @@ export async function finalizeSession(session, { videoUri, videoStartMs, stopMs,
     return;
   }
 
-  const { points: logged, errors } = readPoints(pointsFileFor(session.id));
+  const inClip = (rx) => rx >= videoStartMs - CLIP_GPS_PAD_MS && rx <= stopMs + CLIP_GPS_PAD_MS;
+  const all = readPoints(pointsFile);
+  const logged = all.points.filter((p) => inClip(p.rx));
+  const errors = all.errors.filter((e) => inClip(e.rx));
   const { points, dropped: stalePoints } = dropStalePoints(cleanPoints(logged));
   const { timeOffsetS, skewMs } = computeTimeOffset(points, videoStartMs);
   const gaps = findGaps(points);
@@ -92,6 +101,8 @@ export async function finalizeSession(session, { videoUri, videoStartMs, stopMs,
       points,
       capture: {
         sessionId: session.id,
+        recordingId: session.runId ?? session.id,
+        part: session.part ?? 1,
         videoStart: new Date(videoStartMs).toISOString(),
         videoStartSource: 'device_clock_at_record_call',
         timeOffsetS: timeOffsetS.toFixed(3),
@@ -106,6 +117,8 @@ export async function finalizeSession(session, { videoUri, videoStartMs, stopMs,
         locationPermission: session.locationPermission || 'unknown',
         cameraPitchDegAtStart: session.cameraPitchDeg ?? 'unknown',
         cameraRollDegAtStart: session.cameraRollDeg ?? 'unknown',
+        roadTop: session.roadTop ?? 'unknown',
+        roadBottom: session.roadBottom ?? 'unknown',
         videoContainer: ext,
       },
     }));

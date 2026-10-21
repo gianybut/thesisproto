@@ -64,6 +64,17 @@ def get_all_detections():
     if has_gps == 'true':
         query = query.filter(Detection.latitude.isnot(None))
 
+    # AI check verdict: flagged (likely not road damage), passed, or unchecked
+    ai = request.args.get('ai')
+    if ai:
+        from services.damage_verifier import VERIFY_THRESHOLD
+        if ai == 'flagged':
+            query = query.filter(Detection.ai_check_score < VERIFY_THRESHOLD)
+        elif ai == 'passed':
+            query = query.filter(Detection.ai_check_score >= VERIFY_THRESHOLD)
+        elif ai == 'unchecked':
+            query = query.filter(Detection.ai_check_score.is_(None))
+
     search = request.args.get('search')
     if search:
         query = query.filter(
@@ -80,8 +91,12 @@ def get_all_detections():
         'confidence': Detection.confidence,
         'damage_type': Detection.damage_type,
         'status': Detection.inspection_status,
+        'ai_check': Detection.ai_check_score,
     }
     sort_col = sort_map.get(sort_by, Detection.created_at)
+    if sort_by == 'ai_check':
+        # Unchecked records last either way, so "least likely damage first" starts with real flags.
+        query = query.order_by(Detection.ai_check_score.is_(None))
     if sort_dir == 'asc':
         query = query.order_by(sort_col.asc())
     else:
@@ -174,7 +189,7 @@ def export_data():
             fieldnames = ['id', 'damage_type', 'damage_label',
                           'confidence', 'latitude', 'longitude', 'position_source', 'road_name',
                           'inspection_status', 'source_type', 'created_at',
-                          'video_id', 'frame_number', 'timestamp']
+                          'video_id', 'frame_number', 'timestamp', 'ai_check_score', 'ai_flagged']
             writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
             writer.writeheader()
             for row in data:

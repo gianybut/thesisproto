@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import MapResizeFix, { OSM_ATTRIBUTION, OSM_TILES } from '../components/MapResizeFix';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,6 +8,8 @@ import { mapAPI } from '../api';
 import { STATUSES, STATUS_LABELS, errorMessage } from '../labels';
 import Icon from '../icons';
 import Notice from '../components/Notice';
+import DamagePreview from '../components/DamagePreview';
+import { AiCheck } from '../components/StatusLabel';
 import EmptyState from '../components/EmptyState';
 import SkeletonRows from '../components/SkeletonRows';
 import useMediaQuery, { WIDE } from '../useMediaQuery';
@@ -27,17 +29,64 @@ const UNKNOWN_CLASS = { code: '', label: 'Unclassified damage', color: '#5C635A'
 const ROUTE_COLOR = '#13294B';   // --color-header: the route is chrome, not data
 const ROUTE_CASING = '#FFFFFF';  // light casing so the route reads over dark roads
 const DOT_RADIUS = 8;
+const DOT_RADIUS_SELECTED = 11;
 
 const classFor = (d) => CLASS_BY_CODE[d.damage_type] || UNKNOWN_CLASS;
 
 // GPS-measured: solid dot with a 2px white halo. Placed by hand: dashed class-colour stroke over a
-// 35% fill.
-const dotStyle = (d) => {
+// 35% fill. The dot whose close-up is open is larger with an ink ring. Clicks on a dot do not
+// reach the map, where a click closes the close-up.
+const dotStyle = (d, selected) => {
   const color = classFor(d).color;
-  return d.position_source === 'georeferenced'
+  const base = d.position_source === 'georeferenced'
     ? { color, weight: 2.5, dashArray: '3 3', fillColor: color, fillOpacity: 0.35 }
     : { color: '#FFFFFF', weight: 2, fillColor: color, fillOpacity: 1 };
+  return { ...base, ...(selected ? { color: '#17201B', weight: 3, dashArray: null } : {}), bubblingMouseEvents: false };
 };
+
+// A click on the map itself (not on a dot) closes the close-up.
+function MapClick({ onClick }) {
+  useMapEvents({ click: onClick });
+  return null;
+}
+
+/**
+ * The close-up of one damage on the map, with what the old popup said. `pinned` is false while it
+ * only follows the pointer over a dot; clicking the dot keeps it open.
+ */
+function MapPreview({ d, pinned, inline, onClose }) {
+  const cls = classFor(d);
+  const fromVideo = d.source_type !== 'public_report';
+  return (
+    <div className={`map-preview${inline ? ' map-preview-inline panel' : ''}`}>
+      <DamagePreview
+        key={d.id}
+        detection={d}
+        onClose={pinned ? onClose : null}
+        title={<><span className="legend-dot" style={{ background: cls.color }} />{cls.label} <span className="code">{d.damage_type || '—'}</span></>}
+      >
+        <div className="damage-preview-facts">
+          <p className="num">
+            {fromVideo ? `${Math.round(d.confidence * 100)}% confidence` : 'Resident report'}
+            {fromVideo && d.timestamp_formatted ? ` · ${d.timestamp_formatted} into the video` : ''}
+          </p>
+          <p>{STATUS_LABELS[d.inspection_status] || STATUS_LABELS.pending_validation}{d.road_name ? ` · ${d.road_name}` : ''}</p>
+          <p className="num muted">{d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}</p>
+          {d.position_source === 'georeferenced' && <p className="muted">Placed by hand between control points.</p>}
+          {fromVideo && <div><AiCheck detection={d} withScore /></div>}
+          {d.video_id > 0 && d.can_open_video && (
+            <p>
+              <Link to={`/videos/${d.video_id}?t=${d.timestamp}`} className="link-arrow">
+                Open in the video<Icon name="chevron-right" size={16} />
+              </Link>
+            </p>
+          )}
+          {!pinned && <p className="muted">Click the dot to keep this open.</p>}
+        </div>
+      </DamagePreview>
+    </div>
+  );
+}
 
 // Fit the view to everything drawn. Re-fits when the survey changes so switching moves the view.
 function FitBounds({ points, fitKey }) {
@@ -134,6 +183,20 @@ export default function DamageMapPage() {
     });
     return () => { cancelled = true; };
   }, [requestKey, videoId, filters.damage_type, filters.status]);
+
+  // The close-up: the dot under the pointer, else the dot last clicked.
+  const [hovered, setHovered] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+  const selectedDet = detections.find(d => d.id === selectedId) || null;
+  const previewDet = hovered || selectedDet;
+  const closePreview = () => { setSelectedId(null); setHovered(null); };
+
+  useEffect(() => {
+    if (selectedId == null) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { setSelectedId(null); setHovered(null); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId]);
 
   const reload = () => setReloadTick(t => t + 1);
   const clearFilters = () => setFilters({ damage_type: '', status: '' });
@@ -267,32 +330,31 @@ export default function DamageMapPage() {
                 {/* Route under the dots. With several surveys, the label also names the survey. */}
                 {tracks.map(t => <Route key={t.video_id} track={t} label={videoId ? '' : ` · ${t.video_name}`} />)}
 
-                {detections.map(d => {
-                  const cls = classFor(d);
-                  return (
-                    <CircleMarker key={d.id} center={[d.latitude, d.longitude]} radius={DOT_RADIUS} pathOptions={dotStyle(d)}>
-                      <Tooltip direction="top" offset={[0, -DOT_RADIUS]}>{cls.label}</Tooltip>
-                      <Popup>
-                        <div className="map-popup">
-                          <p className="map-popup-title">
-                            <span className="legend-dot" style={{ background: cls.color }} />{cls.label}
-                          </p>
-                          <p className="num">{d.damage_type || '—'} · {Math.round(d.confidence * 100)}% confidence</p>
-                          <p>{STATUS_LABELS[d.inspection_status] || STATUS_LABELS.pending_validation}{d.road_name ? ` · ${d.road_name}` : ''}</p>
-                          <p className="num muted">{d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}</p>
-                          {d.position_source === 'georeferenced' && <p className="muted">Placed by hand between control points.</p>}
-                          {d.video_id > 0 && d.can_open_video && (
-                            <Link to={`/videos/${d.video_id}?t=${d.timestamp}`} className="link-arrow">
-                              Open in the video<Icon name="chevron-right" size={16} />
-                            </Link>
-                          )}
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  );
-                })}
+                <MapClick onClick={closePreview} />
+
+                {/* The selected dot last, so it is drawn on top. */}
+                {[...detections.filter(d => d.id !== selectedId), ...(selectedDet ? [selectedDet] : [])].map(d => (
+                  <CircleMarker
+                    key={d.id}
+                    center={[d.latitude, d.longitude]}
+                    radius={d.id === selectedId ? DOT_RADIUS_SELECTED : DOT_RADIUS}
+                    pathOptions={dotStyle(d, d.id === selectedId)}
+                    eventHandlers={{
+                      mouseover: () => setHovered(d),
+                      mouseout: () => setHovered(h => (h?.id === d.id ? null : h)),
+                      click: () => { setSelectedId(d.id); setHovered(null); },
+                    }}
+                  />
+                ))}
               </MapContainer>
+              {wide && previewDet && (
+                <MapPreview d={previewDet} pinned={previewDet.id === selectedId} onClose={closePreview} />
+              )}
             </div>
+          )}
+
+          {!wide && !loading && selectedDet && (
+            <MapPreview d={selectedDet} pinned inline onClose={closePreview} />
           )}
 
           {!wide && !loading && legend && <div className="panel">{legend}</div>}

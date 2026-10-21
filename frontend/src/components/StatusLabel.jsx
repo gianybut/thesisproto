@@ -46,3 +46,26 @@ export function ProgressBar({ value, label }) {
     </div>
   );
 }
+
+/**
+ * The AI check of one damage record (backend services/damage_verifier.py): a second model's view of
+ * whether the close-up is road damage. Advice for the admin, who decides. Nothing for resident
+ * reports, which are photos taken by a person.
+ */
+export function AiCheck({ detection: d, withScore = false }) {
+  if (d.source_type === 'public_report') return null;
+  if (d.ai_check_score == null) {
+    return <span className="status-label status-waiting"><Icon name="clock" size={16} />AI check not run</span>;
+  }
+  const pct = Math.round(d.ai_check_score * 100);
+  return d.ai_flagged ? (
+    <span className="status-label status-failed">
+      <Icon name="alert-triangle" size={16} />Likely not road damage{withScore && <span className="num"> · {pct}%</span>}
+    </span>
+  ) : (
+    <span className="status-label status-ready">
+      <Icon name="check" size={16} />Looks like road damage{withScore && <span className="num"> · {pct}%</span>}
+    </span>
+  );
+}
+

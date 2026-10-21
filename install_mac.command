@@ -84,6 +84,14 @@ if [ "$need_models" = 1 ]; then
 fi
 ok "Detection model present"
 
+# The AI check model (CLIP, ~570 MB) is fetched from Hugging Face once, so analysis works offline.
+# Not fatal: without it surveys are still analysed and records are left "not checked".
+if .venv/bin/python backend/services/damage_verifier.py --download >/dev/null 2>&1; then
+  ok "AI check model present"
+else
+  warn "Could not download the AI check model. Surveys still work; run this installer again with internet to add it."
+fi
+
 mkdir -p "$RUN"
 # The apps are opened from Finder with a bare PATH, so remember where node is.
 printf 'NODE_DIR=%q\n' "$(dirname "$(command -v node)")" >"$RUN/paths.sh"

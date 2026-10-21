@@ -193,9 +193,13 @@ identical. The system samples frames at a fixed analysis rate instead:
 | `INFERENCE_FPS` | 5     | Frames analysed per second of video                  |
 | `CONF_THRESHOLD`| 0.15  | Minimum confidence for a prediction to be kept       |
 | `IOU_THRESHOLD` | 0.45  | Overlap threshold for non-maximum suppression        |
+| `INFERENCE_IMGSZ` | 1280 | Model input size (longest side, pixels)            |
 
 Every *n*-th frame is analysed, where *n* = max(1, ⌊FPS / INFERENCE_FPS⌋). For a 30 fps video,
-*n* = 6. The low confidence threshold favours recall: in a monitoring setting a missed pothole is
+*n* = 6. The analysed strip of each frame (Sec 3.4.3a) is resized for the model to 1280 pixels on
+its longest side. At the Ultralytics default of 640, a 1920-pixel phone frame is reduced to a third
+and potholes more than a few metres ahead are only a few pixels across; on a 3.5-minute survey
+filmed through a windshield the same model returned 13 boxes at 640 and 157 at 1280. The low confidence threshold favours recall: in a monitoring setting a missed pothole is
 worse than a false alarm, and false alarms are filtered out during human validation (Sec 3.6).
 
 So that the annotated output video does not flicker, the boxes from each inference frame are drawn
@@ -214,17 +218,22 @@ Each predicted class is mapped to an RDD2022 code in three steps:
    "crack" or "manhole" class) are dropped. They are not relabelled as potholes, so the system only
    reports the four classes it claims to detect.
 
-### 3.4.3a Road region
+### 3.4.3a Road band
 
-The camera also sees buildings, walls, signs and trees above the road, where the detector reports
-false damage. Only detections whose box centre lies in the lower half of the frame
-(`ROAD_REGION_TOP = 0.5`) are kept. The model still receives the whole frame, so its behaviour is
-unchanged; only its output above the line is discarded. The rule relies on the camera pointing
-level: a level camera places the horizon on the middle line, so everything below it is road. The
-mobile capture app helps with this. Its camera screen draws the middle line, dims the part above
-it, and reads the phone's motion sensors to show whether the camera points level, more than 3° up,
-more than 15° down, or is turned more than 5° sideways. The tilt at the start of each recording is
-stored in the GPX metadata. The annotated video shows the line.
+The camera also sees buildings, walls, signs and trees above the road, and, when mounted behind a
+windshield, the bonnet of the vehicle below it; the detector reports false damage in both. Only the
+road band, the strip of the frame between the horizon and the bonnet, is passed to the model. Where
+those lines fall depends on how the phone is mounted (tilted up or down, high or low on the glass,
+how much bonnet is in view), so they are set per survey rather than fixed. On the mobile capture
+app's camera screen the user drags two lines over the live preview, *Horizon* to where the road ends
+and *Bonnet* to the top edge of the bonnet; the parts outside are dimmed. Until the horizon line is
+moved it follows an estimate from the phone's motion sensors (pitch θ and the camera's vertical
+field of view φ place the horizon at 0.5 + tan θ / (2 tan(φ/2)) of the height from the top). The
+estimate is only a starting point, because braking and acceleration tilt the sensed gravity vector.
+The lines are remembered for the next drive, since a mounted phone keeps its view. Both are sent
+with each upload (`road_top`, `road_bottom`) and stored on the survey; surveys without them (web
+uploads) use the top at the middle of the frame and the bottom edge. The annotated video shows both
+lines.
 
 ### 3.4.4 Duplicate suppression
 
@@ -247,6 +256,26 @@ Then:
 
 Each closed track becomes one record taken from its best sighting, the one with the highest
 confidence: its box, damage class, timestamp (and therefore position) and snapshot.
+
+### 3.4.4a AI check of each detection
+
+The detector is trained only on road damage, so things that resemble damage to it are reported as
+damage: worn lane markings, pedestrian crossings, car and bus bodies, the vehicle's own bonnet,
+manhole covers. Each record is therefore given a second, independent opinion. A general-purpose
+image–text model, CLIP ViT-B/16 (Radford et al., 2021), compares a square crop around the damage
+(three times the box's larger side, at least 112 pixels, taken from the frame before anything is
+drawn on it) with five descriptions of road damage and eleven descriptions of the look-alikes found
+on real surveys. The share of its answer that goes to the road-damage descriptions is stored as the
+record's AI-check score (0–1). The model needs no training on project data (zero-shot) and runs
+offline on the server.
+
+A record scoring below 0.6 is flagged "likely not road damage" for the system administrator. The
+flag is advice only: nothing is hidden or deleted automatically, and the administrator confirms
+each deletion after looking at the close-up (Sec 3.6). On 38 hand-labelled records from one
+3.5-minute windshield survey (15 real damages, 23 false detections), real damage scored above
+false detections in 94% of pairs (AUC 0.94); at 0.6, 14 of the 15 real damages passed and 18 of
+the 23 false detections were flagged. Because the crop size and threshold were chosen on the same
+survey, these figures are optimistic and must be confirmed on a second survey.
 
 ### 3.4.5 Evidence and output generation
 

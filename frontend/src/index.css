@@ -491,6 +491,34 @@ select.input { cursor: pointer; }
 .damage-time { font-size: var(--text-sm); color: var(--color-muted); }
 .damage-conf { color: var(--color-muted); }
 
+/* Close-up of one damage (DamagePreview): the saved frame zoomed to the damage's box. */
+.damage-preview { display: flex; flex-direction: column; gap: var(--space-2); }
+.damage-preview-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; }
+.damage-preview-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-weight: var(--weight-semibold); }
+.damage-preview-title .num, .damage-preview-title .code { font-weight: 400; }
+.damage-preview-frame { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--color-ink); border-radius: var(--radius-sm); }
+.damage-preview-frame img { position: absolute; max-width: none; }
+.damage-preview-frame img.is-whole { inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.damage-preview-loading { position: absolute; inset: 0; height: auto; border-radius: 0; background: #2A332D; }
+.damage-preview-missing { display: flex; align-items: center; justify-content: center; height: 100%; padding: var(--space-4); text-align: center; font-size: var(--text-sm); color: var(--color-header-muted); }
+.damage-preview-tools { min-height: 44px; }
+.damage-preview-tools .btn { margin-left: calc(-1 * var(--space-3)); }
+.damage-preview-facts { font-size: var(--text-sm); display: flex; flex-direction: column; gap: 2px; }
+.damage-thumb { display: block; padding: 0; border: 0; background: none; border-radius: var(--radius-sm); cursor: pointer; }
+.damage-thumb-frame { position: relative; display: block; width: 7rem; aspect-ratio: 16 / 9; overflow: hidden; background: var(--color-ink); border-radius: var(--radius-sm); }
+.damage-thumb-frame img { position: absolute; max-width: none; }
+.damage-thumb-frame img.is-whole { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.damage-thumb-missing { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 0.75rem; color: var(--color-header-muted); }
+.damage-thumb.is-selected .damage-thumb-frame { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.damage-panel-preview { padding: var(--space-3) var(--space-4) 0; }
+.damage-panel-preview + .chips, .damage-panel-preview + .damage-list { margin-top: var(--space-1); }
+.damage-panel.has-preview .damage-list { max-height: calc(100vh - 34rem); }
+
+/* On the damage map the close-up floats in the map's corner on wide screens, above Leaflet's panes. */
+.map-preview { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1000; width: 22rem; max-width: calc(100% - 2 * var(--space-3)); max-height: calc(100% - 2 * var(--space-3)); overflow-y: auto; padding: var(--space-3) var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--elevation-1); }
+.map-preview-inline { position: static; width: auto; max-width: none; max-height: none; box-shadow: none; }
+.map-preview .legend-dot { flex: 0 0 auto; }
+
 .place-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
 .place-panel { display: flex; flex-direction: column; gap: var(--space-3); }
 .place-panel .panel-subtitle { margin-bottom: 0; }
@@ -558,7 +586,23 @@ select.input { cursor: pointer; }
 .records-phone-controls { margin-bottom: var(--space-4); }
 .records-phone-controls .records-filters { flex-direction: column; align-items: stretch; margin-bottom: 0; }
 .records-phone-controls .records-filters .field { flex: 1 1 auto; }
-.records-table td:nth-child(3) { width: 1%; }
+.records-table td:nth-child(4) { width: 1%; }
+.records-table td:first-child { width: 1%; }
+.records-table tr.is-selected td { background: var(--color-primary-tint); }
+/* Records page: the table and, once a record is chosen, its close-up beside it. */
+.page-records { max-width: calc(var(--content-max) + 26rem + 2 * var(--gutter)); }
+.records-review { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.records-review.has-pane { grid-template-columns: minmax(0, 1fr) 24rem; }
+.record-pane { position: sticky; top: calc(var(--header-height) + var(--space-4)); max-height: calc(100vh - var(--header-height) - var(--space-6)); overflow-y: auto; padding: var(--space-4); }
+.record-pane-section { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.record-pane-nav { display: flex; justify-content: space-between; gap: var(--space-2); }
+.btn-quiet.text-danger { color: var(--color-danger); }
+.ai-check { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); margin-top: var(--space-2); }
+.damage-flag { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-danger-strong); }
+.record-card .status-label { align-self: flex-start; }
+.record-pane-delete { margin-left: calc(-1 * var(--space-3)); }
+.btn-quiet.text-danger:hover:not(:disabled) { background: var(--color-danger-tint); color: var(--color-danger-strong); }
+.record-card .damage-preview { margin-bottom: var(--space-2); }
 .record-cards { display: flex; flex-direction: column; gap: var(--space-3); }
 .record-card { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4); }
 .record-card-head { display: flex; justify-content: space-between; gap: var(--space-3); font-weight: var(--weight-semibold); max-width: none; }

@@ -2,12 +2,18 @@
 // recordings and the upload queue survive app restarts. Each session's files
 // live in documents/sessions/<id>/.
 //
+// A session is one clip. A recording longer than CLIP_S is saved as several clips
+// (CaptureScreen.js), which share a runId and are numbered by part (1..parts). The GPS
+// log of a recording in progress lives in documents/runs/<runId>/ until every clip has
+// taken its share of it.
+//
 // Session status: recording -> recorded -> queued -> uploading -> uploaded
 //                                                  \-> failed (manual retry)
 import { Directory, File, Paths } from 'expo-file-system';
 
 const INDEX = new File(Paths.document, 'sessions.json');
 const ROOT = new Directory(Paths.document, 'sessions');
+const RUNS = new Directory(Paths.document, 'runs');
 
 let sessions = null;
 const listeners = new Set();
@@ -45,6 +51,18 @@ export function sessionDir(id) {
   const dir = new Directory(ROOT, id);
   if (!dir.exists) dir.create({ intermediates: true });
   return dir;
+}
+
+/** Folder for a recording in progress (its GPS log), removed when the recording is saved. */
+export function runDir(runId) {
+  const dir = new Directory(RUNS, runId);
+  if (!dir.exists) dir.create({ intermediates: true });
+  return dir;
+}
+
+export function deleteRunDir(runId) {
+  const dir = new Directory(RUNS, runId);
+  if (dir.exists) dir.delete();
 }
 
 export function addSession(session) {
@@ -87,6 +105,12 @@ export function recoverAfterRestart() {
     return x;
   });
   if (changed) persist();
+  // GPS logs of recordings the app was closed during; their clips are marked above.
+  try {
+    if (RUNS.exists) RUNS.delete();
+  } catch {
+    // left for the next start
+  }
 }
 
 export const newSessionId = () =>

@@ -84,9 +84,14 @@ def get_map_detections():
             'video_id': d.video_id,
             'frame_number': d.frame_number,
             'timestamp': d.timestamp,
+            'timestamp_formatted': d._format_timestamp(),
+            # The damage's box in the snapshot, so the map's preview can zoom to it.
+            'bbox': {'x1': d.bbox_x1, 'y1': d.bbox_y1, 'x2': d.bbox_x2, 'y2': d.bbox_y2},
             'frame_snapshot': d.frame_snapshot,
             'source_type': d.source_type,
             'position_source': d.position_source,
+            'ai_check_score': d.ai_check_score,
+            'ai_flagged': d.ai_flagged,
             'created_at': d.created_at.isoformat() if d.created_at else None,
             'can_open_video': bool(d.video and can_open_video(d.video.user_id)),
         } for d in detections]

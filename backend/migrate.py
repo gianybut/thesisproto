@@ -25,6 +25,11 @@ NEW_COLUMNS = [
     ('videos', 'display_name', "display_name VARCHAR(300)"),
     # why an analysis failed, shown to the user
     ('videos', 'error_message', "error_message VARCHAR(500)"),
+    # road band set on the phone (horizon and bonnet lines)
+    ('videos', 'road_top', "road_top FLOAT"),
+    ('videos', 'road_bottom', "road_bottom FLOAT"),
+    # AI check of each detection (services/damage_verifier.py)
+    ('detections', 'ai_check_score', "ai_check_score FLOAT"),
 ]
 
 # (label, SQL) — must be safe to re-run

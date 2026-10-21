@@ -11,42 +11,53 @@ import PageHeader from '../components/PageHeader';
 import { formatDuration, formatSize } from '../labels';
 import { S, s } from '../theme';
 
+const sum = (list, key) => list.reduce((t, x) => t + (x[key] || 0), 0);
+
 /**
  * Straight after a recording stops: what was saved, an optional road name, and one main action.
+ * A long recording comes as several clips (parts); the road name and the upload apply to all.
  * onDone({ upload, roadName }) hands back to the camera screen.
  */
-export default function ReviewScreen({ sessionId, onDone }) {
+export default function ReviewScreen({ sessionIds, onDone }) {
   const insets = useSafeAreaInsets();
   const [roadName, setRoadName] = useState('');
-  const sess = getSession(sessionId);
-  const saved = sess?.status === 'recorded';
+  const clips = sessionIds.map(getSession).filter(Boolean);
+  const saved = clips.filter((x) => x.status === 'recorded');
+  const many = clips.length > 1;
+  const label = (x) => (many ? `Part ${x.part}: ` : '');
+  const errors = clips.filter((x) => x.status !== 'recorded' && x.lastError).map((x) => `${label(x)}${x.lastError}`);
+  const warnings = clips.flatMap((x) => (x.warnings || []).map((w) => `${label(x)}${w}`));
+
+  let title = 'The survey was not saved';
+  if (saved.length) title = many ? `Survey recorded in ${clips.length} parts` : 'Survey recorded';
 
   return (
     <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <AppBar />
       <ScrollView contentContainerStyle={[s.page, { paddingBottom: insets.bottom + S[7] }]} keyboardShouldPersistTaps="handled">
-        <PageHeader title={saved ? 'Survey recorded' : 'The survey was not saved'} />
+        <PageHeader title={title} />
         <View style={s.stack}>
-          {!saved && sess?.lastError && <Notice kind="error">{sess.lastError}</Notice>}
+          {errors.length > 0 && <Notice kind="error">{errors}</Notice>}
 
-          {sess && saved && (
+          {saved.length > 0 && (
             <View style={s.panel}>
               <Facts rows={[
-                ['Length', formatDuration(sess.durationS)],
-                ['Size', formatSize(sess.videoBytes)],
-                ['GPS track', sess.pointCount ? `${sess.pointCount} points` : 'None'],
-              ]}
+                many && ['Parts', saved.length === clips.length ? String(clips.length) : `${saved.length} of ${clips.length} saved`],
+                ['Length', formatDuration(sum(saved, 'durationS'))],
+                ['Size', formatSize(sum(saved, 'videoBytes'))],
+                ['GPS track', sum(saved, 'pointCount') ? `${sum(saved, 'pointCount')} points` : 'None'],
+              ].filter(Boolean)}
               />
             </View>
           )}
 
-          {sess?.warnings?.length > 0 && <Notice kind="info" title="Check before uploading">{sess.warnings}</Notice>}
+          {warnings.length > 0 && <Notice kind="info" title="Check before uploading">{warnings}</Notice>}
 
-          {saved ? (
+          {saved.length > 0 ? (
             <>
               <Field
                 label="Road name (optional)"
-                hint="Helps you find this survey later"
+                hint={many ? 'Given to every part. Helps you find this survey later' : 'Helps you find this survey later'}
                 value={roadName}
                 onChangeText={setRoadName}
                 maxLength={200}
@@ -54,7 +65,13 @@ export default function ReviewScreen({ sessionId, onDone }) {
                 returnKeyType="done"
               />
               <View style={{ gap: S[3] }}>
-                <Button label="Upload this survey" icon="upload" variant="primary" block onPress={() => onDone({ upload: true, roadName })} />
+                <Button
+                  label={saved.length > 1 ? `Upload all ${saved.length} parts` : 'Upload this survey'}
+                  icon="upload"
+                  variant="primary"
+                  block
+                  onPress={() => onDone({ upload: true, roadName })}
+                />
                 <Button label="Keep on this phone for now" variant="quiet" block onPress={() => onDone({ upload: false, roadName })} />
               </View>
             </>

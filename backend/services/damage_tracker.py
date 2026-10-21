@@ -22,12 +22,24 @@ Matching, per analysed frame (greedy, each box and track used at most once):
 A track that is not seen for TRACK_MAX_GAP_S seconds is finished. The kind of damage is taken
 from the best sighting, since the model can call the same pothole an alligator crack in one frame.
 
+Last, drop_fixed_spots() removes what is fixed to the camera rather than lying on the road. Behind
+a windshield the dashboard is reflected in the glass, and the model reads that reflection as a
+pothole, in the same place in the picture every time the light allows (seen on a real survey: one
+spot, 65% confidence, back again and again over four minutes). Damage on the road slides down the
+picture as the vehicle drives on. So a spot where at least TRACK_FIXED_MIN separate tracks have
+their best box (overlap TRACK_FIXED_IOU), and where at least one of them stood still for
+TRACK_STILL_S or longer, is dropped. A real pothole seen while stopped at a junction stands still
+too, but it does not come back at the same spot two more times.
+
 Pure Python with no OpenCV import, so it can be tested on its own (see __main__ below).
 """
 
 TRACK_MIN_IOU = 0.15      # overlap that counts as the same damage
 TRACK_MAX_GAP_S = 1.0     # unseen this long = left the view (or was a one-off), so it is finished
 TRACK_NESTED = 0.5        # share of a box inside another box in the same frame = the same damage
+TRACK_FIXED_MIN = 3       # tracks at one spot in the picture (with one standing still) = fixed to the camera
+TRACK_FIXED_IOU = 0.5     # overlap of two best boxes that counts as the same spot
+TRACK_STILL_S = 1.0       # a track whose first and last boxes overlap this long stood still
 
 
 def _iou(a, b):
@@ -73,6 +85,8 @@ class Track:
     def __init__(self, track_id, sighting, image):
         self.id = track_id
         self.box = sighting['box']
+        self.first_box = sighting['box']
+        self.first_frame = sighting['frame']
         self.last_frame = sighting['frame']
         self.sightings = 1
         self.best = dict(sighting)
@@ -141,6 +155,26 @@ class DamageTracker:
         return finished
 
 
+def _stood_still(track, fps):
+    return (track.last_frame - track.first_frame >= TRACK_STILL_S * fps
+            and _iou(track.first_box, track.box) >= TRACK_FIXED_IOU)
+
+
+def drop_fixed_spots(tracks, fps):
+    """Split finished tracks into (kept, dropped): dropped are those at a spot in the picture that
+    is fixed to the camera, such as the dashboard's reflection in the windshield (module docstring)."""
+    boxes = [t.best['box'] for t in tracks]
+    fixed = set()
+    for i, t in enumerate(tracks):
+        if not _stood_still(t, fps):
+            continue
+        spot = [j for j, b in enumerate(boxes) if _iou(boxes[i], b) >= TRACK_FIXED_IOU]
+        if len(spot) >= TRACK_FIXED_MIN:
+            fixed.update(spot)
+    return ([t for k, t in enumerate(tracks) if k not in fixed],
+            [t for k, t in enumerate(tracks) if k in fixed])
+
+
 if __name__ == '__main__':
     # Self-check: python services/damage_tracker.py
     def s(frame, box, conf, code='D40'):
@@ -181,4 +215,13 @@ if __name__ == '__main__':
     # Kind of damage follows the best sighting.
     flip = [(0, [s(0, (500, 500, 600, 560), 0.25, 'D20')]), (6, [s(6, (505, 560, 610, 630), 0.45, 'D40')])]
     assert run(flip)[0].best['code'] == 'D40'
+    # The dashboard's reflection: the same spot, still for 2 s once and back twice more. Dropped;
+    # a pothole elsewhere is kept, and so is a pothole that stood still once (stopped at a junction).
+    refl = (1320, 820, 1490, 925)
+    tracks = run([(f, [s(f, refl, 0.4)]) for f in range(0, 66, 6)]
+                 + [(1000, [s(1000, refl, 0.3)])] + [(2000, [s(2000, refl, 0.5)])]
+                 + [(3000 + 6 * i, [s(3000 + 6 * i, (900, 600 + 120 * i, 960, 640 + 140 * i), 0.4)]) for i in range(3)]
+                 + [(4000 + f, [s(4000 + f, (300, 700, 400, 760), 0.3)]) for f in range(0, 66, 6)])
+    kept, dropped = drop_fixed_spots(tracks, 30)
+    assert len(dropped) == 3 and len(kept) == 2, (len(kept), len(dropped))
     print('damage_tracker: all checks passed')

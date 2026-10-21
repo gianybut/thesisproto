@@ -173,23 +173,30 @@ one). The phone's survey screen also has "Upload again as a new survey", for tes
 `model_file_problem()` in `video_processor.py` catches a missing model or a Git LFS placeholder
 (a clone without `git lfs pull`): the backend warns at startup and the analysis fails with that reason. There is currently
 **no size cap**: `MAX_CONTENT_LENGTH = None` in `app.py` and `MAX_VIDEO_BYTES = null` in
-`mobile/src/config.js` (iPhone recordings outgrew 500 MB). The mobile limits in `config.js` mirror the
-backend ones with a margin (`MAX_RECORD_S = 590`), so change both sides together. Progress is written
+`mobile/src/config.js` (iPhone recordings outgrew 500 MB). A phone recording has no length limit: it is
+saved as clips of `CLIP_S = 590` s (`mobile/src/config.js`), each its own survey and upload, so the
+clip length mirrors the backend's 600 s cap with a margin; change both sides together. Progress is written
 to `Video.processing_progress` every 30 frames and the frontend polls for it.
 `GET /api/videos/export` returns per-video frames / sampled frames / processing seconds — the
 throughput data for the thesis evaluation chapter.
 
 Inside `_run_detection_pipeline`:
 
-- Only detections with their box centre below `ROAD_REGION_TOP` (0.5: the lower half of the frame)
-  are kept, so buildings and trees above the road are not reported. The model still sees the whole
-  frame. The phone's camera screen has a level guide ([mobile/src/level.js](mobile/src/level.js))
-  so the horizon lands on that line; the annotated video draws it.
+- Only the road band is passed to the model: the strip between `Video.road_top` and `road_bottom`
+  (fractions of the height; defaults `ROAD_REGION_TOP` 0.5 and `ROAD_REGION_BOTTOM` 1.0 when NULL,
+  as for web uploads). The phone sends both lines as `road_top`/`road_bottom` with the upload: on
+  its camera screen the user drags a Horizon and a Bonnet line over the preview to fit how the phone
+  sits in the vehicle ([mobile/src/roadBand.js](mobile/src/roadBand.js); until dragged, the horizon
+  follows the tilt estimate in [mobile/src/level.js](mobile/src/level.js)). Sky, buildings and the
+  bonnet are never looked at; the annotated video draws both lines.
+- The model runs at `INFERENCE_IMGSZ` (1280). At Ultralytics' default 640 a 1920-px phone frame is
+  shrunk to a third and potholes ahead vanish: on a real windshield survey 640 found 8 damages and
+  1280 on the road band 62. Cropping to the band keeps the cost at about twice that of 640.
 - Frames are read through `open_upright()`: a phone recording held sideways or upside down carries a
   rotation flag, not rotated pixels, and OpenCV does not apply it by default. Without this the model
   sees upside-down frames and the annotated video plays upside down. The upload route uses the same
   helper, so `resolution` is the displayed size.
-- Inference runs on every `fps/INFERENCE_FPS`-th frame at `CONF_THRESHOLD` / `IOU_THRESHOLD` — module
+- Inference runs on every `fps/INFERENCE_FPS`-th frame at `CONF_THRESHOLD` / `IOU_THRESHOLD` / `INFERENCE_IMGSZ` — module
   constants at the top of `video_processor.py` that the thesis cites; change them there only. Between
   inference frames the last boxes are re-drawn for `fps*0.5` frames so the annotated video does not flicker.
 - Each damage is recorded once: [services/damage_tracker.py](backend/services/damage_tracker.py) joins
@@ -199,7 +206,18 @@ Inside `_run_detection_pipeline`:
   and each track becomes one row from its best (highest-confidence) sighting: that frame's box,
   time, position and snapshot. Run `python services/damage_tracker.py` for its self-checks. It
   replaced a `(100px grid cell, 2 s window)` key that stored the same pothole again as it moved
-  down the picture.
+  down the picture. After the video, `drop_fixed_spots()` removes damage fixed to the camera: a
+  spot where `TRACK_FIXED_MIN` tracks have their best box and one of them stood still (the
+  dashboard reflected in the windshield reads as a pothole at up to 65%).
+- AI check: [services/damage_verifier.py](backend/services/damage_verifier.py) scores each track's
+  clean best frame (before the box is drawn: CLIP reads text) with zero-shot CLIP ViT-B/16 against
+  road-damage and look-alike descriptions, into `Detection.ai_check_score` (0-1). Below
+  `VERIFY_THRESHOLD` (0.6) the record is `ai_flagged` and the web app shows "Likely not road
+  damage" (records filter `?ai=flagged|passed|unchecked`, sort `ai_check`). It only advises:
+  nothing is hidden or deleted by it. The model lives in the gitignored `ml/models/hf/` (~570 MB,
+  `--download`, run by the installers); without it or `transformers` analysis carries on and
+  records stay unchecked. `--backfill` scores older records from their original videos without
+  re-detecting (so deleted false detections do not return). Measured figures are in its docstring.
 - `_classify_damage` maps model class names to RDD2022 codes (D00/D10/D20/D40) by substring, then
   (for models with ≤5 classes) falls back to class index in the `ml/dataset_prep.py` order; a
   single-class model maps everything to `D40`. For models with more than 5 classes,
@@ -286,6 +304,14 @@ Shared pieces in `frontend/src/components/`:
   `ErrorSummary` (GOV.UK pattern).
 - `Disclosure`: menus as a button with `aria-expanded` and a panel, not ARIA `role="menu"`.
 - `ConfirmDialog` (native `<dialog>`) and `RenameVideo` (a rename form the parent shows).
+- `AiCheck` (in `StatusLabel.jsx`): a record's AI check as a status label.
+- `DamagePreview`: the close-up of one damage, the saved snapshot (a whole frame) zoomed in the
+  browser to the record's `bbox`, with a switch to the whole frame; resident reports show their
+  photo. Used at the top of the survey page's "Damage found" panel (for the chosen row), on the
+  map, and on Damage records: a `DamageThumb` per row opens a review pane beside the table with the
+  close-up, status, the admin's kind correction and delete, and Previous/Next (after a delete it
+  moves to the next record); phone cards show the close-up in place. Images come from
+  `detectionsAPI.imageUrl()`.
 
 [frontend/src/labels.js](frontend/src/labels.js) holds the plain-language names for damage codes and
 statuses, the upload limits, and the survey predicates `isRunning` / `hasLocation` /
@@ -301,7 +327,9 @@ stay; the second tab only shows for surveys without GPS that did not fail.
 The map page ([DamageMapPage.jsx](frontend/src/pages/DamageMapPage.jsx)) is deliberately plain:
 OpenStreetMap tiles, one solid navy route per survey with labelled Start/End markers, and one
 `CircleMarker` dot per detection coloured by damage class. A GPS-measured dot is solid with a white
-halo; a hand-placed one has a dashed stroke over a 35% fill. The four class colours (`DAMAGE_CLASSES` at
+halo; a hand-placed one has a dashed stroke over a 35% fill. Hovering a dot shows its
+`DamagePreview` (floating in the map's corner on wide screens), clicking keeps it open (larger dot,
+ink ring) until Close, a click on the map, or Escape; there is no Leaflet popup. The four class colours (`DAMAGE_CLASSES` at
 the top of that file) encode data and appear only on the map (dots, legend, popup swatch). No heatmap,
 no clustering: `leaflet.markercluster` is a dependency but must stay unused. Every `<MapContainer>`
 takes `OSM_TILES` / `OSM_ATTRIBUTION` and a `<MapResizeFix />` child

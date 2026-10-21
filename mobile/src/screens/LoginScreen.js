@@ -10,7 +10,7 @@ import { C, F, S, T, s } from '../theme';
 
 // The web sign-in page (frontend/src/pages/LoginPage.jsx) plus the server address, which a
 // phone has to be told. Once an address has been used it folds into one line with "Change".
-// onCancel (null on a phone's first sign-in) leads back to recording without signing in.
+// onCancel leads to recording without signing in, also on a phone that has never signed in.
 export default function LoginScreen({ onLoggedIn, onCancel, notice }) {
   const insets = useSafeAreaInsets();
   const [server, setServer] = useState(getServerUrl());

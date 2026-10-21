@@ -1,6 +1,5 @@
 // Plain-language names for what the app stores, in the web app's words
 // (frontend/src/labels.js, frontend/src/roles.js). Screens show these, never raw status values.
-import { MAX_RECORD_S } from './config';
 
 // The two system roles (backend models.ROLES). Both may record and upload on the phone;
 // the admin-only tasks are on the web app.
@@ -74,7 +73,13 @@ export function surveyNote(x) {
 
 export const damageCount = (n) => `${n} ${n === 1 ? 'damage' : 'damages'} found`;
 
-export const surveyTitle = (x) => x.roadName || `Survey ${formatDateTime(x.createdAt)}`;
+// A long recording is saved as several clips (src/storage.js); each one says which part it is.
+export const surveyPart = (x) => (x.parts > 1 ? `Part ${x.part} of ${x.parts}` : null);
+
+export const surveyTitle = (x) => {
+  const base = x.roadName || `Survey ${formatDateTime(x.createdAt)}`;
+  return x.parts > 1 ? `${base} · part ${x.part} of ${x.parts}` : base;
+};
 
 export const formatDuration = (sec) => {
   if (sec == null) return '—';
@@ -100,10 +105,11 @@ export const formatTime = (ms) => (ms
   ? new Date(ms).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
   : '—');
 
-const limit = `${Math.floor(MAX_RECORD_S / 60)} min ${MAX_RECORD_S % 60} s`;
 export const END_REASONS = {
   stopped: 'Stopped by you',
-  duration_cap: `Reached the ${limit} limit`,
+  next_clip: 'Continued in the next part',
+  storage_full: 'The phone ran out of space for the next part',
+  duration_cap: 'Reached the length limit', // surveys recorded before recordings were split into parts
   size_cap: 'Reached the size limit',
   camera_stopped: 'The camera stopped',
   app_left_foreground: 'The app left the screen',

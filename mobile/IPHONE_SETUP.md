@@ -55,14 +55,17 @@ Free Apple ID apps stop opening after **7 days**. Plug in and run the build comm
 2. In the web app, **Overview › Connect a phone › Show** gives the address.
 3. On the phone's sign-in screen, enter it (e.g. `192.168.1.23:5000`) with your username and password.
 
-The phone must be on the **same Wi-Fi** as the server to sign in and upload. Recording works offline.
+The phone must be on the **same Wi-Fi** as the server to sign in and upload. Recording works offline:
+tap **Record without signing in** to skip this step, and sign in later (header › **Sign in**) to upload.
 
 ## 5. Recording
 
 1. Mount the phone in landscape facing the road, on a charger.
-2. Wait for the GPS label to turn green, and line the dashed line up with the horizon.
+2. Wait for the GPS label to turn green. Drag **Horizon** to where the road ends and **Bonnet** to
+   the top of the car's bonnet. Damage is only looked for between the two lines. They are
+   remembered, so this is needed again only when the mount moves.
 3. Tap **Start recording**. **Do not lock the phone or switch apps**; that stops the recording.
-   It stops by itself at 9:50.
+   There is no time limit: every 9:50 the video is saved as a part and the next part starts by itself.
 4. Enter the road name, then **Upload this survey** or keep it for later
    (**Surveys on this phone** uploads it when you are back on the server's Wi-Fi).
 

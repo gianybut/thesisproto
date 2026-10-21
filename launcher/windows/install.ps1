@@ -103,6 +103,13 @@ if ($models | Where-Object { Is-Placeholder $_.FullName }) {
 }
 Ok 'Detection model present'
 
+# The AI check model (CLIP, ~570 MB) is fetched from Hugging Face once, so analysis works offline.
+# Not fatal: without it surveys are still analysed and records are left "not checked".
+$env:PYTHONUTF8 = '1'
+& $VenvPy backend\services\damage_verifier.py --download *> $null
+if ($LASTEXITCODE -eq 0) { Ok 'AI check model present' }
+else { Warn 'Could not download the AI check model. Surveys still work; run this installer again with internet to add it.' }
+
 New-Item -ItemType Directory -Force -Path $Run | Out-Null
 
 # ---------------------------------------------------------------- 3. Shortcuts

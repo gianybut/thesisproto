@@ -15,7 +15,7 @@ import PageHeader from '../components/PageHeader';
 import StatusLabel, { ProgressBar } from '../components/StatusLabel';
 import Icon from '../icons';
 import {
-  END_REASONS, formatDateTime, formatDuration, formatSize, formatTime, nextStep, surveyNote, surveyStatus, surveyTitle,
+  END_REASONS, formatDateTime, formatDuration, formatSize, formatTime, nextStep, surveyNote, surveyPart, surveyStatus, surveyTitle,
 } from '../labels';
 import { C, R, S, s } from '../theme';
 
@@ -191,6 +191,8 @@ export default function PreviewScreen({ sessionId, onBack }) {
               ['GPS rate', session.achievedHz ? `${session.achievedHz.toFixed(2)} per second` : null],
               ['GPS gaps', session.gaps ? (session.gaps.length ? `${session.gaps.length}, longest ${Math.max(...session.gaps.map((g) => g.seconds))} s` : 'None') : null],
               ['Time offset', session.timeOffsetS != null ? `${session.timeOffsetS.toFixed(2)} s` : null],
+              ['Part', surveyPart(session)],
+              ['Road band', session.roadTop != null ? `${Math.round(session.roadTop * 100)}% to ${Math.round((session.roadBottom ?? 1) * 100)}% from the top` : null],
               ['Camera tilt at start', session.cameraPitchDeg != null ? `${session.cameraPitchDeg}° up/down, ${session.cameraRollDeg}° sideways` : null],
               ['Video file', session.videoExt ? `.${session.videoExt}` : null],
               ['Web app survey', session.serverVideoId != null ? `#${session.serverVideoId}` : null],

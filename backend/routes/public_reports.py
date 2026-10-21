@@ -182,8 +182,9 @@ def reject_report(report_id):
 @public_reports_bp.route('/image/<path:filename>', methods=['GET'])
 def get_report_image(filename):
     """Serve a report image."""
-    from flask import send_file
-    file_path = os.path.join(current_app.config['REPORTS_FOLDER'], filename)
-    if not os.path.exists(file_path):
+    from flask import send_from_directory
+    # send_from_directory refuses names that leave the folder ("../"), unlike a plain join.
+    folder = current_app.config['REPORTS_FOLDER']
+    if not os.path.isfile(os.path.join(folder, filename)):
         return jsonify({'error': 'Image not found'}), 404
-    return send_file(file_path)
+    return send_from_directory(folder, filename)

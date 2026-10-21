@@ -1,9 +1,12 @@
-// Camera level from the phone's motion sensors, for the guide on the camera screen.
+// Camera tilt from the phone's motion sensors, and what the camera screen makes of it.
 //
-// The server only looks for damage below the middle line of the picture (ROAD_REGION_TOP in
-// backend/services/video_processor.py). With the camera pointing level, the horizon is exactly
-// that middle line and everything below it is road. Pointing up moves the horizon below the
-// middle, so buildings and trees end up in the analysed half; pointing a little down is fine.
+// The server looks for damage only in the road band: the strip of the picture between the
+// horizon and the bonnet of the vehicle (road_top / road_bottom, see src/roadBand.js and
+// backend/services/video_processor.py). Where those lines fall depends on how the phone sits in
+// its mount: tipped up or down behind the windshield, high or low on the glass, with more or less
+// of the bonnet in view. So the camera screen does not ask for a level camera. It shows the two
+// lines over the preview for the user to drag into place, and until the horizon line is dragged
+// it follows the tilt estimate below.
 //
 // expo-sensors DeviceMotion gives accelerationIncludingGravity in the phone's own axes (x right,
 // y towards the top of the screen in portrait, z out of the screen). At rest it points DOWN on
@@ -11,15 +14,21 @@
 // match). The camera looks out of the back, along -z, so:
 //   pitch = asin(down.z)   0 level, negative pointing down, positive pointing up
 //   roll  = tilt of "down" within the screen plane from the nearest upright orientation
+// In a moving vehicle the reading also contains braking and acceleration (0.2 g reads as 11°),
+// which is why the tilt is only a starting point and the dragged line is what counts.
 import { useEffect, useState } from 'react';
 import { DeviceMotion } from 'expo-sensors';
 
-export const LEVEL_UP_MAX_DEG = 3;      // more than this upwards: buildings enter the analysed half
-export const LEVEL_DOWN_MAX_DEG = 15;   // more than this downwards: little road ahead is left in view
 export const LEVEL_ROLL_MAX_DEG = 5;    // phone turned sideways by more than this
+export const MIN_ROAD_BAND = 0.25;      // less of the picture than this is road: point lower
 
-const SMOOTHING = 0.2;   // low-pass filter: dashboard vibration should not make the label flicker
+// Vertical field of view of a 16:9 recording on a phone's main camera (26 mm equivalent, about
+// 41° high in landscape and 67° in portrait). Only used for the first guess of the horizon.
+const VFOV_DEG = { landscape: 41, portrait: 67 };
+
+const SMOOTHING = 0.2;   // low-pass filter: dashboard vibration should not make the line jump
 const deg = (rad) => (rad * 180) / Math.PI;
+const rad = (d) => (d * Math.PI) / 180;
 
 /** { available, pitch, roll } in degrees, smoothed; available is false until data arrives. */
 export function useLevel() {
@@ -55,28 +64,32 @@ export function useLevel() {
   return level;
 }
 
-/** Status label and one sentence of advice for the camera screen; null advice when level. */
-export function levelStatus({ available, pitch, roll }) {
-  if (!available) {
-    return { status: { icon: 'info-circle', tone: 'waiting', text: 'Level not available' }, advice: null };
-  }
-  if (pitch > LEVEL_UP_MAX_DEG) {
-    return {
-      status: { icon: 'alert-triangle', tone: 'waiting', text: `Pointing up ${pitch}°` },
-      advice: 'Point the camera a little lower. Damage is only looked for below the middle line, and pointing up puts buildings there.',
-    };
-  }
-  if (pitch < -LEVEL_DOWN_MAX_DEG) {
-    return {
-      status: { icon: 'alert-triangle', tone: 'waiting', text: `Pointing down ${-pitch}°` },
-      advice: 'Point the camera a little higher, so the road ahead stays in view.',
-    };
-  }
-  if (Math.abs(roll) > LEVEL_ROLL_MAX_DEG) {
+/**
+ * Where the horizon falls in the picture for a camera tilted by `pitch` degrees, as a fraction of
+ * the height from the top: 0.5 when level, lower in the picture when pointing up. Pinhole camera:
+ * a ray `pitch` degrees below the optical axis lands tan(pitch) / tan(vfov / 2) half-heights
+ * below the centre. null without a sensor reading.
+ */
+export function horizonFromTilt({ available, pitch }, landscape) {
+  if (!available) return null;
+  const half = Math.tan(rad(VFOV_DEG[landscape ? 'landscape' : 'portrait'] / 2));
+  const y = 0.5 + Math.tan(rad(pitch)) / (2 * half);
+  return Math.max(0.05, Math.min(0.9, y));
+}
+
+/** Status label and one sentence of advice for the camera screen; null advice when fine. */
+export function levelStatus({ available, roll }, band) {
+  if (available && Math.abs(roll) > LEVEL_ROLL_MAX_DEG) {
     return {
       status: { icon: 'alert-triangle', tone: 'waiting', text: `Tilted ${Math.abs(roll)}°` },
-      advice: 'Straighten the phone in its mount so the picture is not tilted.',
+      advice: 'Straighten the phone in its mount so the road is not tilted in the picture.',
     };
   }
-  return { status: { icon: 'check', tone: 'ready', text: 'Level' }, advice: null };
+  if (band.bottom - band.top < MIN_ROAD_BAND) {
+    return {
+      status: { icon: 'alert-triangle', tone: 'waiting', text: 'Little road in view' },
+      advice: 'Point the camera a little lower, so more of the road is between the two lines.',
+    };
+  }
+  return { status: { icon: 'check', tone: 'ready', text: band.manual ? 'Road lines set' : 'Horizon from tilt' }, advice: null };
 }

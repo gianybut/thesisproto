@@ -40,6 +40,9 @@ export default function App() {
         // Unreadable storage: open signed out rather than stay on the blank first frame.
       }
       setLoggedIn(Boolean(token));
+      // A new phone opens on the sign-in page, where the server address is set, but can still
+      // go straight to recording: nothing but uploading needs the server.
+      if (!token && !hasSavedServer()) setScreen('login');
       setReady(true);
       if (token && !(await verifyToken())) {
         await logout();
@@ -63,17 +66,15 @@ export default function App() {
 
   // Where "Back" goes from each screen; also Android's back button. null = leave the app.
   const back = { preview: 'sessions', sessions: 'capture', login: 'capture' }[screen] ?? null;
-  // The first sign-in on a phone is required, because it is where the server address is set.
-  const firstRun = !loggedIn && !hasSavedServer();
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (firstRun || !back) return false;
+      if (!back) return false;
       setScreen(back);
       return true;
     });
     return () => sub.remove();
-  }, [firstRun, back]);
+  }, [back]);
 
   const account = useMemo(() => ({
     signedIn: loggedIn,
@@ -91,14 +92,14 @@ export default function App() {
     return <View style={{ flex: 1, backgroundColor: C.bg }} />;
   }
 
-  const onSignInPage = firstRun || (screen === 'login' && !loggedIn);
+  const onSignInPage = screen === 'login' && !loggedIn;
   let body;
   if (onSignInPage) {
     body = (
       <LoginScreen
         notice={notice}
         onLoggedIn={() => { setNotice(null); setLoggedIn(true); setScreen('capture'); }}
-        onCancel={firstRun ? null : () => setScreen('capture')}
+        onCancel={() => setScreen('capture')}
       />
     );
   } else if (screen === 'preview') {

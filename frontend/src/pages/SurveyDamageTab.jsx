@@ -5,6 +5,8 @@ import { DAMAGE_CODES, canPlaceByHand, damageName, hasLocation, isRunning } from
 import Icon from '../icons';
 import Notice from '../components/Notice';
 import AnalysisFailed from '../components/AnalysisFailed';
+import DamagePreview from '../components/DamagePreview';
+import { AiCheck } from '../components/StatusLabel';
 import EmptyState from '../components/EmptyState';
 import { ProgressBar } from '../components/StatusLabel';
 
@@ -45,6 +47,7 @@ export default function SurveyDamageTab({ video, detections, onChange }) {
   const present = DAMAGE_CODES.filter(c => detections.some(d => d.damage_type === c));
   const countOf = (c) => detections.filter(d => d.damage_type === c).length;
   const shown = filter ? detections.filter(d => d.damage_type === filter) : detections;
+  const active = detections.find(d => d.id === activeId) || null;
 
   return (
     <div className="stack">
@@ -89,10 +92,31 @@ export default function SurveyDamageTab({ video, detections, onChange }) {
           )}
         </div>
 
-        <section className="panel damage-panel" aria-labelledby="damage-title">
+        <section className={`panel damage-panel${detections.length ? ' has-preview' : ''}`} aria-labelledby="damage-title">
           <h2 id="damage-title" className="panel-title">
             Damage found (<span className="num">{detections.length}</span>)
           </h2>
+
+          {/* The close-up of the chosen damage. Its space is kept while nothing is chosen, so
+              choosing one does not push the list down under the pointer. */}
+          {detections.length > 0 && (
+            <div className="damage-panel-preview">
+              <DamagePreview
+                key={active?.id ?? 'none'}
+                detection={active}
+                placeholder="Choose a damage in the list to see a close-up of it."
+                title={active ? (
+                  <>
+                    <span className="num">{active.timestamp_formatted}</span>
+                    <span>{damageName(active.damage_type)} <span className="code">{active.damage_type}</span></span>
+                    <span className="num">{Math.round(active.confidence * 100)}%</span>
+                  </>
+                ) : 'Close-up'}
+              >
+                {active && <div><AiCheck detection={active} withScore /></div>}
+              </DamagePreview>
+            </div>
+          )}
 
           {present.length > 1 && (
             <div className="chips" role="group" aria-label="Show damage of one kind">
@@ -120,9 +144,12 @@ export default function SurveyDamageTab({ video, detections, onChange }) {
                 <li key={d.id}>
                   <button type="button" className="damage-row" aria-current={activeId === d.id ? 'true' : undefined}
                     onClick={() => jump(d)}
-                    aria-label={`${damageName(d.damage_type)} at ${d.timestamp_formatted}, ${Math.round(d.confidence * 100)}% confidence. Jump to this moment.`}>
+                    aria-label={`${damageName(d.damage_type)} at ${d.timestamp_formatted}, ${Math.round(d.confidence * 100)}% confidence. Show a close-up and jump to this moment.`}>
                     <span className="num damage-time">{d.timestamp_formatted}</span>
-                    <span className="damage-name">{damageName(d.damage_type)} <span className="code">{d.damage_type}</span></span>
+                    <span className="damage-name">
+                      {damageName(d.damage_type)} <span className="code">{d.damage_type}</span>
+                      {d.ai_flagged && <span className="damage-flag"><Icon name="alert-triangle" size={16} />AI check: likely not road damage</span>}
+                    </span>
                     <span className="num damage-conf">{Math.round(d.confidence * 100)}%</span>
                   </button>
                 </li>

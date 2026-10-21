@@ -7,7 +7,7 @@ import json
 import uuid
 import threading
 from datetime import datetime, timezone
-from flask import Blueprint, request, jsonify, current_app, send_file, Response
+from flask import Blueprint, request, jsonify, current_app, send_file, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from models import db, Video, Detection, GpsTrackPoint, RouteControlPoint
 from auth_tokens import current_user_id as get_user_id, visible_videos
@@ -90,6 +90,11 @@ def upload_video():
     # Get optional parameters
     time_offset = float(request.form.get('time_offset', 0))
     road_name = request.form.get('road_name', None)
+    # Road band from the phone's camera screen (horizon and bonnet lines); absent = defaults.
+    road_top = road_bottom = None
+    if request.form.get('road_top') or request.form.get('road_bottom'):
+        from services.video_processor import road_band
+        road_top, road_bottom = road_band(request.form.get('road_top'), request.form.get('road_bottom'))
 
     # Create database record
     video = Video(
@@ -106,6 +111,8 @@ def upload_video():
         time_offset=time_offset,
         road_name=road_name,
         position_source='gps_file' if gps_filename else 'none',
+        road_top=road_top,
+        road_bottom=road_bottom,
     )
     db.session.add(video)
     db.session.commit()
@@ -370,12 +377,12 @@ def stream_processed_video(video_id):
 
 @videos_bp.route('/<int:video_id>/snapshot/<path:filename>', methods=['GET'])
 def get_snapshot(video_id, filename):
-    """Serve a detection snapshot image."""
-    file_path = os.path.join(current_app.config['SNAPSHOTS_FOLDER'], filename)
-    if not os.path.exists(file_path):
+    """Serve a detection snapshot image (the whole frame; the web app zooms to the box itself)."""
+    # send_from_directory refuses names that leave the folder ("../"), unlike a plain join.
+    folder = current_app.config['SNAPSHOTS_FOLDER']
+    if not os.path.isfile(os.path.join(folder, filename)):
         return jsonify({'error': 'Snapshot not found'}), 404
-
-    return send_file(file_path, mimetype='image/jpeg')
+    return send_from_directory(folder, filename, mimetype='image/jpeg')
 
 
 # ---------------------------------------------------------------------------

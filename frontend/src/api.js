@@ -77,6 +77,13 @@ export const dashboardAPI = {
 
 export const detectionsAPI = {
   getForVideo: (videoId) => api.get(`/detections/${videoId}`),
+  // The picture saved with a damage: the video frame it was found in, or a resident's photo.
+  imageUrl: (d) => {
+    if (!d.frame_snapshot) return null;
+    return d.source_type === 'public_report'
+      ? withToken(`${API_BASE}/reports/image/${encodeURIComponent(d.frame_snapshot)}`)
+      : withToken(`${API_BASE}/videos/${d.video_id}/snapshot/${encodeURIComponent(d.frame_snapshot)}`);
+  },
 };
 
 // Every map call takes an optional videoId so one survey can be viewed on its own.

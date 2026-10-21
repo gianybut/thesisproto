@@ -128,6 +128,11 @@ class Video(db.Model):
     # Why the analysis failed, in words a user can act on (set with status='failed').
     error_message = db.Column(db.String(500), nullable=True)
 
+    # Road band analysed, as fractions of the frame height from the top: the horizon and the
+    # bonnet lines set on the phone's camera screen. NULL = defaults (services/video_processor.py).
+    road_top = db.Column(db.Float, nullable=True)
+    road_bottom = db.Column(db.Float, nullable=True)
+
     detections = db.relationship('Detection', backref='video', lazy=True, cascade='all, delete-orphan')
     gps_track_points = db.relationship('GpsTrackPoint', backref='video', lazy=True, cascade='all, delete-orphan')
     control_points = db.relationship('RouteControlPoint', backref='video', lazy=True, cascade='all, delete-orphan',
@@ -164,6 +169,8 @@ class Video(db.Model):
             'has_gps': self.gps_filename is not None,
             'position_source': self.position_source or 'none',
             'control_point_count': len(self.control_points),
+            'road_top': self.road_top,
+            'road_bottom': self.road_bottom,
         }
 
 
@@ -207,6 +214,17 @@ class Detection(db.Model):
     # Source tracking
     source_type = db.Column(db.String(30), default='ai_detection')  # ai_detection, public_report
 
+    # AI check (services/damage_verifier.py): the share, 0-1, of a second model's answer that says
+    # "road damage" for this close-up. Advice for the admin only. NULL = not checked (resident
+    # reports, records from before the check, or the check model was not available).
+    ai_check_score = db.Column(db.Float, nullable=True)
+
+    @property
+    def ai_flagged(self):
+        """The AI check says this is likely not road damage."""
+        from services.damage_verifier import VERIFY_THRESHOLD
+        return self.ai_check_score is not None and self.ai_check_score < VERIFY_THRESHOLD
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -232,6 +250,8 @@ class Detection(db.Model):
             'repair_status': self.repair_status,
             'source_type': self.source_type,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'ai_check_score': self.ai_check_score,
+            'ai_flagged': self.ai_flagged,
         }
 
     def _format_timestamp(self):

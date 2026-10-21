@@ -73,7 +73,7 @@ rebuilt with `npx expo run:ios --device`. Recordings stored in the app survive t
 | File | Role |
 |---|---|
 | `src/auth.js` | Sign-in, JWT in SecureStore, any 401 (expired, invalid) signs the phone out with recordings and queue kept. Remembers the server address; `http://` is added if left out. |
-| `src/account.js` | Signed-in state for the screens. Signed out is a working state: recording and the survey list stay available, uploads wait, and the header and survey list offer *Sign in*. Only a phone's first launch requires signing in (to set the server address). |
+| `src/account.js` | Signed-in state for the screens. Signed out is a working state: recording and the survey list stay available, uploads wait, and the header and survey list offer *Sign in*. A new phone opens on the sign-in page (where the server address is set) but can skip it with *Record without signing in*. |
 | `src/locationTask.js` | Background GPS task; appends each fix to `points.jsonl` as it arrives. |
 | `src/gpx.js` | GPX 1.1 writer, stale-fix filter and the `time_offset` calculation. No Expo imports, so it runs under Node. |
 | `src/capture.js` | After stop: moves the video out of the camera cache, checks it is complete, builds the GPX, stores the session. |
@@ -85,9 +85,10 @@ rebuilt with `npx expo run:ios --device`. Recordings stored in the app survive t
 | `src/labels.js`, `src/surveyActions.js` | The words for each state and the one next step per survey; delete and next-step actions shared by the list and the survey screen. |
 | `src/storage.js` | Session list in `documents/sessions.json`; files in `documents/sessions/<id>/` (`<id>.mov`/`.mp4`, `<id>.gpx`, `thumb.jpg`; sessions recorded before this naming have `video.*`/`track.gpx`). Files are kept after upload until the session is deleted. |
 | `src/media.js` | List thumbnails (`expo-video-thumbnails`, one at a time, made on first view), Save to Photos (`expo-media-library`, add-only) and the share sheet for the video and GPX (`expo-sharing`). |
-| `src/screens/CaptureScreen.js` | Permission gate (re-read on return from Settings), camera with elapsed/remaining time, GPS and level status labels, the dashed middle line with the half above it dimmed (the server only analyses below it), record button. |
-| `src/level.js` | Camera tilt from `expo-sensors` DeviceMotion (gravity vector; no permission prompt, `motionPermission: false`): level, more than 3° up, 15° down or 5° sideways. Advice only, never blocks recording. Tilt at start goes into the GPX metadata. |
-| `src/screens/ReviewScreen.js` | After stop: length, size, GPS points, warnings, optional road name, *Upload this survey*. |
+| `src/screens/CaptureScreen.js` | Permission gate (re-read on return from Settings), then the camera: the preview in its own 16:9 box (9:16 upright) with the controls beside it in landscape and above and below it in portrait, never over it. Elapsed time and part, GPS and mount status labels, the road lines, record button. Records clip after clip until stopped. |
+| `src/roadBand.js`, `src/components/RoadBandOverlay.js` | The two lines over the preview, *Horizon* and *Bonnet*, dragged to fit the mount; the server only analyses between them (sent as `road_top`/`road_bottom`). Remembered per orientation in `documents/road_band.json`; fixed for the length of a recording. |
+| `src/level.js` | Camera tilt from `expo-sensors` DeviceMotion (gravity vector; no permission prompt, `motionPermission: false`). Places the horizon line until it is dragged, and warns when the phone is turned more than 5° sideways or little road is between the lines. Advice only, never blocks recording. Tilt at start goes into the GPX metadata. |
+| `src/screens/ReviewScreen.js` | After stop: parts, length, size, GPS points, warnings, optional road name for every part, *Upload this survey* / *Upload all N parts*. |
 | `src/screens/SessionsScreen.js` | "Surveys on this phone": status per survey, one next-step button, the rest under *More*; a notice when uploads are waiting, with *Upload over mobile data* when Wi-Fi only is the reason. |
 | `src/screens/PreviewScreen.js` | One survey: status, next step, *Test again* (analyse again on the server, or upload again as a new survey), road name (editable until upload), playback (`expo-video`, native controls, muted), the copy-out actions above, *Technical details* (end reason, GPS points, rate, gaps, time offset, web survey number) and delete. Works for uploaded sessions too. |
 
@@ -115,10 +116,14 @@ GPS error count, stale fixes dropped and video container.
 the camera writes last. A file cut off without one is accepted by the server and then
 fails to process (OpenCV reads 0 frames), so the app marks it failed and doesn't upload it.
 
-**Limits** (`src/config.js`, each under the backend's): 590 s maximum (backend rejects
-> 600 s), no size cap for now (`MAX_VIDEO_BYTES = null`; backend `MAX_CONTENT_LENGTH` is off too),
+**Limits** (`src/config.js`, each under the backend's): no limit on a recording; it is saved
+as clips of 590 s (`CLIP_S`; backend rejects > 600 s), each its own survey. The app's timer
+stops a clip on time and starts the next at once (a gap of well under a second); the camera's
+own `maxDuration` (597 s) is only a backstop. GPS is logged once for the whole recording in
+`documents/runs/<id>/` and each clip's GPX takes its stretch plus 10 s either side. Before each
+clip the free space is checked again, so a long drive ends cleanly when the phone fills up. No size cap for now (`MAX_VIDEO_BYTES = null`; backend `MAX_CONTENT_LENGTH` is off too),
 1080p H.264 at 5 Mbit/s with no audio (estimated ~37 MB/min). Recording won't start with
-less than 2 GB free (544 MB while the size cap was on).
+less than 2 GB free (544 MB while the size cap was on), and a new clip won't start either.
 
 **Queue.** Sessions are `recorded → queued → uploading → uploaded`, or `failed`. The queue is
 saved to disk, and on launch an interrupted upload goes back to `queued`. Upload pauses
@@ -157,7 +162,7 @@ OpenCV decoded every frame of both. A truncated `.mov` is flagged by the complet
 ## Device tests (real phone; the simulator has no GPS, camera or heat)
 
 - [ ] `npx expo run:ios --device` installs and opens on a physical iPhone.
-- [ ] Full 590 s session in a moving vehicle; note GPS rate (`achievedHz`) and gaps from *Technical details* on the survey screen, or the GPX.
+- [ ] A recording longer than 590 s in a moving vehicle: it continues into part 2 without stopping, both parts upload, and their routes join on the map; note GPS rate (`achievedHz`) and gaps from *Technical details* on the survey screen, or the GPX.
 - [ ] Lock the screen mid-session: confirm video ends, the session is saved as `app_left_foreground`, and GPS logged right up to the stop.
 - [ ] GPX opens in a viewer (GPXSee) and the track matches the road.
 - [ ] Upload accepted, processed end-to-end, detections placed on the web map. The phone's status goes *Uploaded* → *Analysing n%* → *Ready, n damages found*, matching the web app.

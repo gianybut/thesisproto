@@ -1,6 +1,6 @@
-// Upload to the existing endpoint, unchanged: POST /api/videos/upload with
-// multipart fields video, gps_file, time_offset, road_name
-// (backend/routes/videos.py).
+// Upload to the existing endpoint: POST /api/videos/upload with multipart fields
+// video, gps_file, time_offset, road_name, road_top, road_bottom
+// (backend/routes/videos.py). One clip of a long recording is one upload.
 //
 // Android: XMLHttpRequest + FormData, which streams the file from disk and
 // reports progress. This is the original path, unchanged.
@@ -70,6 +70,10 @@ function uploadWithXhr(session, onProgress) {
       form.append('time_offset', String(session.timeOffsetS));
     }
     if (session.roadName) form.append('road_name', session.roadName);
+    if (session.roadTop != null) {
+      form.append('road_top', String(session.roadTop));
+      form.append('road_bottom', String(session.roadBottom ?? 1));
+    }
 
     xhr.open('POST', `${getServerUrl()}/api/videos/upload`);
     Object.entries(authHeader()).forEach(([k, v]) => xhr.setRequestHeader(k, v));
@@ -136,6 +140,8 @@ async function writeMultipartBody(session, body, boundary, isCancelled) {
     fields: {
       time_offset: session.gpxUri ? String(session.timeOffsetS) : null,
       road_name: session.roadName || null,
+      road_top: session.roadTop != null ? String(session.roadTop) : null,
+      road_bottom: session.roadTop != null ? String(session.roadBottom ?? 1) : null,
     },
     gpx: session.gpxUri ? { name: `${session.id}.gpx`, text: new File(session.gpxUri).textSync() } : null,
     video: videoPart(session),

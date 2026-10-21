@@ -64,7 +64,12 @@ revision starts.
 **Thresholds.**
 
 - `CONF_THRESHOLD = 0.15` (`:13`) and `IOU_THRESHOLD = 0.45` (`:14`), passed to Ultralytics per
-  call (`:290`).
+  call, with `INFERENCE_IMGSZ = 1280` on the road band only (CHAPTER3_SYSTEM_OVERVIEW §3.4.2,
+  §3.4.3a).
+- New second stage, not in the current Chapter 3: a zero-shot CLIP check of every record
+  (`backend/services/damage_verifier.py`, CHAPTER3_SYSTEM_OVERVIEW §3.4.4a). Chapter 3 needs a
+  paragraph and the Radford et al. (2021) citation; its figures were measured on one survey with
+  the threshold chosen on that survey, so a held-out survey is needed before reporting them.
 - NMS is Ultralytics' per-frame, class-aware NMS (`agnostic_nms` default `False`; `max_det`
   default 300).
 
@@ -265,7 +270,10 @@ cross-entropy), plus CIoU and DFL (`ultralytics/utils/loss.py`, `v8DetectionLoss
 
 **Recording limits.**
 
-- Duration: 590 s (`src/config.js:6`).
+- Duration: no limit per recording. A recording is saved as clips of 590 s (`CLIP_S` in
+  `src/config.js`); the next clip starts by itself, with a gap of well under a second, and each
+  clip is its own survey and upload, under the backend's 600 s cap. GPS is logged once per
+  recording and cut per clip with 10 s on either side (`src/capture.js`).
 - Size cap: off (`MAX_VIDEO_BYTES = null`, `:12`; changed 2026-10-08).
 - Will not start below 2 GB free storage (`:23`).
 - 1080p (`:16`), 5 Mbit/s **requested** (`:17`; passed at `src/screens/CaptureScreen.js:283-284`).

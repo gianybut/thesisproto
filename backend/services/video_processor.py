@@ -12,12 +12,33 @@ from datetime import datetime, timezone
 INFERENCE_FPS = 5        # frames analysed per second of video — every (fps / INFERENCE_FPS)-th frame
 CONF_THRESHOLD = 0.15    # minimum confidence for a prediction to be kept
 IOU_THRESHOLD = 0.45     # non-maximum-suppression overlap threshold
-# Road region: only damage whose box centre is below this line (a fraction of the frame height,
-# from the top) is kept. With the camera level, the horizon is the middle of the picture and
-# everything below it is road; above it are buildings, trees and sky, where the model finds
-# "damage" in walls and signs. The phone app's level guide helps hold the camera level.
-# The model still sees the whole frame; only its detections above the line are dropped.
+# Model input size (longest side, pixels). At Ultralytics' default of 640 a 1920-pixel phone frame
+# is shrunk to a third, and a pothole 20-40 m ahead is a few pixels wide: on a 3.5-minute
+# windshield survey the model returned 13 boxes at 640 and 157 at 1280. Costs about twice the
+# time of 640 here, because only the road band (below) is passed to the model.
+INFERENCE_IMGSZ = 1280
+# Road band: the strip of the picture between the horizon and the bonnet (or the bottom edge),
+# as fractions of the frame height from the top. Only this strip is passed to the model, so
+# buildings, trees, sky and the vehicle's own bonnet are never looked at. The phone app records
+# both lines per survey from its camera screen, where the user lines them up with the horizon
+# and the bonnet of the vehicle it is mounted in (Video.road_top / road_bottom). These defaults
+# apply to surveys without them (web uploads): horizon at the middle, nothing cut off below.
 ROAD_REGION_TOP = 0.5
+ROAD_REGION_BOTTOM = 1.0
+ROAD_REGION_MIN = 0.1    # a band thinner than this (fraction of the height) is ignored as a mistake
+
+
+def road_band(top, bottom):
+    """The road band to use, as (top, bottom) fractions: the given values when they make sense,
+    else the defaults. Used by the upload route (to store) and the pipeline (to apply)."""
+    try:
+        top = ROAD_REGION_TOP if top is None else min(max(float(top), 0.0), 1.0)
+        bottom = ROAD_REGION_BOTTOM if bottom is None else min(max(float(bottom), 0.0), 1.0)
+    except (TypeError, ValueError):
+        return ROAD_REGION_TOP, ROAD_REGION_BOTTOM
+    if bottom - top < ROAD_REGION_MIN:
+        return ROAD_REGION_TOP, ROAD_REGION_BOTTOM
+    return top, bottom
 
 # Model class name -> (RDD2022 code, label). Codes follow CRDDC 2022 (Arya et al., 2022):
 # D00 longitudinal, D10 transverse, D20 alligator, D40 pothole. There is no D30.
@@ -263,7 +284,8 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     from models import Detection
     from services.gps_service import interpolate_gps
     from services.georeference_service import interpolate_from_control_points
-    from services.damage_tracker import DamageTracker
+    from services.damage_tracker import DamageTracker, drop_fixed_spots
+    from services import damage_verifier
 
     cap, rotate, width, height = open_upright(input_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -319,7 +341,23 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     process_every_n = max(1, int(fps / INFERENCE_FPS))  # sample ~INFERENCE_FPS frames per second
 
     tracker = DamageTracker(fps)
-    road_top_px = int(height * ROAD_REGION_TOP)
+    band_top, band_bottom = road_band(video.road_top, video.road_bottom)
+    road_top_px = int(height * band_top)
+    road_bottom_px = int(height * band_bottom)
+    print(f"🛣️  Road band: {band_top:.0%}–{band_bottom:.0%} of the frame height, model input {INFERENCE_IMGSZ}px")
+    finished_tracks = []
+
+    def snapshot_track(track):
+        """Write a finished track's snapshot now, so its frame copy is not held until the end."""
+        best = track.best
+        # The AI check looks at the clean frame, before the box and its label are drawn on it.
+        track.ai_score = damage_verifier.score(track.best_image, best['box'])
+        track.snapshot = f"snap_{video_id}_{best['frame']}_{track.id}.jpg"
+        snap_frame = track.best_image
+        _draw_detection(snap_frame, *best['box'], best['conf'], best['code'], best['label'], best['color'])
+        cv2.imwrite(os.path.join(snapshots_dir, track.snapshot), snap_frame)
+        track.best_image = None   # free the frame copy
+        finished_tracks.append(track)
 
     def save_track(track):
         """Store one damage from its best sighting: that frame's box, time, position and snapshot."""
@@ -347,11 +385,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                 latitude, longitude = cp_coord
                 position_source = 'georeferenced'
 
-        snapshot_name = f"snap_{video_id}_{best_frame}_{track.id}.jpg"
-        snap_frame = track.best_image
-        _draw_detection(snap_frame, x1, y1, x2, y2, best['conf'], best['code'], best['label'], best['color'])
-        cv2.imwrite(os.path.join(snapshots_dir, snapshot_name), snap_frame)
-        track.best_image = None   # free the frame copy
+        snapshot_name = track.snapshot
 
         detection = Detection(
             video_id=video_id,
@@ -367,6 +401,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
             position_source=position_source,
             road_name=video.road_name,
             source_type='ai_detection',
+            ai_check_score=track.ai_score,
         )
         db.session.add(detection)
         all_detections.append(detection)
@@ -400,7 +435,9 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
         if frame_number % process_every_n == 0:
             active_boxes.clear()
 
-            results = model(frame, verbose=False, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD)
+            # Only the road band goes to the model; its boxes are moved back into frame coordinates.
+            band = frame[road_top_px:road_bottom_px]
+            results = model(band, verbose=False, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD, imgsz=INFERENCE_IMGSZ)
             sightings = []
 
             for result in results:
@@ -415,8 +452,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
 
                         if is_damage or _is_pothole_class(class_name, cls_id, model):
                             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                            if (y1 + y2) / 2 < road_top_px:
-                                continue   # above the road region: buildings, trees, sky
+                            y1, y2 = y1 + road_top_px, y2 + road_top_px
 
                             box_id = f"{frame_number}_{int(x1)}_{int(y1)}"
                             damage_color = DAMAGE_COLORS.get(damage_code, (0, 69, 255))
@@ -438,13 +474,15 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                                 'color': damage_color,
                             })
 
-            # One record per damage: sightings are joined into tracks, and a track is saved once
-            # it leaves the view, from its best sighting (services/damage_tracker.py).
+            # One record per damage: sightings are joined into tracks, and a track is finished once
+            # it leaves the view; it is stored from its best sighting (services/damage_tracker.py).
             for track in tracker.update(frame_number, sightings, frame):
-                save_track(track)
+                snapshot_track(track)
 
-        # Mark the road region on the annotated video, so viewers see what was analysed.
+        # Mark the road band on the annotated video, so viewers see what was analysed.
         cv2.line(frame, (0, road_top_px), (width, road_top_px), (255, 255, 255), 1, cv2.LINE_AA)
+        if road_bottom_px < height:
+            cv2.line(frame, (0, road_bottom_px), (width, road_bottom_px), (255, 255, 255), 1, cv2.LINE_AA)
 
         for box_info in active_boxes.values():
             _draw_detection(frame, box_info['x1'], box_info['y1'],
@@ -460,7 +498,23 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
 
     # Damage still in view when the video ends.
     for track in tracker.finish_all():
+        snapshot_track(track)
+    # What stays at one spot in the picture is on the windshield or the vehicle, not the road.
+    kept, fixed = drop_fixed_spots(finished_tracks, fps)
+    for track in fixed:
+        try:
+            os.remove(os.path.join(snapshots_dir, track.snapshot))
+        except OSError:
+            pass
+    if fixed:
+        print(f"🪟 Dropped {len(fixed)} detections fixed to the camera (windshield reflection, bonnet)")
+    for track in kept:
         save_track(track)
+    if damage_verifier.problem():
+        print(f"⚠️  AI check skipped: {damage_verifier.problem()}")
+    else:
+        flagged = sum(1 for t in kept if t.ai_score is not None and t.ai_score < damage_verifier.VERIFY_THRESHOLD)
+        print(f"🔎 AI check: {flagged} of {len(kept)} detections flagged as likely not road damage")
     all_detections.sort(key=lambda d: d.frame_number)
 
     # Finalize video output
