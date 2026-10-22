@@ -25,7 +25,7 @@ from the best sighting, since the model can call the same pothole an alligator c
 Last, drop_fixed_spots() removes what is fixed to the camera rather than lying on the road. Behind
 a windshield the dashboard is reflected in the glass, and the model reads that reflection as a
 pothole, in the same place in the picture every time the light allows (seen on a real survey: one
-spot, 65% confidence, back again and again over four minutes). Damage on the road slides down the
+spot, 65% confidence, back again and again over nearly three minutes). Damage on the road slides down the
 picture as the vehicle drives on. So a spot where at least TRACK_FIXED_MIN separate tracks have
 their best box (overlap TRACK_FIXED_IOU), and where at least one of them stood still for
 TRACK_STILL_S or longer, is dropped. A real pothole seen while stopped at a junction stands still
