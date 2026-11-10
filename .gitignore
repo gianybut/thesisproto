@@ -62,3 +62,8 @@ results/*.jpg
 JGB19333.pdf
 yolo-rdd2022/*.pt
 __pycache__/
+
+# Annotation site
+.env
+backups/
+labels.db*

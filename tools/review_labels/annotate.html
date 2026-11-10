@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Road damage labelling</title>
+<style>
+  :root {
+    --ink: #1E293B; --muted: #475569; --page: #F6F8FB; --card: #fff; --border: #E2E8F0;
+    --primary: #3B6FA8; --ok: #15803D; --warn: #B45309; --err: #B42318;
+    --D00: #0E9384; --D10: #D97706; --D20: #7C5CC4; --D40: #D64545; --new: #64748B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--page); }
+  header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 8px 16px;
+           background: var(--card); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 17px; margin: 0; }
+  header .sp { flex: 1; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid #94A3B8; border-radius: 6px; background: #fff; cursor: pointer; }
+  button.primary { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  a { color: var(--primary); }
+  main { display: grid; grid-template-columns: 1fr 300px; gap: 12px; padding: 12px 16px; }
+  .stage { background: #0F172A; border-radius: 8px; overflow: hidden; }
+  canvas { display: block; width: 100%; cursor: crosshair; }
+  .info { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; }
+  .info b { font-variant-numeric: tabular-nums; }
+  .tag { font-size: 13px; padding: 1px 8px; border-radius: 10px; background: #EAF1F9; }
+  .msg { font-weight: 600; min-height: 1.5em; margin-top: 6px; }
+  .msg.err { color: var(--err); } .msg.ok { color: var(--ok); }
+  aside { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 14px; }
+  aside h2 { font-size: 14px; margin: 12px 0 6px; } aside h2:first-child { margin-top: 0; }
+  table.keys { border-collapse: collapse; width: 100%; }
+  table.keys td { padding: 2px 4px; vertical-align: top; }
+  kbd { font: 12px ui-monospace, monospace; border: 1px solid #94A3B8; border-radius: 4px; padding: 0 4px; background: #fff; white-space: nowrap; }
+  ul.rules { padding-left: 18px; margin: 0; } ul.rules li { margin: 3px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; font-size: 13px; }
+  .legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+  .pending { font-weight: 600; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Road damage labelling</h1>
+  <span id="me"></span>
+  <span class="sp"></span>
+  <a href="/stats" target="_blank" rel="noopener">Progress</a>
+  <button id="logout">Sign out</button>
+</header>
+<main>
+  <section>
+    <div class="info">
+      <b id="fname">Loading…</b><span class="tag" id="where"></span><span id="state"></span>
+      <span class="pending" id="pend"></span>
+    </div>
+    <div class="stage"><canvas id="cv"></canvas></div>
+    <div class="msg" id="msg" role="status"></div>
+    <div class="legend" id="legend"></div>
+    <p>
+      <button id="back">← Back</button>
+      <button id="skip">Skip (S)</button>
+      <button id="neg">No damage (N)</button>
+      <button class="primary" id="accept">Save and next (Enter)</button>
+    </p>
+  </section>
+  <aside>
+    <h2>Keys</h2>
+    <table class="keys">
+      <tr><td><kbd>Enter</kbd></td><td>Save the boxes as they are, next frame</td></tr>
+      <tr><td><kbd>N</kbd></td><td>No damage: clear all boxes, save, next</td></tr>
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>D00 / D10 / D20 / D40 for the selected box, or the next box you draw</td></tr>
+      <tr><td>Drag</td><td>Draw a box. Click a box to select it</td></tr>
+      <tr><td><kbd>Del</kbd> <kbd>⌫</kbd></td><td>Delete the selected box</td></tr>
+      <tr><td><kbd>Z</kbd></td><td>Undo</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Skip (unsure), next</td></tr>
+      <tr><td><kbd>←</kbd></td><td>Back to your previous frame</td></tr>
+      <tr><td>Wheel, right-drag, <kbd>0</kbd></td><td>Zoom, pan, reset</td></tr>
+    </table>
+    <p>Dashed boxes are the model's drafts. Whatever is on screen when you save is stored as your label.</p>
+    <h2>Rules</h2>
+    <ul class="rules">
+      <li>The picture is the near zone only. Label everything in it.</li>
+      <li><b>D00</b> longitudinal: crack along the direction of travel. <b>D10</b> transverse: across the lane.
+          One box per continuous crack; new box if it bends more than ~45° or has a gap over ~1 m.</li>
+      <li><b>D20</b> alligator: interconnected cracks forming closed blocks. Box the whole patch; cracks touching it belong to it.</li>
+      <li><b>D40</b> pothole: box the edge of the hole, not the cracks around it.</li>
+      <li><b>Don't label</b> sealed or patched cracks, joints, road markings, shadows, manholes, wet streaks.</li>
+      <li><b>Unsure?</b> Press <kbd>S</kbd> rather than guess.</li>
+    </ul>
+  </aside>
+</main>
+<script>
+const CODES = ['D00', 'D10', 'D20', 'D40'];
+const NAMES = {D00: 'Longitudinal crack', D10: 'Transverse crack', D20: 'Alligator crack', D40: 'Pothole'};
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+let cur = null, img = new Image(), boxes = [], sel = -1, drag = null, view = {s: 1, x: 0, y: 0}, pan = null;
+let undo = [], nextCls = null, myFrames = [], busy = false, prefetch = null;
+
+$('legend').innerHTML = CODES.map((c, i) => `<span><i style="background:var(--${c})"></i>${i + 1} ${NAMES[c]} <code>${c}</code></span>`).join('');
+
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
+  if (r.status === 401) { location.href = '/login'; throw new Error('signed out'); }
+  const j = await r.json();
+  if (!r.ok) { const e = new Error(j.error || r.statusText); e.status = r.status; e.data = j; throw e; }
+  return j;
+}
+function msg(t, kind = 'err') { $('msg').textContent = t; $('msg').className = 'msg ' + (t ? kind : ''); }
+
+function load(f) {
+  if (!f || f.done) { cur = null; $('fname').textContent = 'Nothing left in the queue. Thank you!'; ctx.clearRect(0, 0, cv.width, cv.height); return; }
+  cur = f; sel = -1; undo = []; nextCls = null; view = {s: 1, x: 0, y: 0}; pend();
+  boxes = f.boxes.map(b => ({cls: CODES[b.class_id], x1: b.cx - b.w / 2, y1: b.cy - b.h / 2, x2: b.cx + b.w / 2, y2: b.cy + b.h / 2,
+                             model: b.source === 'model', conf: b.conf}));
+  $('fname').textContent = f.frame_id;
+  $('where').textContent = `${f.split} · ${f.route_group} · ${f.tier || 'no draft'}`;
+  $('state').textContent = f.status === 'labeled' ? `✓ Labelled by ${f.labeled_by}` : f.status === 'skipped' ? `Skipped by ${f.labeled_by}` : '';
+  const im = new Image();
+  im.onload = () => { img = im; cv.width = im.naturalWidth; cv.height = im.naturalHeight; draw(); };
+  im.src = '/img/' + encodeURIComponent(f.frame_id);
+  // background-load the frames likely to come next (server resizes and caches them on first request)
+  prefetch = (f.prefetch || []).map(id => { const p = new Image(); p.src = '/img/' + encodeURIComponent(id); return p; });
+}
+
+function draw() {
+  if (!cur) return;
+  const W = cv.width, H = cv.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0F172A'; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(view.s, 0, 0, view.s, view.x, view.y);
+  ctx.drawImage(img, 0, 0);
+  const lw = Math.max(2, W / 600) / view.s, fs = Math.max(14, W / 70) / view.s;
+  const css = getComputedStyle(document.documentElement);
+  const all = boxes.concat(drag && drag.w ? [{cls: nextCls, x1: drag.x1, y1: drag.y1, x2: drag.x2, y2: drag.y2}] : []);
+  all.forEach((b, i) => {
+    const col = css.getPropertyValue('--' + (b.cls || 'new')).trim();
+    const x = Math.min(b.x1, b.x2) * W, y = Math.min(b.y1, b.y2) * H, w = Math.abs(b.x2 - b.x1) * W, h = Math.abs(b.y2 - b.y1) * H;
+    ctx.lineWidth = i === sel ? lw * 2.2 : lw; ctx.strokeStyle = col;
+    ctx.setLineDash(b.model ? [10 / view.s, 6 / view.s] : []);
+    ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
+    if (i === sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = lw * 0.8; ctx.strokeRect(x - lw * 2, y - lw * 2, w + lw * 4, h + lw * 4); }
+    const t = (b.cls || '? press 1–4') + (b.model ? ` ${(b.conf || 0).toFixed(2)}` : '');
+    ctx.font = `600 ${fs}px system-ui`; const tw = ctx.measureText(t).width;
+    const ly = y - fs * 1.25 < 0 ? y + h : y - fs * 1.25;
+    ctx.fillStyle = col; ctx.fillRect(x, ly, tw + fs * 0.6, fs * 1.25);
+    ctx.fillStyle = '#fff'; ctx.fillText(t, x + fs * 0.3, ly + fs * 0.95);
+  });
+}
+function pend() { $('pend').textContent = nextCls ? `Next box: ${nextCls} ${NAMES[nextCls]}` : ''; }
+function snapshot() { undo.push(JSON.stringify(boxes)); if (undo.length > 100) undo.shift(); }
+
+function toImg(e) {
+  const r = cv.getBoundingClientRect();
+  const px = (e.clientX - r.left) * cv.width / r.width, py = (e.clientY - r.top) * cv.height / r.height;
+  return {x: (px - view.x) / view.s / cv.width, y: (py - view.y) / view.s / cv.height};
+}
+cv.addEventListener('mousedown', e => {
+  if (!cur) return;
+  if (e.button === 2) { pan = {x: e.clientX, y: e.clientY, vx: view.x, vy: view.y}; return; }
+  const p = toImg(e);
+  const hit = boxes.map((b, i) => [b, i]).filter(([b]) => p.x >= Math.min(b.x1, b.x2) && p.x <= Math.max(b.x1, b.x2) &&
+      p.y >= Math.min(b.y1, b.y2) && p.y <= Math.max(b.y1, b.y2))
+    .sort((a, b) => Math.abs((a[0].x2 - a[0].x1) * (a[0].y2 - a[0].y1)) - Math.abs((b[0].x2 - b[0].x1) * (b[0].y2 - b[0].y1)));
+  drag = {x1: p.x, y1: p.y, x2: p.x, y2: p.y, w: false, hit: hit.length ? hit[0][1] : -1};
+});
+window.addEventListener('mousemove', e => {
+  if (pan) { const r = cv.getBoundingClientRect(), k = cv.width / r.width;
+    view.x = pan.vx + (e.clientX - pan.x) * k; view.y = pan.vy + (e.clientY - pan.y) * k; draw(); return; }
+  if (!drag) return;
+  const p = toImg(e); drag.x2 = p.x; drag.y2 = p.y;
+  const r = cv.getBoundingClientRect();
+  drag.w = Math.abs(drag.x2 - drag.x1) * r.width > 6 || Math.abs(drag.y2 - drag.y1) * r.height > 6;
+  draw();
+});
+window.addEventListener('mouseup', () => {
+  if (pan) { pan = null; return; }
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.w) {
+    snapshot();
+    const c = v => Math.min(1, Math.max(0, v));
+    boxes.push({cls: nextCls, x1: c(Math.min(d.x1, d.x2)), y1: c(Math.min(d.y1, d.y2)), x2: c(Math.max(d.x1, d.x2)), y2: c(Math.max(d.y1, d.y2)), model: false});
+    sel = boxes.length - 1;
+    msg(nextCls ? '' : 'New box: press 1–4 for its class.', 'ok');
+  } else sel = d.hit;
+  draw();
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) * cv.width / r.width, py = (e.clientY - r.top) * cv.height / r.height;
+  const s = Math.min(8, Math.max(1, view.s * (e.deltaY < 0 ? 1.25 : 0.8)));
+  view.x = px - (px - view.x) * s / view.s; view.y = py - (py - view.y) * s / view.s; view.s = s;
+  if (s === 1) view = {s: 1, x: 0, y: 0};
+  draw();
+}, {passive: false});
+
+async function save(action, list) {
+  if (!cur || busy) return;
+  if (action === 'labeled' && list.some(b => !b.cls)) { msg('A box has no class yet: click it and press 1–4 (or Delete).'); return; }
+  busy = true;
+  const done = cur.frame_id;
+  try {
+    const nxt = await api('/api/save', {frame_id: cur.frame_id, version: cur.version, action,
+      boxes: list.map(b => ({class_id: CODES.indexOf(b.cls), cx: (b.x1 + b.x2) / 2, cy: (b.y1 + b.y2) / 2,
+                              w: Math.abs(b.x2 - b.x1), h: Math.abs(b.y2 - b.y1)}))});
+    myFrames = myFrames.filter(f => f !== done); myFrames.unshift(done);
+    msg(action === 'skipped' ? `Skipped ${done}.` : `Saved ${done}.`, 'ok');
+    load(nxt);
+  } catch (e) {
+    if (e.status === 409 && e.data.frame) { msg(e.message); load(e.data.frame); }
+    else msg('Not saved: ' + e.message);
+  } finally { busy = false; }
+}
+
+async function back() {
+  const prev = myFrames.find(f => f !== cur?.frame_id);
+  if (!prev) { msg('No earlier frame of yours.'); return; }
+  try { load(await api('/api/open', {frame_id: prev})); myFrames = myFrames.filter(f => f !== prev); msg(''); }
+  catch (e) { msg(e.message); }
+}
+
+window.addEventListener('keydown', e => {
+  if (!cur || e.target.tagName === 'INPUT') return;
+  const k = e.key;
+  if (k >= '1' && k <= '4') {
+    const c = CODES[+k - 1];
+    if (sel >= 0) { snapshot(); boxes[sel].cls = c; boxes[sel].model = false; nextCls = c; }
+    else nextCls = c;
+    pend(); draw();
+  } else if ((k === 'Delete' || k === 'Backspace') && sel >= 0) { e.preventDefault(); snapshot(); boxes.splice(sel, 1); sel = -1; draw(); }
+  else if (k === 'z' || k === 'Z') { if (undo.length) { boxes = JSON.parse(undo.pop()); sel = -1; draw(); } }
+  else if (k === 'Enter') { e.preventDefault(); save('labeled', boxes); }
+  else if (k === 'n' || k === 'N') { snapshot(); boxes = []; draw(); save('labeled', []); }
+  else if (k === 's' || k === 'S') { save('skipped', []); }
+  else if (k === 'ArrowLeft') { e.preventDefault(); back(); }
+  else if (k === 'Escape') { sel = -1; draw(); }
+  else if (k === '0') { view = {s: 1, x: 0, y: 0}; draw(); }
+});
+$('accept').onclick = () => save('labeled', boxes);
+$('neg').onclick = () => { boxes = []; save('labeled', []); };
+$('skip').onclick = () => save('skipped', []);
+$('back').onclick = back;
+$('logout').onclick = async () => { await api('/api/logout', {}); location.href = '/login'; };
+
+// keep the lock while the frame is open
+setInterval(() => { if (cur && !document.hidden) api('/api/heartbeat', {frame_id: cur.frame_id}).catch(() => {}); }, 60000);
+
+(async () => {
+  const me = await api('/api/me');
+  $('me').textContent = 'Signed in as ' + me.user;
+  myFrames = me.history;
+  load(await api('/api/next'));
+})().catch(e => msg('Could not load: ' + e.message));
+</script>
+</body>
+</html>

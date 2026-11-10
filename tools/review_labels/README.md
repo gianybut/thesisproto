@@ -42,3 +42,22 @@ unless they contain an actual pothole or crack.
 **Boxes.** One tight box per continuous crack (D00 along the road, D10 across it). D20: one box
 around the whole cracked area. D40: the box follows the edge of the hole. Patches are not damage.
 Examples: "See 8 box examples" in the tool.
+
+## Team labelling site (multi-user, 2026-11-10)
+
+`annotate.py` (port 8771) is the shared site for Gian, Janmikael and Kyle; `server.py` above stays as
+it is (single reviewer, test self-check). Do not label train/val frames in `server.py` while the
+site runs.
+
+```bat
+tools\start_labeling.bat      REM server + 30-min backups + Cloudflare tunnel; post the printed link
+```
+
+- Sign in with your name and the passcode in `.env` (`ANNOTATE_PASSCODE`). Every page and image needs it.
+- Frames: near-zone crops (`data/local/frames_nz`), train/val only, 5 m thinning, never G05/G13/G15,
+  never the 1,066 reviewed frames. `GET /api/next` locks a frame to you for 10 min (heartbeat every 60 s).
+- Database: `data/local/annotate/labels.db` (WAL). `python tools/review_labels/annotate_db.py status`.
+- Drafts: `python tools/review_labels/prelabel.py` (S5_v8m_1280, conf 0.15; ~3 min on the 4060).
+  New frames: `annotate_db.py init`, then `prelabel.py`.
+- Progress: `<link>/stats`. Export for training: `python ml/local/export_yolo.py`.
+- Keys: Enter save+next, N no damage, 1-4 class, Del delete, Z undo, S skip, ← back.

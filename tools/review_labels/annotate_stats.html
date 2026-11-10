@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Labelling progress</title>
+<style>
+  body { margin: 0; padding: 16px; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; color: #1E293B; background: #F6F8FB; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 20px 0 6px; }
+  .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; overflow-x: auto; }
+  table { border-collapse: collapse; } th, td { padding: 4px 12px 4px 0; text-align: right; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; } th { border-bottom: 1px solid #CBD5E1; }
+  .muted { color: #475569; }
+</style>
+</head>
+<body>
+<h1>Labelling progress</h1>
+<p class="muted" id="when"></p>
+<div id="out"></div>
+<script>
+const C = ['D00', 'D10', 'D20', 'D40'];
+const t = (head, rows) => `<table><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>` +
+  rows.map(r => `<tr>${r.map(x => `<td>${x}</td>`).join('')}</tr>`).join('') + '</table>';
+async function refresh() {
+  const r = await fetch('/api/stats');
+  if (r.status === 401) { location.href = '/login'; return; }
+  const s = await r.json();
+  const users = Object.entries(s.per_user).filter(([u]) => u && u !== 'null');
+  const tiers = Object.keys(s.remaining).sort();
+  const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+  const box = sp => {
+    const o = s.old[sp] || {}, n = s.new[sp] || {};
+    return [sp, o.frames || 0, n.frames || 0, n.negatives || 0, ...C.map(c => `${o[c] || 0} + ${n[c] || 0} = <b>${(o[c] || 0) + (n[c] || 0)}</b>`)];
+  };
+  document.getElementById('out').innerHTML =
+    `<div class="card"><h2>Per person</h2>` + t(['Name', 'Labelled', 'Skipped', 'Last hour'],
+      users.map(([u, v]) => [u, v.labeled, v.skipped, v.last_hour])) +
+    `<p class="muted">Team total ${s.total_done} frames, ${s.per_hour_overall} per hour since the first save. Open right now: ` +
+    (s.open.map(o => `${o.frame_id} (${o.locked_by})`).join(', ') || 'none') + `</p></div>` +
+    `<div class="card"><h2>Remaining (to do or open)</h2>` + t(['Tier', 'Train', 'Val', 'Total'],
+      tiers.map(k => [k, s.remaining[k].train || 0, s.remaining[k].val || 0, sum(s.remaining[k])])) +
+    `<p class="muted">T1: a D20 or D10 draft. T2: model unsure (0.15–0.5). T3: the rest.</p></div>` +
+    `<div class="card"><h2>Boxes per class: before + new = total</h2>` +
+    t(['Split', 'Frames before', 'New frames', 'New "no damage"', ...C], ['train', 'val'].map(box)) +
+    `<p class="muted">"Before" = the 1,066 reviewed frames (results/local_datasets_nz.md). Test is frozen and not shown.</p></div>`;
+  document.getElementById('when').textContent = 'Updated ' + new Date().toLocaleTimeString() + ' · refreshes every 30 s';
+}
+refresh(); setInterval(refresh, 30000);
+</script>
+</body>
+</html>
