@@ -73,6 +73,7 @@ export const videosAPI = {
 // This computer's address on the local network, for the phone app's sign-in screen.
 export const serverAPI = {
   info: () => api.get('/server/info'),
+  model: () => api.get('/server/model'),
 };
 
 export const dashboardAPI = {

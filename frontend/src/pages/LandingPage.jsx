@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../icons';
 import { MAX_VIDEO_MINUTES } from '../labels';
-import { SAMPLES_ONLY } from '../api';
+import { SAMPLES_ONLY, serverAPI } from '../api';
 import PublicHeader from '../components/PublicHeader';
 
 // Thesis credits for the footer.
@@ -128,6 +128,40 @@ function ImagePreview({ image, onClose }) {
   );
 }
 
+/**
+ * Which detection model the server runs (ml/models/model_config.json, via GET /api/server/model):
+ * signed-in users only, so the public website never asks for it.
+ */
+function ModelNote() {
+  const [model, setModel] = useState(null);
+  useEffect(() => {
+    serverAPI.model().then(r => setModel(r.data)).catch(() => setModel(null));
+  }, []);
+  if (!model) return null;
+  const deployed = model.deployed_at
+    ? new Date(model.deployed_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+  return (
+    <section id="model" className="landing-section landing-alt" aria-labelledby="model-title">
+      <div className="landing-inner landing-narrow">
+        <SectionHead id="model" title="The detection model" />
+        <div className="card">
+          <ul className="feature-list">
+            <li><Icon name="check" className="feature-icon" />Model in use: <span className="code">{model.weights}</span>{model.run && <> (training run <span className="code">{model.run}</span>)</>}</li>
+            {model.data_snapshot && <li><Icon name="check" className="feature-icon" />Trained on the labels saved in <span className="code">{model.data_snapshot}</span></li>}
+            {deployed && <li><Icon name="check" className="feature-icon" />Put into service on {deployed}</li>}
+            <li><Icon name="check" className="feature-icon" />Marks a damage when it is at least <span className="num">{Math.round(model.conf_threshold * 100)}%</span> sure</li>
+          </ul>
+          {model.stand_in && <p>This is a stand-in model, not the team’s own, used while the team’s model is being trained.</p>}
+          {!model.stand_in && model.test_evaluated === false && (
+            <p>Not yet checked on the held-out test drives: its accuracy figures so far come from the validation drives.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage({ user }) {
   const [preview, setPreview] = useState(null);
   // The public website has no accounts: its one button opens the sample surveys.
@@ -249,6 +283,8 @@ export default function LandingPage({ user }) {
             </div>
           </div>
         </section>
+
+        {user && !SAMPLES_ONLY && <ModelNote />}
       </main>
 
       <ImagePreview image={preview} onClose={() => setPreview(null)} />

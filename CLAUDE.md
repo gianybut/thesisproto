@@ -148,12 +148,23 @@ Training writes to `ml/pothole_training/...`; copy the winning `weights/best.pt`
 (`nc: 4`, index order = `TARGET_CLASSES` in `dataset_prep.py`); each prep script overwrites it with
 real paths. Datasets and run artifacts are gitignored; `.pt` files are Git LFS (`git lfs pull`).
 
-**Which model the backend loads** is the single `MODEL_PATH` line in
-[backend/app.py](backend/app.py). It currently points at `ml/models/rdd2022_pretrained.pt`, an
-external MIT-licensed 7-class YOLOv8n RDD2022 baseline used as an SE2 demo placeholder. It is
-**not the team's model and its numbers must never be reported as thesis results** — Chapter 4
-figures come from the team's own four-class fine-tune. Swapping that line back to `best.pt` restores
-the team's model.
+**Which model the backend loads** is set by `ml/models/model_config.json` (weights, conf threshold,
+imgsz, class names, run, data snapshot), read once at start by
+[backend/model_config.py](backend/model_config.py); `ml/local/deploy_model.py --run X` writes it
+(copying best.pt to `ml/models/oculubak_<run>.pt`, never overwriting) and keeps the replaced version
+in `model_config.previous.json` (`--rollback`). Restart the backend after a change. Since 2026-11-11
+it runs **v1** (`oculubak_v1.pt`, conf 0.24, imgsz 1024, four classes, deployed before the test
+evaluation; `results/deployment.md`, `results/train_runs.md`). `GET /api/server/model` feeds the model
+note on the About page (signed-in users). The previous model, `ml/models/rdd2022_pretrained.pt`, is an
+external MIT-licensed 7-class YOLOv8n RDD2022 baseline (SE2 demo placeholder): **not the team's model;
+its numbers must never be reported as thesis results.**
+
+Model comparisons on near-zone val use `ml/local/eval_val_sets.py` (`results/val_sets_comparison.md`).
+The annotation-site pre-labels came from S5_v8m_1280, so on the site val frames that model is partly
+marked on its own boxes; compare it only on the 270 single-reviewer frames (`val_reviewed.txt`). Its
+scores also depend on the input border: Ultralytics' `model.val()` pads the 1920x432 crop with grey,
+the app does not, so both styles are reported. Give Ultralytics an absolute `project=` path: its global
+`runs_dir` points into another folder.
 
 ## Architecture
 
@@ -243,7 +254,7 @@ Inside `_run_detection_pipeline`:
   sits in the vehicle ([mobile/src/roadBand.js](mobile/src/roadBand.js); until dragged, the horizon
   follows the tilt estimate in [mobile/src/level.js](mobile/src/level.js)). Sky, buildings and the
   bonnet are never looked at; the annotated video draws both lines.
-- The model runs at `INFERENCE_IMGSZ` (1280). At Ultralytics' default 640 a 1920-px phone frame is
+- The model runs at `INFERENCE_IMGSZ` (1280 by default; the deployed v1 uses its training size 1024 from `model_config.json`). At Ultralytics' default 640 a 1920-px phone frame is
   shrunk to a third and potholes ahead vanish: on a real windshield survey 640 found 8 damages and
   1280 on the road band 62. Cropping to the band keeps the cost at about twice that of 640.
 - Frames are read through `open_upright()`: a phone recording held sideways or upside down carries a
@@ -251,7 +262,8 @@ Inside `_run_detection_pipeline`:
   sees upside-down frames and the annotated video plays upside down. The upload route uses the same
   helper, so `resolution` is the displayed size.
 - Inference runs on every `fps/INFERENCE_FPS`-th frame at `CONF_THRESHOLD` / `IOU_THRESHOLD` / `INFERENCE_IMGSZ` — module
-  constants at the top of `video_processor.py` that the thesis cites; change them there only. Between
+  constants at the top of `video_processor.py` that the thesis cites; the last three are overridden
+  from `model_config.json` (change them through `deploy_model.py`). Between
   inference frames the last boxes are re-drawn for `fps*0.5` frames so the annotated video does not flicker.
 - Each damage is recorded once: [services/damage_tracker.py](backend/services/damage_tracker.py) joins
   sightings across analysed frames into tracks (after dropping same-frame boxes lying mostly inside a
@@ -277,8 +289,7 @@ Inside `_run_detection_pipeline`:
   single-class model maps everything to `D40`. For models with more than 5 classes,
   `_is_pothole_class` first drops any class whose name is not one of the four codes (or
   `pothole`/`hole`). Generic names like `crack` are deliberately excluded so they are not filed as D40.
-  The team's own `best.pt` is **still single-class** (`nc: 1`, name `pothole`). Retraining on four
-  classes is the open critical-path task.
+  The team's deployed v1 has the four codes as its class names, so it maps directly.
 - Video output is written as **MJPG AVI via OpenCV** (fast), then re-encoded to H.264 MP4 with a
   shelled-out `ffmpeg` (`-crf 18`) for browser playback. Without ffmpeg on PATH the AVI is kept and
   most browsers will not play it. `processed_filename` records whatever survived, so read it rather

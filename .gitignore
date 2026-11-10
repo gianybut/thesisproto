@@ -59,6 +59,7 @@ ml/benchmark/
 
 # Footage-derived images and stray files: never push
 results/*.jpg
+results/**/*.jpg
 JGB19333.pdf
 yolo-rdd2022/*.pt
 __pycache__/

@@ -1,0 +1,15 @@
+{
+ "run": "v1",
+ "weights": "runs\\local\\v1\\weights\\best.pt",
+ "threshold": 0.24,
+ "val_f1": 0.1904761904761905,
+ "val_precision": 0.19966722129783693,
+ "val_recall": 0.18209408194233687,
+ "imgsz": 1024,
+ "nms_iou": 0.45,
+ "match_iou": 0.5,
+ "dataset": "yolo_nz",
+ "val_set": "full",
+ "val_frames": 1624,
+ "when": "2026-11-11T04:47:26"
+}

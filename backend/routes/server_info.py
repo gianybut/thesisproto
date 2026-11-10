@@ -7,7 +7,7 @@ to find what to type into the phone's sign-in screen. Signed-in users only, like
 import ipaddress
 import socket
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 server_info_bp = Blueprint('server_info', __name__)
 
@@ -57,3 +57,10 @@ def server_info():
         'other_addresses': [f'http://{ip}:{port}' for ip in others],
         'hostname': socket.gethostname(),
     }), 200
+
+
+@server_info_bp.route('/model', methods=['GET'])
+def model_info():
+    """The deployed detection model (ml/models/model_config.json as read at start), for the About page."""
+    import model_config
+    return jsonify(model_config.public_info(current_app.config['MODEL_CONFIG'])), 200

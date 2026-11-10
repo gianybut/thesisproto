@@ -1,0 +1,12 @@
+{
+ "weights": "ml/models/rdd2022_pretrained.pt",
+ "conf_threshold": 0.15,
+ "iou_threshold": 0.45,
+ "imgsz": 1280,
+ "class_names": null,
+ "run": "placeholder",
+ "data_snapshot": null,
+ "deployed_at": null,
+ "note": "DEMO PLACEHOLDER (SE2 only): external MIT-licensed 7-class YOLOv8n RDD2022 baseline (nsr51324/Road_Damage_Object_Detection). NOT the team's model; never report its numbers as thesis results. ml/local/deploy_model.py replaces this file; the previous version is kept in model_config.previous.json.",
+ "previous": null
+}

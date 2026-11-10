@@ -45,5 +45,11 @@ def weights_path(cfg=None):
 def public_info(cfg=None):
     """What the About page may show about the deployed model."""
     cfg = cfg or load()
-    return {k: cfg.get(k) for k in ('run', 'data_snapshot', 'deployed_at', 'conf_threshold', 'imgsz', 'class_names')} | \
-           {'weights': os.path.basename(cfg['weights'])}
+    weights = os.path.basename(cfg['weights'])
+    return {k: cfg.get(k) for k in ('run', 'data_snapshot', 'deployed_at', 'conf_threshold', 'imgsz', 'class_names',
+                                    'test_evaluated')} | \
+           {'weights': weights, 'stand_in': weights in STAND_IN_WEIGHTS}
+
+
+# Models that are not the team's own (the demo placeholder): the About page says so.
+STAND_IN_WEIGHTS = {'rdd2022_pretrained.pt'}
