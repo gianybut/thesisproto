@@ -25,13 +25,13 @@ def create_app():
     # set 500 * 1024 * 1024 and the mobile cap in mobile/src/config.js (MAX_VIDEO_BYTES).
     app.config['MAX_CONTENT_LENGTH'] = None
     app.config['MAX_VIDEO_DURATION_S'] = 10 * 60          # 10-minute cap (thesis Sec 1.7 / 3.4)
-    # DEMO PLACEHOLDER (SE2 presentation only): external MIT-licensed RDD2022 baseline
-    # (nsr51324/Road_Damage_Object_Detection, YOLOv8n, mAP@50 0.393 on the uploader's own
-    # val set). It is 7-class; only the four CRDDC codes are kept, see _is_pothole_class.
-    # NOT our model and must never be reported as a thesis result — Chapter 4 numbers come
-    # from the Phase 6 fine-tune. Revert to the single-class baseline by swapping this one
-    # line back to 'best.pt'.
-    app.config['MODEL_PATH'] = os.path.join(base_dir, '..', 'ml', 'models', 'rdd2022_pretrained.pt')
+    # The model and its settings come from ml/models/model_config.json (backend/model_config.py),
+    # written by ml/local/deploy_model.py; the previous version stays in model_config.previous.json
+    # for rollback. While it names rdd2022_pretrained.pt that is the DEMO PLACEHOLDER (external
+    # MIT-licensed 7-class YOLOv8n baseline): NOT our model, never a thesis result.
+    import model_config
+    app.config['MODEL_CONFIG'] = model_config.load()
+    app.config['MODEL_PATH'] = model_config.weights_path(app.config['MODEL_CONFIG'])
 
     # Ensure directories exist
     for folder in [app.config['UPLOAD_FOLDER'], app.config['PROCESSED_FOLDER'],

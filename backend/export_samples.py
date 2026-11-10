@@ -36,9 +36,9 @@ STAND_IN_MODELS = {'rdd2022_pretrained.pt'}
 
 
 def model_file():
-    """The model file app.py loads (its MODEL_PATH line), so each sample says what produced it."""
-    with open(os.path.join(BACKEND, 'app.py'), encoding='utf-8') as f:
-        return re.search(r"\['MODEL_PATH'\].*'([^']+\.pt)'", f.read()).group(1)
+    """The model file the backend loads (ml/models/model_config.json), so each sample says what produced it."""
+    import model_config
+    return os.path.basename(model_config.load()['weights'])
 
 
 def slugify(text):

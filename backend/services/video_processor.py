@@ -32,6 +32,14 @@ ROAD_REGION_MIN = 0.1    # a band thinner than this (fraction of the height) is 
 # analysed band of a survey without one is therefore 0.60-1.00.
 NEAR_ZONE_DELTA = 0.10
 
+# The deployed model's own settings override the three defaults above (ml/models/model_config.json,
+# written by ml/local/deploy_model.py from the run's training size and the threshold calibrated on val).
+import model_config as _model_config  # noqa: E402
+MODEL_CONFIG = _model_config.load()
+CONF_THRESHOLD = float(MODEL_CONFIG['conf_threshold'])
+IOU_THRESHOLD = float(MODEL_CONFIG['iou_threshold'])
+INFERENCE_IMGSZ = int(MODEL_CONFIG['imgsz'])
+
 
 def road_band(top, bottom):
     """The road band to use, as (top, bottom) fractions: the given values when they make sense,
@@ -208,8 +216,12 @@ def _load_model(model_path):
     if problem and os.path.exists(model_path):
         raise ModelUnavailable(problem)
     if os.path.exists(model_path):
-        print(f"📦 Loading custom model from: {model_path}")
+        print(f"📦 Loading custom model from: {model_path} (run {MODEL_CONFIG['run']}, conf {CONF_THRESHOLD}, "
+              f"imgsz {INFERENCE_IMGSZ})")
         model = YOLO(model_path)
+        expected = MODEL_CONFIG.get('class_names')
+        if expected and [model.names[i] for i in range(len(model.names))] != list(expected):
+            print(f"⚠️  model classes {model.names} differ from model_config.json class_names {expected}")
     else:
         print("⚠️  Custom model not found. Using pretrained YOLOv8n as fallback.")
         print("   Train a custom model using ml/train_model.py for better accuracy.")
