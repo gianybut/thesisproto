@@ -1,0 +1,161 @@
+"""Calibrate the app's confidence threshold for the chosen model on the reviewed LOCAL val set.
+
+    python ml/local/calibrate_threshold.py --run Bv2          # runs/v2/<run>/weights/best.pt
+
+The model runs on every val frame (road-band crops, as the app sees them) with the app's own
+settings: imgsz 1280 (INFERENCE_IMGSZ) and NMS IoU 0.45 (IOU_THRESHOLD), keeping everything down to
+conf 0.01. For each threshold 0.05..0.90 (step 0.01) a prediction counts as correct when it has the
+reviewed box's class and IoU >= 0.5 with it (one-to-one, highest IoU first; label_quality.match).
+The chosen threshold maximises F1 over all classes together (ties: the higher threshold, i.e.
+fewer false alarms). The app uses one threshold for every class, so per-class best thresholds are
+reported for information only.
+
+Test is not touched. Writes results/threshold_calibration.md and
+results/threshold_calibration.json (read by test_eval.py and deploy_model.py).
+"""
+
+import argparse
+import json
+import sys
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+
+from common import OUT, ROOT
+from label_quality import match
+
+CODES = ['D00', 'D10', 'D20', 'D40']
+IMGSZ = 1280       # backend/services/video_processor.py INFERENCE_IMGSZ
+NMS_IOU = 0.45     # backend/services/video_processor.py IOU_THRESHOLD
+MATCH_IOU = 0.5
+THRESHOLDS = [round(0.05 + 0.01 * i, 2) for i in range(86)]
+RESULT = ROOT / 'results' / 'threshold_calibration.json'
+
+
+def weights_for(run):
+    w = ROOT / 'runs' / 'v2' / run / 'weights' / 'best.pt'
+    if not w.exists():
+        sys.exit(f'No best.pt for run {run}: {w}')
+    return w
+
+
+def frames_of(split):
+    """[(image path, [{'cls', 'box'} in pixels])] for a split of data/local/yolo."""
+    import cv2
+    out = []
+    for line in (OUT / 'yolo' / f'{split}.txt').read_text().splitlines():
+        if not line.strip():
+            continue
+        img = Path(line.strip())
+        if not img.is_absolute():
+            img = OUT / 'yolo' / img
+        lab = OUT / 'yolo' / 'labels' / split / (img.stem + '.txt')
+        h, w = cv2.imread(str(img)).shape[:2]
+        gts = []
+        if lab.exists():
+            for row in lab.read_text().split('\n'):
+                p = row.split()
+                if len(p) == 5:
+                    c, x, y, bw, bh = int(p[0]), *map(float, p[1:])
+                    gts.append({'cls': c, 'box': ((x - bw / 2) * w, (y - bh / 2) * h, (x + bw / 2) * w, (y + bh / 2) * h)})
+        out.append((img, gts))
+    return out
+
+
+def predict(weights, frames, device=0):
+    """{image path: [{'cls', 'box', 'conf'}]} at the app's settings, conf >= 0.01."""
+    from ultralytics import YOLO
+    model = YOLO(str(weights))
+    names = model.names
+    assert [names[i] for i in range(len(names))] == CODES, f'unexpected classes {names}'
+    det = {}
+    for img, _ in frames:
+        r = model.predict(str(img), imgsz=IMGSZ, conf=0.01, iou=NMS_IOU, device=device, verbose=False)[0]
+        det[img] = [{'cls': int(c), 'box': tuple(map(float, b)), 'conf': float(s)}
+                    for b, c, s in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist())]
+    return det
+
+
+def counts(frames, det, thr):
+    """Per-class TP, FP, FN at confidence >= thr."""
+    tp, fp, fn = Counter(), Counter(), Counter()
+    for img, gts in frames:
+        preds = [d for d in det[img] if d['conf'] >= thr]
+        m = match(preds, gts, MATCH_IOU, same_class=True)
+        for i, p in enumerate(preds):
+            (tp if i in m else fp)[p['cls']] += 1
+        hit = set(m.values())
+        for j, g in enumerate(gts):
+            if j not in hit:
+                fn[g['cls']] += 1
+    return tp, fp, fn
+
+
+def prf(tp, fp, fn):
+    p = tp / (tp + fp) if tp + fp else 0.0
+    r = tp / (tp + fn) if tp + fn else 0.0
+    return p, r, (2 * p * r / (p + r) if p + r else 0.0)
+
+
+def table(frames, det, thr):
+    """Rows (label, n boxes, TP, FP, FN, P, R, F1) per class and for all classes at thr."""
+    tp, fp, fn = counts(frames, det, thr)
+    rows = []
+    for c, code in enumerate(CODES):
+        rows.append((code, tp[c] + fn[c], tp[c], fp[c], fn[c], *prf(tp[c], fp[c], fn[c])))
+    T, F, N = sum(tp.values()), sum(fp.values()), sum(fn.values())
+    rows.append(('All classes', T + N, T, F, N, *prf(T, F, N)))
+    return rows
+
+
+def md_rows(rows):
+    return ['| Class | Boxes | Correct | False alarms | Missed | Precision | Recall | F1 |', '|---|---|---|---|---|---|---|---|'] + \
+           [f'| {r[0]} | {r[1]} | {r[2]} | {r[3]} | {r[4]} | {r[5]:.2f} | {r[6]:.2f} | {r[7]:.2f} |' for r in rows]
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--run', required=True, help='run name under runs/v2 (the model chosen on local val)')
+    ap.add_argument('--device', default='0', help="'cpu' to leave the GPU to a training run")
+    ap.add_argument('--limit', type=int, default=0, help='first N frames only (a smoke test; writes nothing)')
+    a = ap.parse_args()
+    w = weights_for(a.run)
+    frames = frames_of('val')
+    if a.limit:
+        frames = frames[:a.limit]
+    det = predict(w, frames, a.device)
+    curve = []
+    for t in THRESHOLDS:
+        all_row = table(frames, det, t)[-1]
+        curve.append((t, all_row[5], all_row[6], all_row[7]))
+    best = max(curve, key=lambda x: (round(x[3], 4), x[0]))
+    thr = best[0]
+    per_class_best = {}
+    for c, code in enumerate(CODES):
+        f1s = [(table(frames, det, t)[c][7], t) for t in THRESHOLDS]
+        f, t = max(f1s, key=lambda x: (round(x[0], 4), x[1]))
+        per_class_best[code] = (t, f)
+    rows = table(frames, det, thr)
+    if a.limit:
+        print(f'Smoke test on {len(frames)} frames: threshold {thr:.2f}')
+        print('\n'.join(md_rows(rows)))
+        return
+    RESULT.write_text(json.dumps({'run': a.run, 'weights': str(w.relative_to(ROOT)), 'threshold': thr,
+                                  'val_f1': rows[-1][7], 'val_precision': rows[-1][5], 'val_recall': rows[-1][6],
+                                  'imgsz': IMGSZ, 'nms_iou': NMS_IOU, 'match_iou': MATCH_IOU,
+                                  'when': datetime.now().isoformat(timespec='seconds')}, indent=1))
+    md = [f'# Confidence threshold calibrated on local val ({a.run})', '',
+          f'Weights `{w.relative_to(ROOT).as_posix()}`. Reviewed local val set, {len(frames)} frames (road-band crops). '
+          f'App settings: imgsz {IMGSZ}, NMS IoU {NMS_IOU}. A detection is correct with the reviewed class and IoU >= {MATCH_IOU}. '
+          'Threshold = highest F1 over all classes (ties: the higher threshold).', '',
+          f'**Chosen threshold: {thr:.2f}** (the app used 0.15 before).', '', f'## At {thr:.2f}', ''] + md_rows(rows) + \
+         ['', '## Precision, recall and F1 by threshold (all classes)', '', '| Threshold | Precision | Recall | F1 |', '|---|---|---|---|'] + \
+         [f'| {t:.2f} | {p:.2f} | {r:.2f} | {f:.2f} |' for t, p, r, f in curve if round(t * 100) % 5 == 0 or t == thr] + \
+         ['', '## Best threshold per class (information only: the app uses one threshold)', '', '| Class | Threshold | F1 |', '|---|---|---|'] + \
+         [f'| {c} | {t:.2f} | {f:.2f} |' for c, (t, f) in per_class_best.items()]
+    (ROOT / 'results' / 'threshold_calibration.md').write_text('\n'.join(md) + '\n', encoding='utf-8')
+    print('\n'.join(md))
+
+
+if __name__ == '__main__':
+    main()

@@ -26,6 +26,11 @@ INFERENCE_IMGSZ = 1280
 ROAD_REGION_TOP = 0.5
 ROAD_REGION_BOTTOM = 1.0
 ROAD_REGION_MIN = 0.1    # a band thinner than this (fraction of the height) is ignored as a mistake
+# Near zone (team decision 2026-11-10): the model looks at the road from NEAR_ZONE_DELTA of the
+# frame height below the horizon line down to the bonnet line, as the training crops were made
+# (ml/local/near_zone.py). The stored road_top stays the horizon line the user set; the default
+# analysed band of a survey without one is therefore 0.60-1.00.
+NEAR_ZONE_DELTA = 0.10
 
 
 def road_band(top, bottom):
@@ -39,6 +44,13 @@ def road_band(top, bottom):
     if bottom - top < ROAD_REGION_MIN:
         return ROAD_REGION_TOP, ROAD_REGION_BOTTOM
     return top, bottom
+
+
+def analysed_band(top, bottom):
+    """The part of the road band passed to the model: its top moved down by NEAR_ZONE_DELTA (never
+    to less than ROAD_REGION_MIN above the bottom)."""
+    top, bottom = road_band(top, bottom)
+    return min(top + NEAR_ZONE_DELTA, bottom - ROAD_REGION_MIN), bottom
 
 # Model class name -> (RDD2022 code, label). Codes follow CRDDC 2022 (Arya et al., 2022):
 # D00 longitudinal, D10 transverse, D20 alligator, D40 pothole. There is no D30.
@@ -341,10 +353,10 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     process_every_n = max(1, int(fps / INFERENCE_FPS))  # sample ~INFERENCE_FPS frames per second
 
     tracker = DamageTracker(fps)
-    band_top, band_bottom = road_band(video.road_top, video.road_bottom)
+    band_top, band_bottom = analysed_band(video.road_top, video.road_bottom)
     road_top_px = int(height * band_top)
     road_bottom_px = int(height * band_bottom)
-    print(f"🛣️  Road band: {band_top:.0%}–{band_bottom:.0%} of the frame height, model input {INFERENCE_IMGSZ}px")
+    print(f"🛣️  Road band (near zone): {band_top:.0%}–{band_bottom:.0%} of the frame height, model input {INFERENCE_IMGSZ}px")
     finished_tracks = []
 
     def snapshot_track(track):

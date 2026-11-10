@@ -42,3 +42,23 @@ backend/.secret_key
 
 # Launcher runtime: logs, process ids, recorded paths (install_mac.command / install_windows.bat)
 .oculubak/
+
+# Team survey footage: shows people and plates, must never be pushed
+VID+GPX/
+# Generated datasets and training output (frames, labels, zips, runs)
+data/
+datasets/
+runs/
+ml/runs/
+ml/data/
+ml/rdd2022/
+ml/local_dataset/
+ml/benchmark/
+*.zip
+/yolo*.pt
+
+# Footage-derived images and stray files: never push
+results/*.jpg
+JGB19333.pdf
+yolo-rdd2022/*.pt
+__pycache__/

@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Label review</title>
+<style>
+  :root {
+    --ink: #1E293B; --muted: #475569; --page: #F6F8FB; --card: #fff; --border: #E2E8F0;
+    --primary: #3B6FA8; --ok: #15803D; --warn: #B45309;
+    --D00: #0E9384; --D10: #D97706; --D20: #7C5CC4; --D40: #D64545; --new: #64748B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--page); }
+  header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 10px 16px;
+           background: var(--card); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 17px; margin: 0 8px 0 0; }
+  select, button { font: inherit; padding: 4px 8px; border: 1px solid #94A3B8; border-radius: 6px; background: #fff; }
+  button.primary { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  .progress { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .rubric { margin: 10px 16px 0; padding: 8px 12px; border-left: 4px solid var(--primary); background: #EAF1F9;
+            border-radius: 4px; }
+  main { display: grid; grid-template-columns: 1fr 260px; gap: 12px; padding: 12px 16px; }
+  .stage { background: #0F172A; border-radius: 8px; overflow: hidden; position: relative; }
+  canvas { display: block; width: 100%; cursor: crosshair; }
+  .info { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .status { font-weight: 600; }
+  .status.reviewed { color: var(--ok); } .status.started { color: var(--warn); }
+  .msg { color: var(--D40); font-weight: 600; min-height: 1.4em; }
+  aside { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+          max-height: calc(100vh - 160px); overflow: auto; }
+  aside h2 { font-size: 14px; margin: 0 0 6px; }
+  .flist button { display: flex; width: 100%; justify-content: space-between; margin: 2px 0; border: 0;
+                  text-align: left; padding: 3px 6px; font-size: 13px; }
+  .flist button.cur { outline: 2px solid var(--primary); }
+  .flist .s-reviewed { color: var(--ok); } .flist .s-started { color: var(--warn); } .flist .s-new { color: var(--muted); }
+  .keys { font-size: 13px; color: var(--muted); }
+  .keys kbd { font: 12px ui-monospace, monospace; border: 1px solid #94A3B8; border-radius: 4px; padding: 0 4px;
+              background: #fff; color: var(--ink); }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; }
+  .legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Label review</h1>
+  <label>Your name <select id="who"></select></label>
+  <label>Show <select id="scope">
+    <option value="mine">To review: batch 2, then train, then AL rounds (AL, AL2, ...)</option>
+    <option value="self">Self-check: test frames marked "no damage" (batches 1-2)</option>
+    <option value="all">All frames</option>
+  </select></label>
+  <span class="progress" id="progress"></span>
+</header>
+<div class="rubric" id="rubric"></div>
+<main>
+  <section>
+    <div class="info">
+      <b id="fname"></b><span id="where"></span><span class="status" id="status"></span>
+      <button id="prev">← Previous</button><button id="next">Next →</button>
+      <button class="primary" id="accept">Accept frame (Enter)</button>
+    </div>
+    <div class="stage"><canvas id="cv"></canvas></div>
+    <div class="msg" id="msg" role="status"></div>
+    <div class="legend" id="legend"></div>
+    <p class="keys">
+      <kbd>Enter</kbd> accept and go to the next frame ·
+      click a box, then <kbd>Delete</kbd> remove it or <kbd>1</kbd>–<kbd>4</kbd> set its class ·
+      drag to draw a box, then <kbd>1</kbd>–<kbd>4</kbd> ·
+      <kbd>B</kbd> no damage in this frame (removes all boxes) ·
+      <kbd>←</kbd>/<kbd>→</kbd> previous/next ·
+      mouse wheel zoom, right-drag to pan, <kbd>0</kbd> reset zoom ·
+      <kbd>Esc</kbd> deselect
+    </p>
+  </section>
+  <aside>
+    <h2>Frames</h2>
+    <div class="flist" id="flist"></div>
+  </aside>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+let meta, list = [], idx = 0, cur = null, img = new Image(), sel = -1, drag = null, view = {s: 1, x: 0, y: 0}, pan = null;
+
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+async function init() {
+  meta = await api('/api/frames');
+  $('rubric').innerHTML = '<b>Rubric.</b> ' + meta.rubric + ' Classes: ' +
+    meta.codes.map((c, i) => `<b>${i + 1}</b> = ${meta.names[c]} (${c})`).join(', ') + '.' +
+    `<br><b>Boxes.</b> ${meta.guideline}` +
+    (meta.examples ? ' <a href="/examples.jpg" target="_blank" rel="noopener">See 8 box examples</a>' : '');
+  $('legend').innerHTML = meta.codes.map(c => `<span><i style="background:var(--${c})"></i>${meta.names[c]} <code>${c}</code></span>`).join('') +
+    '<span><i style="background:var(--new)"></i>New box: press 1–4</span>';
+  // No default name: each reviewer must choose themselves every time the page opens.
+  $('who').innerHTML = '<option value="" selected disabled>— choose your name —</option>' +
+    meta.reviewers.map(r => `<option>${r}</option>`).join('');
+  $('scope').value = store('scope') || 'mine';
+  $('who').onchange = () => rebuild(true);
+  $('scope').onchange = () => { store('scope', $('scope').value); rebuild(true); };
+  rebuild(true);
+}
+
+// Is this frame still to do in the current view?
+function pending(f, who, scope) {
+  if (scope === 'self') return !f.self_check_done;
+  return !f.reviewed;
+}
+
+function label(f, who) {
+  if (!f.reviewed) return f.started ? ['started', '• started'] : ['new', 'new'];
+  if (f.self_check_done) return ['reviewed', f.self_check_changed ? '✓✓ changed' : '✓✓ checked'];
+  return ['reviewed', '✓ done'];
+}
+
+async function refreshMeta() { meta = await api('/api/frames'); }
+
+function rebuild(jump) {
+  const who = $('who').value, scope = $('scope').value;
+  if (!who) {
+    list = []; cur = null;
+    $('flist').innerHTML = ''; $('progress').textContent = '';
+    $('fname').textContent = ''; $('where').textContent = '';
+    $('status').className = 'status started'; $('status').textContent = '← Choose your name at the top to start.';
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    msg('Choose your name at the top before reviewing.');
+    return;
+  }
+  // Order: batch 2 (val, then test), then the train batch, then active learning; batch 1 is done.
+  // AL rounds (AL, AL2, AL3, ...) come after the train batch, in round order.
+  const batchRank = b => ({'2': 0, 'train': 1, '1': 99})[b] ??
+    (/^AL(\d*)$/.test(b) ? 2 + Number(b.slice(2) || 1) : 98);
+  const splitRank = {val: 0, test: 1, train: 2};
+  if (scope === 'mine') {
+    list = meta.frames.filter(f => f.batch !== '1');
+    list.sort((a, b) => (batchRank(a.batch) - batchRank(b.batch)) ||
+                        (splitRank[a.split] - splitRank[b.split]));   // stable: keeps priority order within
+  } else if (scope === 'self') {
+    list = meta.frames.filter(f => f.self_check);
+    list.sort((a, b) => a.self_check_done - b.self_check_done);
+  } else list = meta.frames.slice();
+  const todo = meta.frames.filter(f => f.batch !== '1');
+  const sc = meta.frames.filter(f => f.self_check);
+  const byBatch = b => { const x = meta.frames.filter(f => f.batch === b); return `${x.filter(f => f.reviewed).length}/${x.length}`; };
+  const alBatches = [...new Set(meta.frames.map(f => f.batch).filter(b => /^AL\d*$/.test(b)))]
+    .sort((a, b) => batchRank(a) - batchRank(b));
+  $('progress').textContent = `Reviewed: batch 2 ${byBatch('2')}, train ${byBatch('train')}` +
+    alBatches.map(b => `, ${b} ${byBatch(b)}`).join('') +
+    ` · self-check ${sc.filter(f => f.self_check_done).length}/${sc.length}`;
+  $('flist').innerHTML = list.length ? list.map((f, i) => {
+    const [cls, txt] = label(f, who);
+    return `<button data-i="${i}" class="${i === idx ? 'cur' : ''}"><span>${f.frame.replace('.jpg', '')} · ${f.split}` +
+      `${f.batch === '2' ? ' · new' : /^AL\d*$/.test(f.batch) ? ' · ' + f.batch : ''}${f.split === 'train' && f.batch === 'train' ? ' · train' : ''}</span>` +
+      `<span class="s-${cls}">${txt}</span></button>`;
+  }).join('') : '<p class="keys">Nothing to show in this view.</p>';
+  $('flist').querySelectorAll('button').forEach(b => b.onclick = () => go(+b.dataset.i));
+  if (jump) { const k = list.findIndex(f => pending(f, who, scope)); go(k < 0 ? 0 : k); }
+}
+
+async function go(i) {
+  if (!list.length) return;
+  idx = (i + list.length) % list.length;
+  cur = await api('/api/frame?name=' + encodeURIComponent(list[idx].frame));
+  sel = -1; view = {s: 1, x: 0, y: 0}; msg('');
+  img = new Image();
+  img.onload = () => { cv.width = cur.width; cv.height = cur.height; draw(); };
+  img.src = '/img/' + encodeURIComponent(cur.frame);
+  $('fname').textContent = cur.frame;
+  $('where').textContent = `${cur.meta.split} · ${cur.meta.route_group} · ${cur.meta.recording} · batch ${cur.meta.batch || '1'}`;
+  showStatus();
+  $('flist').querySelectorAll('button').forEach((b, k) => b.classList.toggle('cur', k === idx));
+  $('flist').querySelectorAll('button')[idx]?.scrollIntoView({block: 'nearest'});
+}
+
+function showStatus() {
+  const st = cur.reviewed ? 'reviewed' : cur.updated ? 'started' : 'new';
+  $('status').className = 'status ' + st;
+  let t = cur.reviewed ? `✓ Reviewed by ${cur.first_reviewer}` + (cur.first_boxes && !cur.first_boxes.length ? ' (no damage)' : '') :
+    cur.updated ? '• Started, not accepted yet' :
+    cur.boxes.length ? `${cur.boxes.length} draft box(es), not reviewed` : 'No draft boxes, not reviewed';
+  if (cur.self_check_done) t += ` · ✓ Self-checked (${cur.self_check_changed ? 'changed' : 'no change'})`;
+  $('status').textContent = t;
+}
+
+function msg(t) { $('msg').textContent = t; }
+
+function toImg(e) {
+  const r = cv.getBoundingClientRect();
+  const px = (e.clientX - r.left) * cv.width / r.width, py = (e.clientY - r.top) * cv.height / r.height;
+  return {x: (px - view.x) / view.s, y: (py - view.y) / view.s};
+}
+
+function draw() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#0F172A'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(view.s, 0, 0, view.s, view.x, view.y);
+  ctx.drawImage(img, 0, 0);
+  const lw = Math.max(2, cv.width / 600) / view.s, fs = Math.max(16, cv.width / 70) / view.s;
+  const css = getComputedStyle(document.documentElement);
+  const boxes = cur.boxes.concat(drag && drag.w ? [drag] : []);
+  boxes.forEach((b, i) => {
+    const col = css.getPropertyValue('--' + (b.cls || 'new')).trim();
+    ctx.lineWidth = i === sel ? lw * 2.2 : lw; ctx.strokeStyle = col;
+    ctx.setLineDash(b.cls ? [] : [8 / view.s, 6 / view.s]);
+    const x = Math.min(b.x1, b.x2), y = Math.min(b.y1, b.y2);
+    ctx.strokeRect(x, y, Math.abs(b.x2 - b.x1), Math.abs(b.y2 - b.y1));
+    if (i === sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = lw * 0.8; ctx.strokeRect(x - lw * 2, y - lw * 2, Math.abs(b.x2 - b.x1) + lw * 4, Math.abs(b.y2 - b.y1) + lw * 4); }
+    ctx.setLineDash([]);
+    const label = b.cls ? b.cls : '? press 1–4';
+    ctx.font = `600 ${fs}px system-ui`; const tw = ctx.measureText(label).width;
+    const ly = y - fs * 1.25 < 0 ? y + Math.abs(b.y2 - b.y1) : y - fs * 1.25;   // below the box at the top edge
+    ctx.fillStyle = col; ctx.fillRect(x, ly, tw + fs * 0.6, fs * 1.25);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, x + fs * 0.3, ly + fs * 0.95);
+  });
+  if (cur.background) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `600 ${Math.max(18, cv.width / 50)}px system-ui`;
+    ctx.fillStyle = 'rgba(21,128,61,.85)'; ctx.fillRect(10, 10, ctx.measureText('No damage').width + 24, cv.width / 50 + 20);
+    ctx.fillStyle = '#fff'; ctx.fillText('No damage', 22, 10 + cv.width / 50 + 4);
+  }
+}
+
+async function persist(accept) {
+  if (!$('who').value) { msg('Choose your name at the top first.'); return false; }
+  if (cur.boxes.some(b => !b.cls)) { msg('A box has no class yet: click it and press 1–4 (or Delete).'); return false; }
+  try {
+    const saved = await api('/api/save', {frame: cur.frame, boxes: cur.boxes, background: cur.background,
+                                         accept: !!accept, reviewer: $('who').value,
+                                         mode: $('scope').value === 'self' ? 'self_check' : 'review'});
+    Object.assign(cur, saved);
+    await refreshMeta();
+    rebuild(false); showStatus(); msg('');
+    return true;
+  } catch (e) { msg('Not saved: ' + e.message); return false; }
+}
+
+// Any edit is saved at once; Enter accepts. In a review an edit un-accepts the frame until Enter;
+// in the self-check view the frame stays reviewed and Enter records the check.
+function changed() { draw(); persist(false); }
+
+cv.addEventListener('mousedown', e => {
+  if (e.button === 2) { pan = {x: e.clientX, y: e.clientY, vx: view.x, vy: view.y}; return; }
+  const p = toImg(e);
+  const hit = cur.boxes.map((b, i) => [b, i]).filter(([b]) => p.x >= Math.min(b.x1, b.x2) && p.x <= Math.max(b.x1, b.x2) &&
+    p.y >= Math.min(b.y1, b.y2) && p.y <= Math.max(b.y1, b.y2))
+    .sort((a, b) => Math.abs((a[0].x2 - a[0].x1) * (a[0].y2 - a[0].y1)) - Math.abs((b[0].x2 - b[0].x1) * (b[0].y2 - b[0].y1)));
+  drag = {x1: p.x, y1: p.y, x2: p.x, y2: p.y, w: false, hit: hit.length ? hit[0][1] : -1};
+});
+window.addEventListener('mousemove', e => {
+  if (pan) { const r = cv.getBoundingClientRect(), k = cv.width / r.width;
+    view.x = pan.vx + (e.clientX - pan.x) * k; view.y = pan.vy + (e.clientY - pan.y) * k; draw(); return; }
+  if (!drag) return;
+  const p = toImg(e); drag.x2 = p.x; drag.y2 = p.y;
+  drag.w = Math.abs(drag.x2 - drag.x1) > 6 || Math.abs(drag.y2 - drag.y1) > 6;
+  draw();
+});
+window.addEventListener('mouseup', e => {
+  if (pan) { pan = null; return; }
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.w) {
+    cur.boxes.push({id: 'n' + Date.now(), cls: '', x1: Math.min(d.x1, d.x2), y1: Math.min(d.y1, d.y2),
+                    x2: Math.max(d.x1, d.x2), y2: Math.max(d.y1, d.y2), origin: 'new', draft_cls: ''});
+    cur.background = false; sel = cur.boxes.length - 1; msg('New box: press 1–4 for its class.');
+  } else { sel = d.hit; }
+  draw();
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(), px = (e.clientX - r.left) * cv.width / r.width, py = (e.clientY - r.top) * cv.height / r.height;
+  const s = Math.min(8, Math.max(1, view.s * (e.deltaY < 0 ? 1.25 : 0.8)));
+  view.x = px - (px - view.x) * s / view.s; view.y = py - (py - view.y) * s / view.s; view.s = s;
+  if (s === 1) view = {s: 1, x: 0, y: 0};
+  draw();
+}, {passive: false});
+
+window.addEventListener('keydown', async e => {
+  if (!cur || e.target.tagName === 'SELECT') return;
+  if (e.key >= '1' && e.key <= '4' && sel >= 0) { cur.boxes[sel].cls = meta.codes[+e.key - 1]; changed(); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0) { cur.boxes.splice(sel, 1); sel = -1; changed(); }
+  else if (e.key === 'b' || e.key === 'B') { cur.boxes = []; cur.background = true; sel = -1; changed(); }
+  else if (e.key === 'Escape') { sel = -1; draw(); }
+  else if (e.key === '0') { view = {s: 1, x: 0, y: 0}; draw(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); go(idx + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); go(idx - 1); }
+  else if (e.key === 'Enter') { e.preventDefault(); accept(); }
+});
+
+async function accept() {
+  if (!cur.boxes.length && !cur.background) cur.background = true;   // nothing drawn = confirmed no damage
+  if (await persist(true)) {
+    const who = $('who').value, scope = $('scope').value, here = cur.frame;
+    const at = list.findIndex(f => f.frame === here);
+    const k = list.findIndex((f, i) => i > at && pending(f, who, scope));
+    const k2 = k >= 0 ? k : list.findIndex(f => pending(f, who, scope));
+    if (k2 < 0) { msg('Everything in this view is done. Thank you!'); draw(); } else go(k2);
+  }
+}
+$('accept').onclick = accept;
+$('prev').onclick = () => go(idx - 1);
+$('next').onclick = () => go(idx + 1);
+init().catch(e => msg('Could not load: ' + e.message));
+</script>
+</body>
+</html>

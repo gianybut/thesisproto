@@ -90,6 +90,54 @@ python train_model.py --model yolov8m --epochs 100 --patience 20   # thesis defa
 python evaluate_model.py
 ```
 
+**Training on this PC (RTX 4060, 8 GB).** The project `.venv` needs the CUDA build of PyTorch
+(`pip install --force-reinstall --no-deps torch==2.11.0 torchvision==0.26.0 --index-url
+https://download.pytorch.org/whl/cu128`); the plain `pip install -r requirements.txt` gives the CPU
+build. Ultralytics AutoBatch (`batch=-1`) picks batch 1-3 here because its memory probe spills into
+shared system memory under the Windows driver; use fixed batches (16 at 640, 6 at 960/1024, 4 at
+1280). `ml/benchmark_step0.py` measured this (tables in `results/step0_*.md`). Training runs log to
+`runs/<step>/<run>/train.log`; `tools/show_training.ps1 [-Runs runs\stepN]` opens a live view. The
+current plan and its rules (YOLOv8m, model choice on local val only, test evaluated once) are in
+`TRAINING_TASK_WEDNESDAY.md`. `VID+GPX/` (team footage), `runs/` and generated datasets are
+gitignored and must never be pushed.
+
+**Local dataset (ml/local/).** `ingest_local.py` → `route_groups.py` → `extract_frames.py` →
+`autolabel.py` → `split_local.py`, all writing to the gitignored `data/local/`. 18 mounted
+recordings are used (R04-R21). R01-R03 were hand-held and are excluded (`status =
+excluded_handheld` in `recordings.csv`, rows kept; frames deleted; their folders removed from
+`VID+GPX/`). Ids are permanent per video file and never renumbered; route groups (G01-G15) and the
+split are team-confirmed, so `route_groups.py` and `split_local.py` refuse to overwrite them without
+`--force`. The road bands in the GPX files of R04-R14 are wrong (horizon never set on 31 Oct;
+bonnet in R13-R14):
+[ml/local/road_band_overrides.csv](ml/local/road_band_overrides.csv) holds the team-approved bands,
+keyed by video file name. **When these recordings are uploaded to the server, send those values as
+`road_top`/`road_bottom`, not the GPX ones.** The split drops val/test frames within 50 m of any
+train frame. `python ml/local/serve_map.py` serves the route map on 127.0.0.1 (tiles need http).
+Val/test labels come from the review tool (`tools/review_labels/`, saved under
+`data/local/reviewed/`); scripts that read them refuse unless `review_log.csv` says reviewed = yes.
+All review is by one person (Gian Paolo Ybut; `tools/review_labels/reviewers.txt`); test frames
+marked "no damage" get a self-check. Start the tool with `tools/start_review.ps1`. The RDD2022-only
+teacher (`runs/teacher/teacher`, never deployed) feeds `teacher_detect.py` (cached boxes) →
+`fit_label_rule.py` (per-class thresholds fitted on reviewed val) and `select_review_more.py` (batch 2).
+Training strategy from 2026-11-10 (`results/training_plan_v2.md`): only human-reviewed labels;
+review batches 1, 2 (val/test), "train" (teacher drafts) and "AL" (`select_review_al.py`, B v1 drafts);
+`build_local_yolo.py` → `data/local/yolo/` (A/B/B_noreplay/val/test yamls; `--final` before the
+test evaluation); `runs_v2.py --start <run>` (imgsz 1280, batch 4, 40 epochs, patience 10, SGD, the
+`AUG` dict in `ml/train_run.py`); `val_table.py` → Chapter V table. After training (by hand):
+`calibrate_threshold.py --run X` (val, app settings, max F1) → `test_eval.py --run X` (local + foreign
+test, once: `results/test_eval_done.json` blocks a second run) → `deploy_model.py --run X` (best.pt +
+`CONF_THRESHOLD`) → restart backend → `tools/upload_recording.py R06` (end-to-end, override bands).
+Ultralytics picks best.pt and early-stops on mAP@50-95; runs are compared on mAP@50. From 2026-11-10
+11:20 runs are never started hidden: VS Code tasks (`.vscode/tasks.json`, written by
+`tools/make_tasks.py` from `runs_v2.RUNS`) run them in the foreground (`runs_v2.py --run X`, output
+tee'd to `train.log`); Claude Code queues jobs in `runs/queue.txt`, which the "Train: queue" task
+(`tools/train_queue.py`) works through one at a time; "Watch training" = `watch_training.py --console`;
+TensorBoard logging is on. `tools/pipeline_v2.py` (stopped 2026-11-10 11:20)
+(`tools/start_pipeline.ps1`) runs the whole sequence unattended, with a hard stop at 21:30.
+`label_quality.py` compares the automatic labels with them; `annotation_sample.py` →
+`tools/make_validation_form.gs` → `annotation_agreement.py` is the expert check (the answer key in
+`data/local/annotation_form/answer_key.csv` must not be shared with the validator).
+
 Training writes to `ml/pothole_training/...`; copy the winning `weights/best.pt` to
 `ml/models/best.pt`. The checked-in [ml/data.yaml](ml/data.yaml) is a four-class template
 (`nc: 4`, index order = `TARGET_CLASSES` in `dataset_prep.py`); each prep script overwrites it with
