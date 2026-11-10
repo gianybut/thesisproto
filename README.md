@@ -4,6 +4,21 @@
 
 An intelligent road damage detection system for Local Government Units (LGUs) in the Philippines. Automatically identifies and tracks potholes in road survey videos using advanced deep learning (YOLOv8m) and provides a professional web interface for inspection management.
 
+## Run commands (current, 2026-11-10)
+
+Everything from the repo root, with `.venv` active. The rest of this README predates the GPS, map
+and accounts features; `CLAUDE.md` is up to date.
+
+| What | Command |
+|---|---|
+| System (API + web app) | `start_backend.bat` and `start_frontend.bat` (or the OcuLubak shortcut) |
+| Annotation site (team labelling) | `tools\start_labeling.bat` — server, backups and Cloudflare tunnel |
+| Export labels → YOLO | `python ml/local/export_yolo.py`, then `python ml/local/check_counts.py --no-compare` |
+| Train | VS Code task "Train: queue" (jobs in `runs/queue.txt`), or `python ml/local/runs_v2.py --run X` |
+| Threshold on val | `python ml/local/calibrate_threshold.py --run X` |
+| Test (once, final model only) | `python ml/local/test_eval.py --run X` |
+| Deploy model | `python ml/local/deploy_model.py --run X`, restart the backend |
+
 ---
 
 ## 🎯 Project Overview

@@ -123,7 +123,12 @@ Training strategy from 2026-11-10 (`results/training_plan_v2.md`): only human-re
 review batches 1, 2 (val/test), "train" (teacher drafts) and "AL" (`select_review_al.py`, B v1 drafts);
 `build_local_yolo.py` → `data/local/yolo/` (A/B/B_noreplay/val/test yamls; `--final` before the
 test evaluation); `runs_v2.py --start <run>` (imgsz 1280, batch 4, 40 epochs, patience 10, SGD, the
-`AUG` dict in `ml/train_run.py`); `val_table.py` → Chapter V table. After training (by hand):
+`AUG` dict in `ml/train_run.py`); `val_table.py` → Chapter V table. **From 2026-11-10 evening
+(deploy_annotation_site.md §9): runs v0/v1/v2 keep that run A/B setup but train on local
+human-labelled frames only, with no RDD2022 replay** (the `B_noreplay` / `A` style lists, never
+`B_train.txt`); new labels come from the shared annotation site (`tools/review_labels/`) and enter
+through its export. `python ml/local/check_counts.py` re-checks the dataset counts and test hash
+after every export. After training (by hand):
 `calibrate_threshold.py --run X` (val, app settings, max F1) → `test_eval.py --run X` (local + foreign
 test, once: `results/test_eval_done.json` blocks a second run) → `deploy_model.py --run X` (best.pt +
 `CONF_THRESHOLD`) → restart backend → `tools/upload_recording.py R06` (end-to-end, override bands).
