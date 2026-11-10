@@ -1,0 +1,4 @@
+labels_FINAL_20261111_013131.db
+sha256 fc42dcb5ae96ae76ede83f35e6c5df6a982f4811b346d7ce526952ed1a7e0062
+frozen 2026-11-11T01:31:31
+Every run from 2026-11-11 references this snapshot.

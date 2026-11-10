@@ -54,14 +54,23 @@ def link(src, dst):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--snapshot', help='export this frozen backup (read-only) instead of snapshotting labels.db; '
+                                       'also rewrites results/local_datasets_nz.md (kept copy: *_reviewed.md)')
+    a = ap.parse_args()
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     (ROOT / 'backups').mkdir(exist_ok=True)
-    snap = ROOT / 'backups' / f'labels_{stamp}_export.db'
-    src = sqlite3.connect(DB)
-    dst = sqlite3.connect(snap)
-    with dst:
-        src.backup(dst)
-    src.close()
+    if a.snapshot:
+        snap = Path(a.snapshot) if Path(a.snapshot).is_absolute() else ROOT / a.snapshot
+        dst = sqlite3.connect(f'file:{snap.as_posix()}?mode=ro', uri=True)
+    else:
+        snap = ROOT / 'backups' / f'labels_{stamp}_export.db'
+        src = sqlite3.connect(DB)
+        dst = sqlite3.connect(snap)
+        with dst:
+            src.backup(dst)
+        src.close()
     print('snapshot', snap)
 
     protected = ROOT / 'results' / 'local_datasets_nz.md'
@@ -79,6 +88,7 @@ def main():
     db = dst
     db.row_factory = sqlite3.Row
     added = {'train': [], 'val': []}
+    site_rows = []
     counts = {s: Counter() for s in added}
     refused = Counter()
     for f in db.execute("SELECT * FROM frames WHERE status='labeled' ORDER BY frame_id"):
@@ -104,6 +114,7 @@ def main():
         counts[split]['frames'] += 1
         counts[split]['no damage'] += not lines
         added[split].append(fid)
+        site_rows.append([fid, split, f['labeled_by'], len(lines), ' '.join(CODES[int(l.split()[0])] for l in lines)])
     db.close()
 
     def p(split, fid):
@@ -118,6 +129,17 @@ def main():
     (Y / 'local_train.txt').write_text('\n'.join(a_list) + '\n')
     (Y / 'local_train_x3.txt').write_text('\n'.join(x3) + '\n')
     (Y / 'val.txt').write_text('\n'.join(val) + '\n')
+    # selection-val variants: the 270 single-reviewer frames, the new site frames, and both (val.txt)
+    val_rev = val[:len(val) - len(added['val'])]
+    (Y / 'val_reviewed.txt').write_text('\n'.join(val_rev) + '\n')
+    (Y / 'val_new.txt').write_text('\n'.join(p('val', f) for f in added['val']) + '\n')
+    names = ''.join(f'  {i}: {c}\n' for i, c in enumerate(CODES))
+    for yn, lst in (('val_reviewed', 'val_reviewed.txt'), ('val_new', 'val_new.txt'), ('val_full', 'val.txt')):
+        (Y / f'{yn}.yaml').write_text(f'path: {Y.as_posix()}\ntrain: {lst}\nval: {lst}\nnc: 4\nnames:\n{names}')
+    with open(Y / 'site_frames.csv', 'w', newline='', encoding='utf-8') as fh:
+        w = csv.writer(fh)
+        w.writerow(['frame', 'split', 'labeled_by', 'boxes', 'classes'])
+        w.writerows(site_rows)
     for name in ('B_train.txt', 'B.yaml', 'replay.txt'):
         (Y / name).unlink(missing_ok=True)
     for c in ('train.cache', 'val.cache'):
@@ -141,6 +163,8 @@ def main():
     for s in ('train', 'val'):
         n = counts[s]
         md.append(f'| {s} | {n["frames"]} | {n["no damage"]} | ' + ' | '.join(str(n[c]) for c in CODES) + ' |')
+    md += ['', f'Val lists: val_reviewed.txt {len(val_rev)} (single-reviewer), val_new.txt {len(added["val"])} '
+           f'(annotation site), val.txt {len(val)} (both; yamls val_reviewed / val_new / val_full).']
     md += ['', '| Training list | Images per epoch |', '|---|---|',
            f'| local_train.txt (A) | {len(a_list)} |', f'| local_train_x3.txt (B_noreplay, D10/D20/D40 x{REPEAT}) | {len(x3)} |',
            '', 'No RDD2022 replay (decision 2026-11-10): B.yaml / B_train.txt are not written. Test set unchanged.']
@@ -149,7 +173,13 @@ def main():
     md.append('')
     md.append('Reviewed-only base (build_local_yolo.py) before the export:')
     md += ['> ' + l for l in base_md.splitlines() if l.strip()]
-    (ROOT / 'results' / 'local_datasets_nz_export.md').write_text('\n'.join(md) + '\n', encoding='utf-8')
+    if a.snapshot:
+        kept = ROOT / 'results' / 'local_datasets_nz_reviewed.md'
+        if not kept.exists():
+            kept.write_bytes(keep)   # the 1,066-frame table as it was before the site labels
+        protected.write_text('\n'.join(md) + '\n', encoding='utf-8')
+    else:
+        (ROOT / 'results' / 'local_datasets_nz_export.md').write_text('\n'.join(md) + '\n', encoding='utf-8')
     log = ROOT / 'results' / 'export_log.md'
     if not log.exists():
         log.write_text('# Exports (data snapshots for training runs)\n\n| Time | Snapshot | New train | New val |\n|---|---|---|---|\n')

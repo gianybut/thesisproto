@@ -45,6 +45,22 @@ def test_hash(ds):
     return h.hexdigest()
 
 
+def reviewed_hash(ds):
+    """SHA-256 over the 1,066 single-reviewer frames (review_log.csv reviewed = yes): split, name, label
+    contents. Proves an export left the reviewed labels untouched."""
+    import csv
+    with open(ROOT / 'data/local/review_log.csv', newline='', encoding='utf-8') as fh:
+        rows = sorted((r['split'], r['frame']) for r in csv.DictReader(fh) if r['reviewed'] == 'yes')
+    h, n = hashlib.sha256(), 0
+    for split, f in rows:
+        lab = ds / 'labels' / split / (f[:-4] + '.txt')
+        if not (ds / 'images' / split / f).exists():
+            return f'missing {split}/{f}', n
+        h.update(f'{split}/{f}'.encode() + b'\0' + (lab.read_bytes().replace(b'\r\n', b'\n') if lab.exists() else b'') + b'\0')
+        n += 1
+    return h.hexdigest(), n
+
+
 def expected(md):
     rows = {}
     for line in md.read_text(encoding='utf-8').splitlines():
@@ -60,6 +76,7 @@ def main():
     ap.add_argument('--dataset', default=str(ROOT / 'data/local/yolo_nz'))
     ap.add_argument('--md', default=str(ROOT / 'results/local_datasets_nz.md'))
     ap.add_argument('--expect-test-hash')
+    ap.add_argument('--expect-reviewed-hash')
     ap.add_argument('--no-compare', action='store_true')
     a = ap.parse_args()
     ds = Path(a.dataset)
@@ -71,8 +88,13 @@ def main():
     tot_f = sum(r['frames'] for r in got.values())
     tot_b = sum(r[n] for r in got.values() for n in NAMES)
     th = test_hash(ds)
+    rh, rn = reviewed_hash(ds)
     print(f'total frames {tot_f}, boxes {tot_b}, test hash {th}')
+    print(f'reviewed frames {rn}, reviewed hash {rh}')
     ok = True
+    if a.expect_reviewed_hash and a.expect_reviewed_hash != rh:
+        ok = False
+        print('MISMATCH reviewed hash')
     if not a.no_compare:
         exp = expected(Path(a.md))
         for s in SPLITS:

@@ -55,6 +55,18 @@ for _name, _model, _imgsz, _batch, _note in (
 # (or if Ultralytics lowers the batch after an out-of-memory error) and run 1600 instead (team, 13:03).
 RUNS['S5_v8m_1920'].update(max_mem=7.6, fallback='S5_v8m_1600')
 
+# Final label freeze (2026-11-11, labels_FINAL_20261111_013131.db): run B's data recipe (D10/D20/D40 frames
+# x3, no replay) on all human labels, negatives capped at 1,500 (ml/local/build_v1_list.py), from COCO
+# yolov8m.pt (so: SGD lr0 0.01 as run A, not B's fine-tuning lr0 0.001). 1024 / batch 6 (Step 0 benchmark),
+# 60 epochs, patience 15. Val during training = reviewed 270 + site 1,354; every epoch's weights are kept
+# (save_period 1) so the final choice can be redone on val_reviewed or val_new. Hard stop leaves ~2 h
+# before the system deadline for threshold, deployment and the smoke test.
+RUNS['v1'] = dict(data='v1.yaml', ydir=OUT / 'yolo_nz', project='runs/local', model='yolov8m.pt',
+                  stop_at='2026-11-11 21:30', max_mem=7.6,
+                  set=dict(imgsz=1024, batch=6, epochs=60, patience=15, workers=2),
+                  extra=['optimizer=SGD', 'lr0=0.01', 'save_period=1'],
+                  note='final freeze: all human labels, x3 rare, 1,500 negatives, no replay, COCO; 1024/6, 60/15')
+
 
 def snapshot(name, spec):
     """Copy the data file and the lists it names into <project>/<name>/data/; return the copied yaml."""
