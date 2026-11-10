@@ -10,6 +10,8 @@ if not exist .env (
   echo Missing .env: copy .env.example to .env and set ANNOTATE_PASSCODE.
   pause & exit /b 1
 )
+if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" set "PATH=%PATH%;C:\Program Files (x86)\cloudflared"
+if exist "C:\Program Files\cloudflared\cloudflared.exe" set "PATH=%PATH%;C:\Program Files\cloudflared"
 where cloudflared >nul 2>nul || (
   echo cloudflared not found. Install it:  winget install --id Cloudflare.cloudflared
   echo then open a new window and start this again.
@@ -25,6 +27,6 @@ timeout /t 3 /nobreak >nul
 
 echo.
 echo Opening the tunnel. Share the https://....trycloudflare.com link it prints, plus the passcode.
-echo Progress page: <link>/stats      Local: http://127.0.0.1:8771
+echo Progress page: the same link + /stats      Local: http://127.0.0.1:8771
 echo.
 cloudflared tunnel --url http://localhost:8771
