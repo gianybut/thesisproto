@@ -4,11 +4,12 @@
 
 The model runs on every val frame (road-band crops, as the app sees them) with the app's own
 settings: imgsz 1280 (INFERENCE_IMGSZ) and NMS IoU 0.45 (IOU_THRESHOLD), keeping everything down to
-conf 0.01. For each threshold 0.05..0.90 (step 0.01) a prediction counts as correct when it has the
+conf 0.01. For each threshold 0.01..0.50 (step 0.01; it includes 0.10) a prediction counts as correct when it has the
 reviewed box's class and IoU >= 0.5 with it (one-to-one, highest IoU first; label_quality.match).
 The chosen threshold maximises F1 over all classes together (ties: the higher threshold, i.e.
 fewer false alarms). The app uses one threshold for every class, so per-class best thresholds are
-reported for information only.
+reported for information only. This threshold is for deployment only: mAP is always computed at
+Ultralytics' default validation conf (0.001), never at this threshold.
 
 Test is not touched. Writes results/threshold_calibration.md and
 results/threshold_calibration.json (read by test_eval.py and deploy_model.py).
@@ -39,7 +40,7 @@ CODES = ['D00', 'D10', 'D20', 'D40']
 IMGSZ = 1280       # backend/services/video_processor.py INFERENCE_IMGSZ
 NMS_IOU = 0.45     # backend/services/video_processor.py IOU_THRESHOLD
 MATCH_IOU = 0.5
-THRESHOLDS = [round(0.05 + 0.01 * i, 2) for i in range(86)]
+THRESHOLDS = [round(0.01 * i, 2) for i in range(1, 51)]   # 0.01..0.50 (team, 2026-11-11; was 0.05..0.90)
 RESULT = ROOT / 'results' / 'threshold_calibration.json'
 
 
@@ -192,7 +193,7 @@ def main():
     for k in (k for k in sets if k != sel):
         md += ['', f'## Same threshold ({thr:.2f}) on {VAL_LABEL[k]} ({len(sets[k])} frames)', ''] + md_rows(table(sets[k], det, thr))
     md += ['', '## Precision, recall and F1 by threshold (all classes, selection set)', '', '| Threshold | Precision | Recall | F1 |', '|---|---|---|---|'] + \
-         [f'| {t:.2f} | {p:.2f} | {r:.2f} | {f:.2f} |' for t, p, r, f in curve if round(t * 100) % 5 == 0 or t == thr] + \
+         [f'| {t:.2f} | {p:.2f} | {r:.2f} | {f:.2f} |' for t, p, r, f in curve] + \
          ['', '## Best threshold per class (information only: the app uses one threshold)', '', '| Class | Threshold | F1 |', '|---|---|---|'] + \
          [f'| {c} | {t:.2f} | {f:.2f} |' for c, (t, f) in per_class_best.items()]
     (ROOT / 'results' / 'threshold_calibration.md').write_text('\n'.join(md) + '\n', encoding='utf-8')

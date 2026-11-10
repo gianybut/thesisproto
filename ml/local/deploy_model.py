@@ -11,7 +11,8 @@ band, near zone, NMS IoU 0.45, tracking, fixed-spot filter, AI check) stays as i
    D00, D10, D20, D40. Without --before-test it must also have had the one test evaluation
    (results/test_eval_done.json).
 2. Copies <run dir>/weights/best.pt to ml/models/oculubak_<run>.pt (no existing file is overwritten
-   or deleted, so every earlier model stays available for rollback).
+   or deleted, so every earlier model stays available for rollback). If that file already holds the
+   same weights (a new threshold for the same run), it is reused and only the config changes.
 3. Writes ml/models/model_config.json (weights, conf threshold, imgsz = the calibration's = the
    run's training size, class names, run, data snapshot) and keeps the version it replaces as
    ml/models/model_config.previous.json. The backend reads it at start (backend/model_config.py).
@@ -64,8 +65,13 @@ def main():
 
     dst = MODELS / f'oculubak_{a.run}.pt'
     if dst.exists():
-        sys.exit(f'{dst.name} exists already; not overwritten. Move it away first if this is a new {a.run}.')
-    shutil.copy2(src, dst)
+        import hashlib
+        same = hashlib.sha256(dst.read_bytes()).digest() == hashlib.sha256(src.read_bytes()).digest()
+        if not same:
+            sys.exit(f'{dst.name} exists already with other weights; not overwritten. Move it away first if this is a new {a.run}.')
+        print(f'{dst.name} is already these weights: redeploying with the new calibration only.')
+    else:
+        shutil.copy2(src, dst)
     snap_p = ROOT / 'results' / 'FINAL_SNAPSHOT.txt'
     snapshot = snap_p.read_text().split()[0] if snap_p.exists() else None
     old = CONFIG.read_text(encoding='utf-8') if CONFIG.exists() else None

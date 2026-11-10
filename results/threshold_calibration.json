@@ -1,15 +1,15 @@
 {
  "run": "v1",
  "weights": "runs\\local\\v1\\weights\\best.pt",
- "threshold": 0.24,
- "val_f1": 0.1904761904761905,
- "val_precision": 0.19966722129783693,
- "val_recall": 0.18209408194233687,
+ "threshold": 0.32,
+ "val_f1": 0.27149321266968324,
+ "val_precision": 0.30303030303030304,
+ "val_recall": 0.2459016393442623,
  "imgsz": 1024,
  "nms_iou": 0.45,
  "match_iou": 0.5,
  "dataset": "yolo_nz",
- "val_set": "full",
- "val_frames": 1624,
- "when": "2026-11-11T04:47:26"
+ "val_set": "reviewed",
+ "val_frames": 270,
+ "when": "2026-11-11T07:49:46"
 }

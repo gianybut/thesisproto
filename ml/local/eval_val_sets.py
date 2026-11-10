@@ -41,6 +41,8 @@ CACHE = ROOT / 'runs' / 'eval' / 'valsets'
 PLACEHOLDER_MAP = {'longitudinal': 0, 'transverse': 1, 'alligator': 2, 'pothole': 3}
 MODELS = {
     'v1': ('v1 (local labels only, near zone, 1024)', ROOT / 'runs' / 'local' / 'v1' / 'weights' / 'best.pt', 1024),
+    'v2': ('v2 (v1 recipe, label freeze 2)', ROOT / 'runs' / 'local' / 'v2' / 'weights' / 'best.pt', 1024),
+    'v2b': ('v2b (YOLOv8s RDD2022, external start)', ROOT / 'runs' / 'local' / 'v2b' / 'weights' / 'best.pt', 1024),
     'A': ('run A (local only, old data)', ROOT / 'runs' / 'v2' / 'A' / 'weights' / 'best.pt', 1280),
     'Bv2': ('run B v2 (teacher + local + replay)', ROOT / 'runs' / 'v2' / 'Bv2' / 'weights' / 'best.pt', 1280),
     'S5_v8m_1280': ('S5_v8m_1280 (B v2 + near zone)', ROOT / 'runs' / 'v3' / 'S5_v8m_1280' / 'weights' / 'best.pt', 1280),
@@ -170,6 +172,9 @@ def main():
     allres = {k: v for k, v in allres.items() if '|' in k}
     for key in MODELS:
         if a.only and key not in a.only:
+            continue
+        if not MODELS[key][1].exists():
+            print(f'{key}: no weights yet ({MODELS[key][1].relative_to(ROOT).as_posix()}), skipped', flush=True)
             continue
         for st in styles:
             print(key, st, flush=True)

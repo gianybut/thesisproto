@@ -153,7 +153,7 @@ imgsz, class names, run, data snapshot), read once at start by
 [backend/model_config.py](backend/model_config.py); `ml/local/deploy_model.py --run X` writes it
 (copying best.pt to `ml/models/oculubak_<run>.pt`, never overwriting) and keeps the replaced version
 in `model_config.previous.json` (`--rollback`). Restart the backend after a change. Since 2026-11-11
-it runs **v1** (`oculubak_v1.pt`, conf 0.24, imgsz 1024, four classes, deployed before the test
+it runs **v1** (`oculubak_v1.pt`, conf 0.32 chosen on the 270 reviewed val frames, imgsz 1024, four classes, deployed before the test
 evaluation; `results/deployment.md`, `results/train_runs.md`). `GET /api/server/model` feeds the model
 note on the About page (signed-in users). The previous model, `ml/models/rdd2022_pretrained.pt`, is an
 external MIT-licensed 7-class YOLOv8n RDD2022 baseline (SE2 demo placeholder): **not the team's model;
