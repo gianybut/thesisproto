@@ -41,7 +41,8 @@ single run. v2 (v1's recipe on v1's list with the same seed: a repeat of v1) was
 |---|---|---|---|---|---|---|---|---|
 | v2b | external RDD2022 start, local data only | YOLOv8s RDD2022 checkpoint (below) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`) | 1024 | 12 (largest that fits: 6.42 GiB; 16 needs 8.84 GiB, `results/bench_batch.md`) | SGD 0.001, close_mosaic 10 | 40 / 100 | finished 09:44, 1.7 h, all 40 epochs. With the 24 px border: mAP@50 0.163 reviewed, 0.106 full val |
 | v3 | high resolution, local data only | S5_v8m_1920 (ours: teacher -> B v2 -> S5; those stages used RDD2022 replay) | v1's list; validated on the 270 reviewed frames | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | finished 12:25, 20 epochs, about 8 min/epoch; best epoch 16. Reviewed 0.253 mAP@50 / 0.086 mAP@50-95, full val 0.139 / 0.058 (app style, 24 px border): the best single model |
-| v3b | high resolution, local-only history | v1 (ours, COCO start) | as v3 | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | started 12:25 after v3 (hard stop 19:00); v3c (v2b at 1280, batch 6) queued after it |
+| v3b | high resolution, local-only history | v1 (ours, COCO start) | as v3 | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | finished 14:11, stopped early at epoch 11 (best epoch 3). Reviewed 0.186 mAP@50 / 0.070, full val 0.113 / 0.042: no gain over v1 |
+| v3c | high resolution, YOLOv8s | v2b (ours, external RDD2022 start) | as v3 | 1280 | 6 | SGD 0.001, close_mosaic 5 | 20 / 8 | finished 14:46, stopped early at epoch 9. Reviewed 0.217 / 0.082, full val 0.110 / 0.043 |
 
 **Inference options measured on the 270 reviewed frames (`results/infer_sweep.md`, `results/final_selection.md`):**
 - Grey border of 24 px above and below the crop (what Ultralytics' validation adds): v1 0.160 -> 0.171. Adopted in the app (`border_px`).
@@ -60,6 +61,13 @@ site frames F1 0.22, all val F1 0.24 (09:36 fusion: 0.33 / 0.19 / 0.22). v1 + v3
 F1 0.36) but drops on the other frames (site 0.16, all val 0.20), so the fusion was kept. Still contains S5_v8m_1920
 (RDD2022 replay); without it the best is v3 alone. Checked on a 30 s R05 clip: 21 records, all GPS-placed. Named config of
 the 09:36 deployment: `v1_S5_conf024`.
+
+**Final choice, 14:50 (all runs finished, queue empty):** the 13:14 deployment stays. The only higher row with v3b or v3c is
+v1 + v3c + S5_v8m_1920: 0.290 reviewed but 0.159 full val (deployed: 0.275 / 0.161), +0.015 on 122 boxes with full val flat,
+inside the noise of picking the top of some 25 combinations, so it was not adopted. A four-model fusion (v1 + v2b + v3 +
+S5_v8m_1920) gives 0.281 / 0.166: not worth a third more processing time. D20 stays near zero for every model and fusion
+(AP@50 0.02-0.04 on reviewed; 152 training boxes). Test not evaluated: `ml/local/test_eval_nz.py --team-approved` is the
+single run for the deployed fusion (its `--dry-run` on the reviewed val frames reproduces the figures above).
 
 **v2b starting checkpoint.** `yolov8s_seed0_best.pt` from
 https://huggingface.co/SreekarAditya/yolo-rdd2022-benchmark (file `yolo-rdd2022-benchmark/yolov8s_seed0_best.pt`,

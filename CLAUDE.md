@@ -161,12 +161,14 @@ note on the About page (signed-in users). The previous model, `ml/models/rdd2022
 external MIT-licensed 7-class YOLOv8n RDD2022 baseline (SE2 demo placeholder): **not the team's model;
 its numbers must never be reported as thesis results.**
 
-**Deployed since 2026-11-11 13:14 (interim, deadline day):** v2b + v3 + S5_v8m_1920 fused (weighted box fusion,
+**Deployed since 2026-11-11 13:14 (the final choice of deadline day; v3b and v3c did not beat it):** v2b + v3 + S5_v8m_1920 fused (weighted box fusion,
 `backend/services/box_fusion.py`; `ensemble` in `model_config.json`, every member at conf 0.05, `conf_threshold` 0.25 on the
 fused score), with `border_px` 24 (grey rows above and below the road band, as Ultralytics' validation adds; `tta` exists
 and is off). v3 / v3b / v3c are 1280 px fine-tunes on v1's list, validated on the 270 reviewed frames (`runs_v2.py`);
 `ml/local/final_select.py` scores every model and fusion (`results/final_selection.md`). Earlier deployments are named
-configs: `v1_conf032`, `v1_conf024`, `v1_S5_conf024`, `placeholder`. S5_v8m_1920 was trained with RDD2022 replay images.
+configs: `v1_conf032`, `v1_conf024`, `v1_S5_conf024`, `placeholder`. S5_v8m_1920 was trained with RDD2022 replay images. The
+test evaluation of a near-zone model or fusion is `ml/local/test_eval_nz.py --team-approved` (once; shares
+`results/test_eval_done.json` with `test_eval.py`, which stays as it is); `--dry-run` uses the reviewed val frames.
 
 Model comparisons on near-zone val use `ml/local/eval_val_sets.py` (`results/val_sets_comparison.md`).
 The annotation-site pre-labels came from S5_v8m_1280, so on the site val frames that model is partly
