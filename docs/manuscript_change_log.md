@@ -276,3 +276,79 @@ Not filled; the questions go to the team:
 - **Yin et al. (2024):** the title and arXiv link are Khare et al. (2023), arXiv:2311.00073.
 - **Busireddy et al. (2026):** Crossref lists Esther Priya R. as first author, DOI 10.36106/ijsr/4816016.
 - **Abu Dabous et al.:** confirm the claims attributed to it in 1.3 and 2.1. Its full title shows it reviews AI with automated 3D imaging.
+
+(All four were resolved in the next section.)
+
+## Reference audit and answers pass (2026-11-12)
+
+### Method
+
+- **Metadata.** Each of the 29 entries was checked against Crossref (authors, title, venue, year, volume, pages, DOI). Entries without a DOI were checked on the source page: arXiv API, ADB, ATIFTAP / Journal of Global Business, IJSR, Hugging Face, GitHub `CITATION.cff`, PyPI.
+- **Claims.** Each cited claim was checked against the paper, as far as the text was reachable:
+  - **Full text read:** Khare et al. (arXiv), Sahoo et al. / iWatchRoad (arXiv), Kyem et al. / PaveSync (arXiv), Sarmiento (arXiv), Pham et al. (arXiv), Arya et al. 2020 (arXiv), Bustria et al. (ATIFTAP PDF), Esther Priya. R et al. (IJSR PDF).
+  - **Abstract only** (publisher full text closed or blocked to automated access): Nurcahyo et al., Albouchi et al., Alwahhab et al., Abu Dabous et al., Fortin et al., Manalo et al., Sapkota et al., Zeng & Zhong, Zhang et al., Jin et al., ADB (publication page).
+  - **Not reachable:** Dacanay et al. and Ramos et al. (Springer login); Roy & Bhaduri (record not found).
+- **Scope.** Fixed only what a source confirms. Unsupported claims were reworded to what the paper says, or removed. The original document was not touched.
+
+### The four items the user named
+
+| Item | Finding | Change |
+|---|---|---|
+| Irsal et al. (2025) | The title and IEEE link belong to Nurcahyo et al. (2024), *2024 FORTEI-ICEE*, pp. 47–51, DOI 10.1109/FORTEI-ICEE64706.2024.10824488. Its abstract says YOLOv8 was trained on a pothole dataset (various road conditions and sizes) and presented for real-time monitoring. It says nothing about an anchor-free mechanism improving localization or about "high detection precision". | 2.1: claim reworded to the abstract; anchor-free claim removed (Terven et al. still supports it in Chapter I). Table 2.3.1 row and reference entry replaced. |
+| Yin et al. (2024) | The title and arXiv link belong to Khare, Gandhi, Rahalkar & Mane (2023), arXiv:2311.00073 (also published in IEEE PuneCon 2023, DOI 10.1109/PuneCon58714.2023.10449999; the preprint was read). It contains no "multi-scale feature learning". Measured: on 3,770 images, YOLOv8 nano reached mAP@0.5 0.911 at 8.8 ms, ahead of YOLOv5n/s and YOLOv7 in mAP, time and size. The paper also states that manual inspections are "time-consuming, subjective, and impractical for covering extensive road networks". | 2.1 reworded to the measured comparison; Table 2.3.1 row and reference entry replaced (preprint cited, as read). |
+| Busireddy et al. (2026) | The paper prints the first author as "Mrs. Esther Priya. R" (Assistant Professor), followed by Busireddy Lakshmi Bhavani, Chinni Mahalakshmi, Sasi Dharan R and Shyaamal S; *IJSR* 15(4), 45–47, DOI 10.36106/ijsr/4816016. It is a Flask web app for uploaded images (YOLO detector, CNN severity classifier, Grad-CAM) with "GPS-based location tagging and structured data logging". There is no timestamp synchronization and no claim about time to locate damage. | Cited as "Esther Priya. R et al. (2026)", the name exactly as printed (honorific dropped). Entry lists the names as printed, placed under E. 2.1 claim reworded, 2.3 and 5.4 citations renamed, Table 2.3.1 row rewritten. |
+| Abu Dabous et al. (2025) | A systematic review of 85 studies (2011 to mid-2024) on AI with 3D imaging (laser scanners, stereo cameras, infrared). The full text could not be read: the publisher blocks automated access. The abstract and scope do not cover web platforms, GPU processing or mobile overheating. The only verified source found for overheating is Fortin et al. (2024), whose on-edge AIoT prototype reported "system overheating" and "GPS data inaccuracies". No verified source was found for centralized GPU processing or battery drain. | GPU, battery and inconsistent-performance claims removed (2.1, 2.1 iWatchRoad ¶, 2.3, Table 2.3.1). 2.1 ¶ rewritten to what the abstract says (85 studies, 3D sensors, cost of 3D collection, lack of open 3D datasets), contrasted with the study's smartphone video. Overheating now cited to Fortin et al. (2.2, 2.3). 1.3 citation replaced by (Khare et al., 2023; Pham et al., 2022; Sarmiento, 2021), which state that manual inspection is time-consuming, laborious and impractical for large networks, and still manual in the Philippines. |
+
+### Other problems found and fixed
+
+| Reference | Problem | Fix |
+|---|---|---|
+| Asamoah et al. (2025) | First author is Kyem, B. A. (6 authors); published in *2025 IEEE FMLDS*, pp. 495–500, DOI 10.1109/FMLDS67896.2025.00095 (declared on arXiv). "Strengthens model robustness across geographic conditions" is not stated. | Cited as Kyem et al. (2025); 2.1 reworded (52,747 images, 7 countries, 13 standardized distress types; standardization enables fair comparison and zero-shot transfer); table row and entry replaced. |
+| iWatchRoad Project (2026) | Authors are Sahoo, Mohanty & Mishra (2025), *Proc. 13th ACM IKDD CODS*, pp. 262–270, DOI 10.1145/3799830.3799873. The paper does not compare its architecture with on-device alternatives. | Cited as Sahoo et al. (2025); 2.1 reworded to the paper: dashcam video and GPS upload, YOLOv8 on 7,000+ frames, OCR timestamps matched to the GPS log, OSM map, runs on standard computers without cloud. |
+| Albouchi et al. (2025) | Wrong venue: *2025 IEEE 22nd International Conference on Sciences and Techniques of Automatic Control and Computer Engineering (STA)*, pp. 639–644, DOI 10.1109/STA66620.2025.11364925. Second author is "Hajjaji, M. A.". No heat map in the abstract. | Entry corrected; 2.1 and table row reworded to the abstract (fine-tuned YOLOv10s, higher detection rates with low false positive and false negative rates, integration into monitoring systems). |
+| Alwahhab et al. (2025) | The claims about fewer false detections from shadows or wet pavement and higher accuracy in developing countries are not stated. It is VGG16 with multi-head attention, a local dataset of cracks, potholes and ruts, three public datasets, and a real-time test on local roads. | 2.1, Ch I and table reworded. URL → DOI 10.32985/ijeces.16.2.7. |
+| Sarmiento (2021) | Does not test foreign-trained models on Philippine roads and does not name textures, shadows, debris or lighting. It reports YOLOv4 mAP 0.272 on 305 DPWH images, attributed to the small dataset, non-uniform collection and distress types unsuited to boxes. It notes surveys are still manual in the Philippines. | 2.2 ¶ and table row reworded. Removed from the "foreign models lose accuracy" sentences (Ch I ×2, 2.3). |
+| (new) Arya et al. (2020) | Verified replacement for the "foreign imagery loses accuracy" claim: "Mostly the performance of a model significantly degrades when applied to road images from another country" (arXiv:2008.13101, read in full). | Added to the Ch I sentence and to 2.1 (transfer-learning ¶). New reference entry before Arya et al. (2024). |
+| Bustria et al. (2025) | Wrong title and authors. Actual: Bustria, J. L. Y. A., Briones, N. A. Q., Riboroso, R. M. A., Dela Cruz, J., Ferrer, B. E., & Ferrer, V., Jr., "YOLOv11-based mobile application for damage classification and severity level identification of roads in the Philippines", *Journal of Global Business, 14*(3) (ATIFTAP). Battery consumption, thermal throttling and inconsistent performance are not in the paper. It is an on-device YOLOv11 classifier for uploaded photos, trained mainly on DPWH Baguio City images, 86% accuracy, and states that models trained on international datasets fail to generalize to Philippine conditions. | Entry replaced; 2.2 ¶ and table row reworded. Now also cited for the generalization sentences (Ch I ×2, 2.3). |
+| Fortin et al. (2024) | "Geospatial technologies significantly improved the accuracy of pothole location tracking" is not stated; the abstract reports GPS data inaccuracies and overheating as challenges. Its AIoT prototype detects on edge hardware (YOLOv5m, mAP 91.8%). | 2.2 ¶ and table row reworded. |
+| Zeng & Zhong (2024) | "Reduce false detections" is not stated. It is a lightweight YOLOv8n with BOT, LSKA, C2fGhost and LSCD-Head: +1.4 points mAP on RDD2022 at about 74% of the baseline's parameters and FLOPs. | 2.1 and table row reworded. |
+| Zhang et al. (2025) | "Small and distant potholes in dashcam footage" is not stated. It adds ODConv, BoTNet and coordinate attention: +1.8% mAP@0.5 and +1.6% F1 on RDD2022-China. | 2.1 and table row reworded. |
+| Asian Development Bank (2026) | Published March 2025, DOI 10.22617/TCS250091-2. The guidebook does not say ML is "essential"; it explains how smartphones, free satellite imagery and AI can supplement traditional surveys and make data collection cheaper and faster (developed with the governments of the Philippines and Thailand). | Year 2026 → 2025 (text, table, entry); claim reworded; URL → DOI. |
+| Jocher et al. (2026) | `CITATION.cff` lists the authors as Jocher, Qiu, Chaurasia and the title as "Ultralytics YOLO". | Entry corrected (version 8.4.48 kept). |
+| Dacanay et al. / Ramos et al. (2024) | Pages missing (Crossref: pp. 355–364 and 81–94; editor E. Strauss and year 2024 confirmed). | Pages added. Claims not checked (Springer login). |
+| Pham et al. (2022), Jin et al. (2025) | Ch I said they detect anomalies "from images and continuous video feeds"; both work on images. | "from road images". |
+| Ch I / 2.3 generic claims | "irregular pavement textures, lighting, flooding, weather… especially for models trained on foreign datasets (Sarmiento, 2021)" and the 2.3 list of factors were not supported by the cited paper. | Replaced by the verified Bustria et al. (2025) statement, plus Manalo et al. (2022) for pothole shape and size variability (abstract: 33%–69% accuracies "given the numerous various forms and sizes of potholes"). |
+
+### Problems listed, not fixed (not verifiable)
+
+- **Roy & Bhaduri (2023), *International Journal of Computer Applications*.** No record found in Crossref or by title search. A paper with the same title is Aina, Haghi, Famewo, Lambert, Owolabi & Efe (2025), *International Conference on Transportation and Development 2025*, pp. 411–418, DOI 10.1061/9780784486191.036; its abstract does not compare YOLOv8 with earlier versions. A highlighted [CITATION NEEDED] was added to the entry; the text citing it (Ch I ×2, 2.1, Table 2.3.1) is unchanged.
+- **Dacanay et al. (2024):** claims about Project PAVE (DOST, UP Diliman), DPWH practice and the applicability of foreign systems are unchecked. **Ramos et al. (2024):** R² 0.58, DPWH district photographs and VCI critique are unchecked. Both are behind the Springer login.
+- **Manalo et al. (2022):** the abstract confirms YOLOv3, AP 95.43% and 33%–69% accuracies. "Philippine roads", "locally compiled dataset" and the three universities are not in the abstract; full text is closed.
+- **Arya et al. (2024)** sentence "significantly improving generalized detection performance" and **Sapkota et al. (2025)** "practical for real-time monitoring in transportation and surveillance" were checked against abstracts only. Sapkota's abstract names autonomous vehicles and traffic safety and surveillance among five application areas.
+- **Abu Dabous et al. (2025):** full text not read (publisher access); the text now cites only what the abstract states.
+
+### User answers applied
+
+| # | Where | Change |
+|---|---|---|
+| 1 | 4.2.5 end-to-end test | [FILL] → "The recording was not uploaded from the phone: like the other recordings, it was made with the mobile capture application and uploaded with the researchers' upload script (tools/upload_recording.py), which sends the same video, GPX track, and time offset as the application, together with the team-approved road band for R04 to R14." (`tools/upload_recording.py` sends video, GPX, `time_offset`, and the road band, with overrides for R04–R14) |
+| 2 | 4.2.6 deployment | The hosting [FILL]s, the access steps and [PENDING: deployment] → "An online copy of the system was not deployed for the remote evaluation because of limitations in uploading." |
+| 3 | 4.5 ethics | Removed the clause "the online copy used for the remote evaluation will be served over HTTPS with accounts only for evaluators". |
+| 4 | 4.1.3 (evaluation data), NFR12, 4.4.2 (materials and procedure), 5.6 intro | Each still describes respondents using an online copy, so each got a highlighted "[FILL: no online copy was deployed (Section 4.2.6); state how respondents will use the system instead]" (5 places). |
+| 5 | Table 4.3.2.1 hardware | ROG [FILL] → "ASUS ROG Strix G17 (UI/UX development)". |
+| 6 | iOS version | Kept as is. |
+
+Not applied:
+- **"DPWH Batangas office: DPWH Cavite 2nd District Engineering Office".** This gives the Cavite partner's name for the Batangas office, so it cannot be right as written. The [FILL] stays until the Batangas office's exact name is given.
+- **Sprint durations.** Left as [FILL: weeks]. Inventing them would break the rule against invented numbers and dates; git history can give dated, labelled spans instead (see the TODO).
+- **UAT instrument (dimensions).** Still [FILL].
+
+### Repo
+
+- `tools/uat_analysis.py` (new). Reads the Google Forms CSV and a JSON map of dimensions to item columns, and computes Equations 28–30:
+  - item weighted mean and SD; dimension and overall weighted mean and SD over respondents;
+  - one-tailed one-sample t-test against 3.41 (t, df, p), the Table 4.4.5.2 interpretation and the hypothesis decision rule;
+  - everything with all respondents and without the engineer (`--engineer COLUMN=VALUE`).
+
+  Standard library only. The t-distribution tail was checked against known values (for example t = 2.0, df = 10 → p = 0.036694) and on synthetic responses in the scratchpad. It was not run on real data, since none exist yet.
+- **After this pass:** 74 placeholder tokens remain (26 distinct), all highlighted. The reference list has 30 entries in alphabetical order, and every in-text citation matches an entry by author and year. The only exception is "Sarmiento & Reyes (2022)" in Table 2.3.1, the row awaiting manual deletion.

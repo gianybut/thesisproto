@@ -4,7 +4,7 @@ What is still open in the Google Doc **"OCULUBAK Manuscript — revision draft"*
 (https://docs.google.com/document/d/1SaaJn2eGL9cCUOT7B0pXqCJUZk2z4U2iLjvXZUgn6S0/edit).
 
 - The original document ("OCULUBAK CHAPTER 1-6") was not edited.
-- Every open item below is highlighted in yellow in the draft.
+- Every open item below is highlighted in yellow in the draft: 74 placeholder tokens, 26 distinct (2026-11-12).
 - The record of what changed and why is in [manuscript_change_log.md](manuscript_change_log.md).
 - The only source for numbers is [results/FINAL_METRICS_FOR_PAPER.md](../results/FINAL_METRICS_FOR_PAPER.md).
 
@@ -16,25 +16,20 @@ Each fill-in appears in the sections listed. Once decided, replace every copy wi
 
 | Placeholder | Sections | What is needed |
 |---|---|---|
-| `[FILL: the three researchers / the three researchers and N volunteer annotators]` | 1.7, 3.4.3, 3.7, 4.1.3 | Who labelled the 6,399 frames on the annotation website. In 3.7 the same choice also says who the frames were shared with. |
 | `[FILL: dimensions of the evaluation questionnaire]` | 3.6, 3.8.5, 4.1.3, 4.4.2 | The UAT instrument. Choose either the six dimensions (usability, perceived detection accuracy, interface design, inspection efficiency, decision-making support, overall usefulness) or the existing Google Form's dimensions. |
 | `[FILL: confirm the instrument — …]` | 4.4.4 | The same decision. Keep or replace the six-item list below it. |
 | `[FILL: align Sections 5.6.2 to 5.6.6 and Tables 5.6.3 to 5.6.8 …]` | 5.6 | The same decision. The 5.6 headings and tables still follow the old ISO/IEC 25010 characteristics. Retitle them, and re-group their items, to match the chosen instrument. |
-| `[FILL: exact name of the DPWH Batangas office]` | 3.6, 4.1.2, 4.1.4, 4.4.1 (text and Table 4.4.1.1 header), 5.6.1 | The office's official name. |
-| `[FILL: Yes, recording ___ was uploaded from the phone app … / No: … upload script …]` | 4.2.5 | Whether any recording was sent end to end from the mobile app. Keep one option. The R07 test used `tools/upload_recording.py`. |
-| `[FILL: hosting service or server]`, `[FILL: address]` | 4.2.6 | Where the online copy for the remote evaluation will run, and its HTTPS address. |
-| `[FILL: ASUS ROG Strix G17 — keep only if it was used, and for what]` | Table 4.3.2.1 | Keep the laptop only if it was used, and say for what. Otherwise delete the clause. |
-| `[FILL: iOS version]` | Table 4.3.2.1 | The iOS version of each phone (two iPhone 13 Pro Max, one iPhone 16). |
-| `[FILL: storage available for uploads, processed videos, and snapshots]` | Table 4.3.2.1 | Free disk space on the processing PC. |
-| `[FILL: weeks]` ×5 | Table 4.3.4.1 | The duration of each sprint. |
-| `[CITATION NEEDED: volume]` | References (Solovyev et al., 2021) | The volume of *Image and Vision Computing* for article 104117. The publisher page did not load; the DOI is 10.1016/j.imavis.2021.104117. |
-| `[CITATION NEEDED: full author list …]` | References: Busireddy (2026), Dabous (2025), Fortin (2024), Irsal (2025), Yin (2024), Zhang (2025) | APA 7 lists every author (up to 20), never "et al.". See the notes below. |
+| `[FILL: exact name of the DPWH Batangas office]` | 3.6, 4.1.2, 4.1.4, 4.4.1 (text and Table 4.4.1.1 header), 5.6.1 | The Batangas office's official name. The answer given on 2026-11-12 ("DPWH Cavite 2nd District Engineering Office") is the Cavite partner's name, so it was not used. |
+| `[FILL: no online copy was deployed (Section 4.2.6); state how respondents will use the system instead]` ×5 | 4.1.3 (evaluation data), NFR12, 4.4.2 (materials; procedure), 5.6 intro | 4.2.6 now says no online copy was deployed. Decide how respondents will see and use the system instead, for example a session on the researchers' computer or the demonstration video only. Then rewrite these five places to match. NFR12 ("Online access") can be deleted if there is no online copy. |
+| `[FILL: weeks]` ×5 | Table 4.3.4.1 | The duration of each sprint. The team did not track it, so it cannot be filled from memory. One verifiable option: take the dates of the first and last commits of each part of the work from `git log` and state that the spans come from the commit history. |
 
-Reference notes:
-- **Fortin (2024):** the entry's title and journal differ from the ResearchGate record it links to.
-- **Irsal (2025):** "IEEE Xplore" is not a venue; give the conference or journal.
-- **Yin (2024):** the entry names a journal but links an arXiv record.
-- **Not checked in this pass:** Roy & Bhaduri (2023), Alwahhab et al. (2025), Busireddy et al. (2026), Bustria et al. (2025) and iWatchRoad Project (2026). They resolve to links but were not verified against the publisher. Verify them before submission.
+Reference to confirm:
+- **Roy & Bhaduri (2023).** The entry has a highlighted `[CITATION NEEDED]`. No paper with these authors was found. A paper with the same title is Aina et al. (2025), *International Conference on Transportation and Development 2025*, DOI 10.1061/9780784486191.036. Its abstract does not compare YOLOv8 with earlier versions, which Chapter II attributes to Roy & Bhaduri. Find the paper the team actually read. If it is Aina et al., re-cite it and reword the claims (Ch I ×2, 2.1, Table 2.3.1) to what it says. If it cannot be found, remove the citation and the claims.
+
+Claims checked only against abstracts, or not at all (no placeholder in the draft; verify before submission):
+- **Dacanay et al. (2024)** (Project PAVE, DOST, UP Diliman, DPWH practice) and **Ramos et al. (2024)** (R² 0.58, DPWH photographs, VCI): behind the Springer login, not checked.
+- **Manalo et al. (2022):** "Philippine roads", "locally compiled dataset" and the three universities are not in the abstract.
+- **Abu Dabous et al. (2025):** the full text could not be read (publisher access); the draft now cites only what the abstract states.
 
 ---
 
@@ -47,10 +42,9 @@ Nothing here may be estimated. Each `[PENDING]` stays until a result file exists
 | `[PENDING: damage log correctness]` | 4.1.4, 4.1.5, 4.4.2, 5.3 (Table 5.3.1), 5.7, 6.1 | 1. Fill in `results/damage_log_check/survey3_checklist.csv` (50 records of survey 3, seed 42; the columns are explained in `tools/damage_log_check.py`). 2. Run `python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv`. |
 | `[PENDING: localization accuracy]` (and `…, Section 5.4`) | 1.6, 3.8.4, 4.1.3, 4.1.5, 4.2.5, 5.4 (Tables 5.4.1-5.4.2), 5.7, 6.1 | Field validation of 20-30 damages: stand beside each damage and average one minute of phone fixes. Compute the Haversine error (Equation 27). **No script exists yet**: write one that reads the reference positions, the records and the GPX files, and reports mean, SD and maximum error and the survey conditions. |
 | `[PENDING: expert validation]` | 3.4.3, 4.1.3, 4.1.5, 4.1.6, 4.4.2, 5.2 (Table 5.2.1), 6.1 | The DPWH Batangas engineer marks and signs `data/local/validation_sheet/OcuLubak_dataset_validation.docx`: 40 boxes, 10 per class, with a certification letter. `ml/local/annotation_agreement.py` computes percent agreement and kappa, but it reads Google Form responses. Enter the sheet's answers in that CSV format (`--responses`), or adapt the script. |
-| `[PENDING: UAT]`, `[PENDING: UAT results]` | 4.1.3, 4.1.5, 4.2.5, 4.4.3, 5.6 (all tables), 5.7, 6.1 | Run the questionnaire with the participating offices, then compute weighted means, SDs and one-tailed t-tests against 3.41, overall and per dimension, with and without the validating engineer. **`tools/uat_analysis.py` does not exist yet**: write it from the Google Forms CSV. |
+| `[PENDING: UAT]`, `[PENDING: UAT results]` | 4.1.3, 4.1.5, 4.2.5, 4.4.3, 5.6 (all tables), 5.7, 6.1 | 1. Decide the instrument and how respondents use the system (section 1). 2. Run the questionnaire and export the Google Forms responses as CSV. 3. Write a JSON file that maps each dimension to its item columns. 4. Run `python tools/uat_analysis.py responses.csv --items uat_items.json --engineer "COLUMN=VALUE" --out results/uat_results.md`. It gives Equations 28–30 (item and dimension weighted means and SDs, one-tailed t-tests against 3.41, the Table 4.4.5.2 interpretation and the decision rule), with and without the engineer. |
 | `[PENDING: n]` | 4.1.4, 4.4.1 (and Table 4.4.1.1) | The number of respondents, after the UAT. |
 | `[PENDING: device tests]` | 4.2.5, 5.5 | The stopwatch start-time gap, full-length sessions in a moving vehicle, and the midday heat test of the mobile app. |
-| `[PENDING: deployment]` | 4.2.6 | Set up the online copy for the evaluation (see the fill-ins). |
 | `[PENDING: review of flagged records]` | 5.1.6 (text and Table 5.1.6) | Review the 36 R07 records flagged by the AI check, and count how many are truly false. |
 | `[PENDING: improvements suggested by the respondents, Section 5.6.8]` | 6.2 | From the UAT comments. |
 | `[PENDING]` (bare) | 4.1.1, 4.1.2, 4.2.4, 4.3.4 | These mark sentences that list the evaluations above as still to be done. Remove each one when its evaluation is done. |
@@ -69,12 +63,17 @@ Before these are written up, also update the sentences that call these evaluatio
 
    The placeholder lines are centred body text. Give the new lines the same layout as the other equation lines: centre tab 4320, right tab 8640.
 2. **Table 2.3.1 (synthesis table).**
-   - Delete the **Sarmiento & Reyes (2022)** row. Its paragraph and reference are already removed.
-   - Insert a row below **Asian Development Bank (2026)** for **Radford et al. (2021)**:
+   - Delete the **Sarmiento & Reyes (2022)** row. Its paragraph and reference are already removed. It is the last in-text citation without a reference entry.
+   - Insert a row below **Asian Development Bank (2025)** for **Radford et al. (2021)**:
      - Focus: "Learning visual models from natural language supervision (CLIP)"
      - Method: "Trained an image encoder and a text encoder to match images with their captions on a large collection of image–text pairs"
      - Findings: "The model classifies images into categories described in text without task-specific training (zero-shot classification)"
      - Implication: "Supports the use of CLIP as an advisory check that flags detections that are likely not road damage"
+   - Optional: a row for **Arya et al. (2020)**, now cited in Chapter I and 2.1:
+     - Focus: "Road damage detection across countries"
+     - Method: "Trained and tested models on smartphone road images from Japan, India, and the Czech Republic"
+     - Findings: "A model's performance mostly degrades significantly on road images from another country; mixing foreign and local data helps"
+     - Implication: "Supports fine-tuning on locally collected Philippine images"
 3. **Table of contents.** Click the TOC, then **Update table of contents**. It is a TOC element, so the API cannot refresh it. It still lists old headings, for example "3.3.1 YOLOv8m …" and "3.8.2 User Acceptance Testing", and no 5.x entries.
 4. **Figure images**, replacing the highlighted `[FILL: insert …]` notes:
    - **Figure 5.1.1** (5.1.4): a 4 × 4 chart or table of matched test pairs, reviewed by detected class: D00 17/0/0/0; D10 0/3/0/1; D20 0/0/3/0; D40 0/0/0/1 (`results/test_evaluation.md`, lines 44-51). This is the deployed fusion on the local test subset at 0.25.
@@ -105,5 +104,20 @@ Before these are written up, also update the sentences that call these evaluatio
    - **General Objective** (1.5.1): three YOLOv8 models fine-tuned on local imagery from RDD2022 starting weights, combined by weighted box fusion.
 2. **The acceptance criterion was not met.** The panel's requirement was mAP@50 ≥ 0.80 overall and per class on the local test subset (3.8.1, NFR1). The deployed fusion reached 0.173 on its single test run, with per-class AP@50 from 0.035 to 0.381. Chapter V and 6.1 state this plainly.
 3. **The hypothesis is undecided** until the UAT is done (5.6.7, 5.7, 6.1 are `[PENDING: UAT]`).
-4. **Disclosure of AI assistance.** Check the school's policy on disclosing AI-tool use in the manuscript, for example the use of an AI assistant to revise text and check consistency. If disclosure is required, add the required statement in the required place.
-5. **Partner office.** The draft now names the DPWH Cavite 2nd District Engineering Office as the partner office, replacing the Mendez-Nuñez Municipal Engineering Office. It also says the DPWH Batangas engineer who validates the labels may also be a respondent, with results reported with and without that engineer. Check that this matches the signed ethics and request letters.
+4. **No online copy.** The remote evaluation described in Chapter III and IV assumed one. The UAT procedure must change (section 1), and the adviser should agree to the new procedure.
+5. **Chapter II was rewritten where the cited papers did not support the text** (reference audit, 2026-11-12). Claims about centralized GPU processing, mobile battery drain and thermal throttling, heat-map planning and timestamp synchronization were removed or reworded to what the papers report. Five entries now cite the actual authors: Nurcahyo, Khare, Kyem, Sahoo and Esther Priya. R. The adviser may want to see the revised 2.1, 2.2 and 2.3.
+6. **Disclosure of AI assistance.** Check the school's policy on disclosing AI-tool use in the manuscript, for example the use of an AI assistant to revise text and check consistency. If disclosure is required, add the required statement in the required place.
+7. **Partner office.** The draft now names the DPWH Cavite 2nd District Engineering Office as the partner office, replacing the Mendez-Nuñez Municipal Engineering Office. It also says the DPWH Batangas engineer who validates the labels may also be a respondent, with results reported with and without that engineer. Check that this matches the signed ethics and request letters.
+
+---
+
+## Resolved on 2026-11-12 (kept for reference)
+
+- **Annotation labellers:** "the three researchers" (`tools/review_labels/annotate.py:39`; labels database).
+- **iOS version:** from the GPX metadata.
+- **Storage:** measured on the processing PC.
+- **ROG Strix G17:** "UI/UX development".
+- **4.2.5 end-to-end:** recordings made with the app and uploaded with `tools/upload_recording.py`.
+- **4.2.6:** online copy not deployed.
+- **References:** Solovyev volume, Zhang, Fortin and Abu Dabous author lists. Irsal → Nurcahyo, Yin → Khare, Busireddy → Esther Priya. R, Asamoah → Kyem, iWatchRoad Project → Sahoo. Albouchi venue, Bustria title and authors, ADB year, Jocher author order, Dacanay and Ramos pages, Alwahhab DOI.
+- **`tools/uat_analysis.py`:** written.
