@@ -239,7 +239,7 @@ def main():
             if r.returncode == 0 and f.exists():
                 body = f.read_text(encoding='utf-8')
                 foreign_md += [body.split('\n', 2)[2], '']
-                row = next((l for l in body.splitlines() if l.startswith('| all six countries |')), None)
+                row = next((l.replace('**', '') for l in body.splitlines() if l.replace('**', '').startswith('| all six countries |')), None)
                 if row:
                     foreign_rows.append((n, sz, held_out, [c.strip() for c in row.strip().strip('|').split('|')]))
             else:

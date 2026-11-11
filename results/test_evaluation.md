@@ -59,6 +59,16 @@ Test: matched pairs by reviewed class (rows) and detected class (columns):
 
 Note: on validation this point rests on 1 detection(s) out of 122 reviewed boxes, so it is not a usable operating point; it is reported as defined (results/metric_definitions.md, section 4).
 
+**Table 5.F. Foreign test (RDD2022 test part, six countries), each model alone (secondary result).**
+
+| Model | Images | P | R | mAP@50 | mAP@50-95 | D00 AP@50 | D10 AP@50 | D20 AP@50 | D40 AP@50 | Held out |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v2b (1024 px) | 3277 | 0.323 | 0.269 | 0.200 | 0.068 | 0.290 | 0.179 | 0.190 | 0.143 | **NOT HELD OUT** |
+| v3 (1280 px) | 3277 | 0.337 | 0.305 | 0.239 | 0.084 | 0.330 | 0.242 | 0.230 | 0.154 | yes |
+| S5_v8m_1920 (1280 px) | 3277 | 0.411 | 0.369 | 0.318 | 0.127 | 0.406 | 0.284 | 0.328 | 0.254 | yes |
+
+_Table 5.F was added to this report after the run from the three result files above (the run's summary parser missed their bold row); no evaluation was repeated._
+
 ## Each model alone and the fusion (mAP, for information)
 
 | Set | Model | P | R | mAP@50 | mAP@50-95 | D00 AP@50 | D10 AP@50 | D20 AP@50 | D40 AP@50 |
