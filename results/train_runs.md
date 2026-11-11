@@ -30,15 +30,28 @@ at Ultralytics' default validation conf (0.001).
 
 No hyperparameter tuning (`model.tune`): not enough GPU time, and the selection set is too small (team).
 
-## Queued 2026-11-11 08:00: v2b, then v2 (hard stop for both Fri 13 Nov 22:00)
+## Deadline day, 2026-11-11: v2b, then v3 and v3b (v2 dropped)
 
 The final model is chosen on the 270 reviewed frames (main column), full val as the second column
-(`ml/local/eval_val_sets.py`). Test stays untouched until the team approves the single run.
+(`ml/local/final_select.py` -> `results/final_selection.md`). Test stays untouched until the team approves the
+single run. v2 (v1's recipe on v1's list with the same seed: a repeat of v1) was taken out of the queue at
+08:55 for v3 and v3b.
 
-| Run | Setup | Starts from | Data | imgsz | Batch | Optimizer | Epochs / patience | Other |
+| Run | Setup | Starts from | Data | imgsz | Batch | Optimizer | Epochs / patience | Result |
 |---|---|---|---|---|---|---|---|---|
-| v2 | v1 recipe | yolov8m.pt (COCO) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`; there was no label freeze 2) | 1024 | 6 | SGD 0.01 | 60 / 15 | save_period 1 |
-| v2b | external RDD2022 start, local data only | YOLOv8s RDD2022 checkpoint (below) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`) | 1024 | 12 (largest that fits: 6.42 GiB; 16 needs 8.84 GiB, `results/bench_batch.md`) | SGD 0.001 | 40 / 100 | close_mosaic 10, save_period 1 |
+| v2b | external RDD2022 start, local data only | YOLOv8s RDD2022 checkpoint (below) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`) | 1024 | 12 (largest that fits: 6.42 GiB; 16 needs 8.84 GiB, `results/bench_batch.md`) | SGD 0.001, close_mosaic 10 | 40 / 100 | finished 09:44, 1.7 h, all 40 epochs. With the 24 px border: mAP@50 0.163 reviewed, 0.106 full val |
+| v3 | high resolution, local data only | S5_v8m_1920 (ours: teacher -> B v2 -> S5; those stages used RDD2022 replay) | v1's list; validated on the 270 reviewed frames | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | started 09:44 (hard stop 19:00) |
+| v3b | high resolution, local-only history | v1 (ours, COCO start) | as v3 | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | queued after v3 |
+
+**Inference options measured on the 270 reviewed frames (`results/infer_sweep.md`, `results/final_selection.md`):**
+- Grey border of 24 px above and below the crop (what Ultralytics' validation adds): v1 0.160 -> 0.171. Adopted in the app (`border_px`).
+- Inference above the training size: worse for v1 (0.144 at 1280, 0.143 at 1536). S5_v8m_1920 is the same at 1280 / 1600 / 1920 (0.200 / 0.205 / 0.201).
+- Test-time augmentation: no gain (v1 0.164 vs 0.171) at about 5x the time. Not used.
+- Fusing models (weighted box fusion, `backend/services/box_fusion.py`): v1 + S5_v8m_1920 0.250 (full val 0.149; v1 alone 0.171 / 0.111); v1 + v2b + S5_v8m_1920 0.273 (full 0.159).
+
+**Interim deployment 09:36:** v1 fused with S5_v8m_1920, border 24 px, conf 0.24 on the fused score: reviewed P 0.38 / R 0.29 /
+F1 0.33 (v1 alone at 0.32: F1 0.27). S5_v8m_1920 was trained with RDD2022 replay images, so this deployment is not
+"local labels only"; `model_config.json` says so. Named configs for rollback: `v1_conf032`, `v1_conf024`, `placeholder`.
 
 **v2b starting checkpoint.** `yolov8s_seed0_best.pt` from
 https://huggingface.co/SreekarAditya/yolo-rdd2022-benchmark (file `yolo-rdd2022-benchmark/yolov8s_seed0_best.pt`,
