@@ -69,6 +69,11 @@ S5_v8m_1920) gives 0.281 / 0.166: not worth a third more processing time. D20 st
 (AP@50 0.02-0.04 on reviewed; 152 training boxes). Test not evaluated: `ml/local/test_eval_nz.py --team-approved` is the
 single run for the deployed fusion (its `--dry-run` on the reviewed val frames reproduces the figures above).
 
+**End-to-end check of the final deployment, 14:52-15:04:** recording R07 (val split, Alfonso Bayan National Road, 590 s)
+uploaded with `tools/upload_recording.py R07` as survey 3: analysed in 729 s (3,539 frames at 5 fps, three models per
+frame, about 1.2x the recording length), 112 damage records (D00 23, D10 15, D20 10, D40 64), all GPS-placed, 36 flagged by
+the AI check, annotated H.264 video written. Survey 2 (R05, analysed 2026-11-10) still holds an earlier model's 415 records.
+
 **v2b starting checkpoint.** `yolov8s_seed0_best.pt` from
 https://huggingface.co/SreekarAditya/yolo-rdd2022-benchmark (file `yolo-rdd2022-benchmark/yolov8s_seed0_best.pt`,
 revision 6bec4bbcf77738e69aa96419bf324c2b9357519c, sha256 565aae6915e34e4f7f4c44dac0bdcf9fff21b83c4adc74cc97ca09cc31882ce8),
