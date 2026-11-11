@@ -141,7 +141,9 @@ TensorBoard logging is on. `tools/pipeline_v2.py` (stopped 2026-11-10 11:20)
 (`tools/start_pipeline.ps1`) runs the whole sequence unattended, with a hard stop at 21:30.
 `label_quality.py` compares the automatic labels with them; `annotation_sample.py` →
 `tools/make_validation_form.gs` → `annotation_agreement.py` is the expert check (the answer key in
-`data/local/annotation_form/answer_key.csv` must not be shared with the validator).
+`data/local/annotation_form/answer_key.csv` must not be shared with the validator). The form was not used (too slow for the validator): `validation_sheet.py` +
+`tools/make_validation_letter.js` make a two-page Word file instead (40 random train/val boxes, 10 per class, and a
+certification letter to sign), in the gitignored `data/local/validation_sheet/`.
 
 Training writes to `ml/pothole_training/...`; copy the winning `weights/best.pt` to
 `ml/models/best.pt`. The checked-in [ml/data.yaml](ml/data.yaml) is a four-class template
