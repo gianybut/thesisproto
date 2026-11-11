@@ -101,6 +101,12 @@ RUNS['v3'] = dict(_V3, model='runs/v3/S5_v8m_1920/weights/best.pt',
 RUNS['v3b'] = dict(_V3, model='runs/local/v1/weights/best.pt',
                    note="YOLOv8m from v1 on v1's list; 1280/4, 20 epochs, patience 8; val = 270 reviewed")
 
+# v3c: the same 1280 step for v2b's YOLOv8s (a third, different model for the fusion). Batch 6: 8 at 1024 took
+# 4.54 GiB (results/bench_batch.md), so 6 at 1280 stays well under the limit.
+RUNS['v3c'] = dict(_V3, model='runs/local/v2b/weights/best.pt',
+                   set=dict(imgsz=1280, batch=6, epochs=20, patience=8, workers=2),
+                   note="YOLOv8s from v2b on v1's list; 1280/6, 20 epochs, patience 8; val = 270 reviewed")
+
 
 def snapshot(name, spec):
     """Copy the data file and the lists it names into <project>/<name>/data/; return the copied yaml."""
