@@ -4,7 +4,7 @@ What is still open in the Google Doc **"OCULUBAK Manuscript — revision draft"*
 (https://docs.google.com/document/d/1SaaJn2eGL9cCUOT7B0pXqCJUZk2z4U2iLjvXZUgn6S0/edit).
 
 - The original document ("OCULUBAK CHAPTER 1-6") was not edited.
-- Every open item below is highlighted in yellow in the draft: 74 placeholder tokens, 26 distinct (2026-11-12).
+- Every open item below is highlighted in yellow in the draft: 65 placeholder tokens, 21 distinct (2026-11-12, after the manual-edit pass).
 - The record of what changed and why is in [manuscript_change_log.md](manuscript_change_log.md).
 - The only source for numbers is [results/FINAL_METRICS_FOR_PAPER.md](../results/FINAL_METRICS_FOR_PAPER.md).
 
@@ -21,7 +21,6 @@ Each fill-in appears in the sections listed. Once decided, replace every copy wi
 | `[FILL: align Sections 5.6.2 to 5.6.6 and Tables 5.6.3 to 5.6.8 …]` | 5.6 | The same decision. The 5.6 headings and tables still follow the old ISO/IEC 25010 characteristics. Retitle them, and re-group their items, to match the chosen instrument. |
 | `[FILL: exact name of the DPWH Batangas office]` | 3.6, 4.1.2, 4.1.4, 4.4.1 (text and Table 4.4.1.1 header), 5.6.1 | The Batangas office's official name. The answer given on 2026-11-12 ("DPWH Cavite 2nd District Engineering Office") is the Cavite partner's name, so it was not used. |
 | `[FILL: no online copy was deployed (Section 4.2.6); state how respondents will use the system instead]` ×5 | 4.1.3 (evaluation data), NFR12, 4.4.2 (materials; procedure), 5.6 intro | 4.2.6 now says no online copy was deployed. Decide how respondents will see and use the system instead, for example a session on the researchers' computer or the demonstration video only. Then rewrite these five places to match. NFR12 ("Online access") can be deleted if there is no online copy. |
-| `[FILL: weeks]` ×5 | Table 4.3.4.1 | The duration of each sprint. The team did not track it, so it cannot be filled from memory. One verifiable option: take the dates of the first and last commits of each part of the work from `git log` and state that the spans come from the commit history. |
 
 Reference to confirm:
 - **Roy & Bhaduri (2023).** The entry has a highlighted `[CITATION NEEDED]`. No paper with these authors was found. A paper with the same title is Aina et al. (2025), *International Conference on Transportation and Development 2025*, DOI 10.1061/9780784486191.036. Its abstract does not compare YOLOv8 with earlier versions, which Chapter II attributes to Roy & Bhaduri. Find the paper the team actually read. If it is Aina et al., re-cite it and reword the claims (Ch I ×2, 2.1, Table 2.3.1) to what it says. If it cannot be found, remove the citation and the claims.
@@ -55,14 +54,10 @@ Before these are written up, also update the sentences that call these evaluatio
 
 ## 3. Manual edits in Google Docs (the API cannot do these)
 
-1. **Equations.** Replace each highlighted placeholder with Insert › Equation, keeping its number:
-   - (12) weighted box fusion, 3.3.3. The old de-duplication equation object was deleted.
-   - (22) classification accuracy, 3.8.1.
-   - (23) Wilson interval, 3.8.1.
-   - (27) Haversine, 3.8.4.
-
-   The placeholder lines are centred body text. Give the new lines the same layout as the other equation lines: centre tab 4320, right tab 8640.
-2. **Table 2.3.1 (synthesis table).**
+1. **Equations (12), (22), (23), (27): done as typed math, optional upgrade.** On 2026-11-12 the placeholders were replaced with typed equations in Cambria Math (Unicode symbols, linear fractions); none is highlighted any more.
+   - The API cannot create equation objects. For the same look as the other equations, retype each with Insert › Equation; the text on the line shows what to type.
+   - (12) already has the centre and right tab stops. (22), (23) and (27) are centred lines without them, because the API cannot set tab stops, so their numbers are not aligned at the right margin like the others. Fix: Format › Align & indent › Left, then add a centre tab at 3 in and a right tab at 6 in, or copy the line format from (21) with the paint-format tool.
+2. **Table 2.3.1 (synthesis table): still manual.** The Google connector cannot insert or delete table rows; deleting a row as a text range is refused by the Docs API; and the "Foreign studies" / "Local studies" rows are merged cells, so rows cannot be imitated by moving text. Enabling the Apps Script API for the connector's Google Cloud project (project 358976420000) would let this be done by script.
    - Delete the **Sarmiento & Reyes (2022)** row. Its paragraph and reference are already removed. It is the last in-text citation without a reference entry.
    - Insert a row below **Asian Development Bank (2025)** for **Radford et al. (2021)**:
      - Focus: "Learning visual models from natural language supervision (CLIP)"
@@ -74,15 +69,18 @@ Before these are written up, also update the sentences that call these evaluatio
      - Method: "Trained and tested models on smartphone road images from Japan, India, and the Czech Republic"
      - Findings: "A model's performance mostly degrades significantly on road images from another country; mixing foreign and local data helps"
      - Implication: "Supports fine-tuning on locally collected Philippine images"
-3. **Table of contents.** Click the TOC, then **Update table of contents**. It is a TOC element, so the API cannot refresh it. It still lists old headings, for example "3.3.1 YOLOv8m …" and "3.8.2 User Acceptance Testing", and no 5.x entries.
-4. **Figure images**, replacing the highlighted `[FILL: insert …]` notes:
+3. **Table of contents: still manual, and do it last.** Click the TOC, then **Update table of contents**. No Google API (Docs API or Apps Script) can refresh or insert a table of contents. Do it after the figure images are in, since they move the page numbers. It still lists old headings, for example "3.3.1 YOLOv8m …" and "3.8.2 User Acceptance Testing", and no 5.x entries.
+4. **Algorithm 3.1:** done. The block's title line now carries the label "Algorithm 3.1" that the text refers to. The steps were checked against `backend/services/video_processor.py`, `box_fusion.py` and `damage_tracker.py` and needed no change.
+5. **Figure images** (the team uploads them), replacing the highlighted `[FILL: insert …]` notes, and the six Chapter III diagrams from `figures/*.drawio` (section 4):
    - **Figure 5.1.1** (5.1.4): a 4 × 4 chart or table of matched test pairs, reviewed by detected class: D00 17/0/0/0; D10 0/3/0/1; D20 0/0/3/0; D40 0/0/0/1 (`results/test_evaluation.md`, lines 44-51). This is the deployed fusion on the local test subset at 0.25.
    - **Figure 5.1.2** (5.1.4): `runs/eval/final_v2b_foreign_test_all_six_countries/confusion_matrix_normalized.png` and the same file for `final_v3_…` and `final_S5_v8m_1920_…`. Each model alone, on the foreign test subset.
    - **Figure 5.1.3** (5.1.5): `runs/local/v2b/results.png`, `runs/local/v3/results.png`, `runs/v3/S5_v8m_1920/results.png`. Training curves of each model on its own validation list during training, not the test set.
 
 ---
 
-## 4. Figures to redraw (images in Chapter 3; the repository `figures/` folder does not hold them)
+## 4. Chapter III diagrams (`figures/*.drawio`, checked and corrected 2026-11-12)
+
+The six draw.io files were checked against the code, the results files and the Chapter III text, and corrected (change log, "Diagram check"). Export each from draw.io (File › Export as › PNG, 300 dpi) and insert it in place of the old image. The requirements they were checked against:
 
 | Figure | What it must show now |
 |---|---|

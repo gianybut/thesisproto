@@ -351,4 +351,32 @@ Not applied:
   - everything with all respondents and without the engineer (`--engineer COLUMN=VALUE`).
 
   Standard library only. The t-distribution tail was checked against known values (for example t = 2.0, df = 10 → p = 0.036694) and on synthetic responses in the scratchpad. It was not run on real data, since none exist yet.
-- **After this pass:** 74 placeholder tokens remain (26 distinct), all highlighted. The reference list has 30 entries in alphabetical order, and every in-text citation matches an entry by author and year. The only exception is "Sarmiento & Reyes (2022)" in Table 2.3.1, the row awaiting manual deletion.
+- **After the reference audit:** 74 placeholder tokens remained (26 distinct), all highlighted. The reference list has 30 entries in alphabetical order, and every in-text citation matches an entry by author and year. The only exception is "Sarmiento & Reyes (2022)" in Table 2.3.1, the row awaiting manual deletion.
+
+
+## Manual-edit pass and diagram check (2026-11-12)
+
+### Revision draft
+
+| # | Where | Change | Source |
+|---|---|---|---|
+| 1 | 3.3.3 Eq. (12), 3.8.1 Eqs. (22) and (23), 3.8.4 Eq. (27) | `[EQUATION n: …]` placeholders replaced with typed equations in Cambria Math (Unicode sub- and superscripts, linear fractions); highlight removed. (12) keeps its centre and right tab stops; (22), (23) and (27) stay centred lines, because the Docs API cannot create equation objects or set tab stops. | Same formulas as the placeholders; (12) checked against `backend/services/box_fusion.py:9` (score = sum of confidences divided by the number of models) |
+| 2 | 3.3.2 | Title line of the algorithm block: "Algorithm 3.1 " added (bold), since the text cites "Algorithm 3.1" and the block had no label. Steps unchanged: they match `video_processor.py:12, 33, 71, 424, 527` (stride floor(FPS/5), near zone top + 0.10, 24 px border), `damage_tracker.py:38` (1 s gap) and `box_fusion.py` | Code |
+| 3 | Table 4.3.4.1 | `[FILL: weeks]` ×5 → spans from the git history: 1) 23 Apr – 22 May 2026 (4 weeks), 2) 16 Sep – 11 Nov 2026 (8 weeks), 3) 22 May – 21 Oct 2026 (22 weeks), 4) 12 Oct – 4 Nov 2026 (3 weeks), 5) from 11 Nov 2026 (in progress). The 4.3.4 intro now says where they come from and why a span is not weeks of active work (work before the first commit is not recorded; sprints overlapped; no commits 22 May – 16 Sep). | `git log` (67 commits). Sprint 1 = commits `391240d`–`bcd6b76`; 2 = `918e4e9` (four-class RDD2022), tracker 19–22 Oct, AI check 21 Oct, labelling, training and test 10–11 Nov (`a3b6d00`); 3 = `1267702` (gps_service, map page) to `c676feb` (mobile app), georeferencing `3869b33`; 4 = `17b6964` (signed tokens, survey page) to `96656f9`, admin and activity log `2a8fda8`; 5 = `a17b6f5` (end-to-end check), `6117fb5` (damage log checklist) |
+
+Not done:
+- **Table 2.3.1 rows:** delete Sarmiento & Reyes, add Radford. The connector has no row operations, the Docs API refuses deleting a row as a text range, the section rows are merged cells, and the Apps Script API is disabled in the connector's Google Cloud project.
+- **Table of contents:** no API can refresh it.
+
+### Diagram check (`figures/*.drawio`)
+
+Checked against the code, `results/FINAL_METRICS_FOR_PAPER.md`, `results/train_runs.md`, `ml/models/model_config.json`, Ultralytics 8.4.48's `cfg/models/v8/yolov8.yaml`, and Chapter III of the draft. Wrong or missing items were corrected in the XML. Afterwards a layout check (box overlaps, edges through boxes, crossing edges) reported no problems in any of the six files.
+
+| Figure | Change |
+|---|---|
+| 3.1 | Rebuilt. Phase names and contents now follow 3.1.1–3.1.5 (System Foundation and Core Development; Detection Refinement and Feature Expansion; Geospatial Integration and Data Synchronization; System Integration and Interface Enhancement; Optimization and Validation) instead of "Planning and Requirements / Model Development / System Development / Integration and Testing / Evaluation and Deployment". The sprint cycle Planning → Design → Development → Testing → Review (3.1) was added. "Partner offices" and "Deployment" removed. |
+| 3.2.1 | "classification by type" (no such view) → records filterable by kind of damage; model sizes added; the process box now orders positioning before storage with the AI check, as in the 3.2.1 text. |
+| 3.3.1 | Backbone and neck now match `yolov8.yaml`: 5 Conv (stride 2), 4 C2f and SPPF; neck with two upsample + concat + C2f steps and two Conv (stride 2) + concat + C2f steps. Head boxes give the strides 8, 16 and 32, and the box (DFL) and class branches. Input box: 24 px above and below, 1,024 px for v2b and 1,280 px for v3 and S5. |
+| 3.4 | Upper lane rebuilt with the real lineage: RDD2022 → teacher (COCO start, 5,750 images) → B v2 (local + 600 replay) → S5_v8m_1920 (local + 600 replay, 1,920 px) → v3 (local only, 1,280 px); external YOLOv8s checkpoint (SreekarAditya) → v2b (1,024 px). Before, the teacher was drawn as the starting weights of all three. Label counts (1,066 and 6,399) added; selection on the 270 reviewed val frames; one test. Lower lane: the missing edge from the no-GPS branch into the AI check was added (those records are still checked and stored); "by-type view" removed; the "Analyse again" arrow re-routed so it no longer crosses the storage arrow; member sizes added. |
+| 3.4.1 | "Damage by type" page (does not exist) → "Place on the map (control points)" (`SurveyPlaceTab.jsx`, route `/videos/:id/georeference`). API routes list completed (detections, resident reports). Database adds resident reports (`PublicReport`); file storage adds `reports/` (`backend/app.py:23`). Web client link label "HTTPS" → "REST API calls + JWT" (no online copy is deployed). |
+| 3.5.1 | "damage by type" removed from "View detections…". Association lines now attach to the near side of each use case, so they no longer run through other use cases. |
