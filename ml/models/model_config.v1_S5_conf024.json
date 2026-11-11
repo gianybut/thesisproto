@@ -1,0 +1,35 @@
+{
+ "weights": "ml/models/oculubak_v1.pt",
+ "conf_threshold": 0.24,
+ "iou_threshold": 0.45,
+ "imgsz": 1024,
+ "border_px": 24,
+ "tta": false,
+ "ensemble": [
+  {
+   "weights": "ml/models/oculubak_S5_v8m_1920.pt",
+   "imgsz": 1280,
+   "run": "S5_v8m_1920"
+  }
+ ],
+ "class_names": [
+  "D00",
+  "D10",
+  "D20",
+  "D40"
+ ],
+ "run": "v1",
+ "data_snapshot": "labels_FINAL_20261111_013131.db",
+ "deployed_at": "2026-11-11T09:36:38",
+ "calibration": {
+  "dataset": "yolo_nz",
+  "val_set": "reviewed",
+  "val_frames": 270,
+  "val_precision": 0.38461538461538464,
+  "val_recall": 0.28688524590163933,
+  "val_f1": 0.3286384976525822
+ },
+ "test_evaluated": false,
+ "note": "The team's models v1 (local human labels only) and S5_v8m_1920 (teacher -> B v2 -> S5: local labels plus RDD2022 replay images), fused. Interim deployment of 2026-11-11 morning. Not test-evaluated: its numbers are val numbers. Not test-evaluated yet: its numbers are val numbers.",
+ "previous": "ml/models/oculubak_v1.pt"
+}

@@ -40,8 +40,8 @@ single run. v2 (v1's recipe on v1's list with the same seed: a repeat of v1) was
 | Run | Setup | Starts from | Data | imgsz | Batch | Optimizer | Epochs / patience | Result |
 |---|---|---|---|---|---|---|---|---|
 | v2b | external RDD2022 start, local data only | YOLOv8s RDD2022 checkpoint (below) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`) | 1024 | 12 (largest that fits: 6.42 GiB; 16 needs 8.84 GiB, `results/bench_batch.md`) | SGD 0.001, close_mosaic 10 | 40 / 100 | finished 09:44, 1.7 h, all 40 epochs. With the 24 px border: mAP@50 0.163 reviewed, 0.106 full val |
-| v3 | high resolution, local data only | S5_v8m_1920 (ours: teacher -> B v2 -> S5; those stages used RDD2022 replay) | v1's list; validated on the 270 reviewed frames | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | started 09:44 (hard stop 19:00) |
-| v3b | high resolution, local-only history | v1 (ours, COCO start) | as v3 | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | queued after v3 |
+| v3 | high resolution, local data only | S5_v8m_1920 (ours: teacher -> B v2 -> S5; those stages used RDD2022 replay) | v1's list; validated on the 270 reviewed frames | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | finished 12:25, 20 epochs, about 8 min/epoch; best epoch 16. Reviewed 0.253 mAP@50 / 0.086 mAP@50-95, full val 0.139 / 0.058 (app style, 24 px border): the best single model |
+| v3b | high resolution, local-only history | v1 (ours, COCO start) | as v3 | 1280 | 4 | SGD 0.001, close_mosaic 5 | 20 / 8 | started 12:25 after v3 (hard stop 19:00); v3c (v2b at 1280, batch 6) queued after it |
 
 **Inference options measured on the 270 reviewed frames (`results/infer_sweep.md`, `results/final_selection.md`):**
 - Grey border of 24 px above and below the crop (what Ultralytics' validation adds): v1 0.160 -> 0.171. Adopted in the app (`border_px`).
@@ -52,6 +52,14 @@ single run. v2 (v1's recipe on v1's list with the same seed: a repeat of v1) was
 **Interim deployment 09:36:** v1 fused with S5_v8m_1920, border 24 px, conf 0.24 on the fused score: reviewed P 0.38 / R 0.29 /
 F1 0.33 (v1 alone at 0.32: F1 0.27). S5_v8m_1920 was trained with RDD2022 replay images, so this deployment is not
 "local labels only"; `model_config.json` says so. Named configs for rollback: `v1_conf032`, `v1_conf024`, `placeholder`.
+
+**Interim deployment 13:14 (replaces 09:36):** v2b + v3 + S5_v8m_1920 fused, border 24 px, conf 0.25 on the fused score.
+mAP@50 reviewed 0.275 / full val 0.161 (09:36 fusion: 0.250 / 0.149). At the threshold: reviewed P 0.37 / R 0.30 / F1 0.33,
+site frames F1 0.22, all val F1 0.24 (09:36 fusion: 0.33 / 0.19 / 0.22). v1 + v3 + S5_v8m_1920 is the same within noise
+(0.275 / 0.160; conf 0.24, F1 0.33 / 0.21 / 0.24). v3 alone at conf 0.41 has the best F1 on reviewed (P 0.46 / R 0.30 /
+F1 0.36) but drops on the other frames (site 0.16, all val 0.20), so the fusion was kept. Still contains S5_v8m_1920
+(RDD2022 replay); without it the best is v3 alone. Checked on a 30 s R05 clip: 21 records, all GPS-placed. Named config of
+the 09:36 deployment: `v1_S5_conf024`.
 
 **v2b starting checkpoint.** `yolov8s_seed0_best.pt` from
 https://huggingface.co/SreekarAditya/yolo-rdd2022-benchmark (file `yolo-rdd2022-benchmark/yolov8s_seed0_best.pt`,
