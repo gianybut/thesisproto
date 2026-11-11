@@ -34,7 +34,7 @@
   "val_recall": 0.30327868852459017,
   "val_f1": 0.33183856502242154
  },
- "test_evaluated": false,
+ "test_evaluated": true,
  "note": "The team's models v2b (YOLOv8s, CC BY 4.0 RDD2022 start, fine-tuned on local human labels only), v3 (S5_v8m_1920 fine-tuned on local human labels only, 1280) and S5_v8m_1920 (teacher -> B v2 -> S5: local labels plus RDD2022 replay images), fused. Interim deployment of 2026-11-11 13:20, chosen on the 270 reviewed val frames. Not test-evaluated yet: its numbers are val numbers.",
  "previous": "ml/models/oculubak_v1.pt"
 }

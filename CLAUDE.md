@@ -169,6 +169,12 @@ and is off). v3 / v3b / v3c are 1280 px fine-tunes on v1's list, validated on th
 configs: `v1_conf032`, `v1_conf024`, `v1_S5_conf024`, `placeholder`. S5_v8m_1920 was trained with RDD2022 replay images. The
 test evaluation of a near-zone model or fusion is `ml/local/test_eval_nz.py --team-approved` (once; shares
 `results/test_eval_done.json` with `test_eval.py`, which stays as it is); `--dry-run` uses the reviewed val frames.
+Its metrics were fixed beforehand in `results/metric_definitions.md` (commit `7fbc094`, 2026-11-11 17:05); do not change
+them. It was run on 2026-11-11 (team-approved) and writes `results/test_evaluation.md` (Chapter V tables) and `.json`.
+The only allowed re-run is `--team-approved --labels-corrected`, after corrections to the test labels (the test hash
+must differ from the recorded one; the earlier report is kept as `test_evaluation_run<N>.md`).
+Damage log correctness (RQ2): `tools/damage_log_check.py export --video 3 --n 50` wrote
+`results/damage_log_check/survey3_checklist.csv` (seed 42; filled in by hand), `score <csv>` computes the rates.
 
 Model comparisons on near-zone val use `ml/local/eval_val_sets.py` (`results/val_sets_comparison.md`).
 The annotation-site pre-labels came from S5_v8m_1280, so on the site val frames that model is partly
