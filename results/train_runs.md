@@ -30,14 +30,14 @@ at Ultralytics' default validation conf (0.001).
 
 No hyperparameter tuning (`model.tune`): not enough GPU time, and the selection set is too small (team).
 
-## Planned (not started): v2, then v2b on the GPU
+## Queued 2026-11-11 08:00: v2b, then v2 (hard stop for both Fri 13 Nov 22:00)
 
 The final model is chosen on the 270 reviewed frames (main column), full val as the second column
 (`ml/local/eval_val_sets.py`). Test stays untouched until the team approves the single run.
 
 | Run | Setup | Starts from | Data | imgsz | Batch | Optimizer | Epochs / patience | Other |
 |---|---|---|---|---|---|---|---|---|
-| v2 | v1 recipe | yolov8m.pt (COCO) | label freeze 2 export, rebuilt by `build_v1_list.py` (x3 rare, 1,500 negatives, no replay) | 1024 | 6 | SGD 0.01 | 60 / 15 | save_period 1 |
+| v2 | v1 recipe | yolov8m.pt (COCO) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`; there was no label freeze 2) | 1024 | 6 | SGD 0.01 | 60 / 15 | save_period 1 |
 | v2b | external RDD2022 start, local data only | YOLOv8s RDD2022 checkpoint (below) | v1's own training list (frozen copy `runs/local/v1/data/v1_train.txt`) | 1024 | 12 (largest that fits: 6.42 GiB; 16 needs 8.84 GiB, `results/bench_batch.md`) | SGD 0.001 | 40 / 100 | close_mosaic 10, save_period 1 |
 
 **v2b starting checkpoint.** `yolov8s_seed0_best.pt` from
