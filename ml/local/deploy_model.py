@@ -44,6 +44,7 @@ def main():
     ap.add_argument('--before-test', action='store_true',
                     help='deploy before the one test evaluation (it is then reported as not test-evaluated)')
     ap.add_argument('--rollback', action='store_true', help='restore model_config.previous.json')
+    ap.add_argument('--note', help="what the config says about the model's training (default: local human labels only)")
     ap.add_argument('--restore', metavar='NAME',
                     help='restore a named config, ml/models/model_config.NAME.json (e.g. placeholder)')
     a = ap.parse_args()
@@ -120,7 +121,7 @@ def main():
         'deployed_at': datetime.now().isoformat(timespec='seconds'),
         'calibration': {k: calib.get(k) for k in ('dataset', 'val_set', 'val_frames', 'val_precision', 'val_recall', 'val_f1')},
         'test_evaluated': tested,
-        'note': "The team's model (" + a.run + '), trained on local human labels only.'
+        'note': (a.note or "The team's model (" + a.run + '), trained on local human labels only.')
                 + ('' if tested else ' Not test-evaluated yet: its numbers are val numbers.'),
         'previous': json.loads(old)['weights'] if old else None,
     }

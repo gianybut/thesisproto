@@ -1,15 +1,24 @@
 {
  "run": "v1",
  "weights": "runs\\local\\v1\\weights\\best.pt",
- "threshold": 0.32,
- "val_f1": 0.27149321266968324,
- "val_precision": 0.30303030303030304,
- "val_recall": 0.2459016393442623,
+ "threshold": 0.24,
+ "val_f1": 0.3286384976525822,
+ "val_precision": 0.38461538461538464,
+ "val_recall": 0.28688524590163933,
  "imgsz": 1024,
+ "border_px": 24,
+ "tta": false,
+ "ensemble": [
+  {
+   "run": "S5_v8m_1920",
+   "weights": "runs/v3/S5_v8m_1920/weights/best.pt",
+   "imgsz": 1280
+  }
+ ],
  "nms_iou": 0.45,
  "match_iou": 0.5,
  "dataset": "yolo_nz",
  "val_set": "reviewed",
  "val_frames": 270,
- "when": "2026-11-11T07:49:46"
+ "when": "2026-11-11T09:36:11"
 }
