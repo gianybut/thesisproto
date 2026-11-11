@@ -250,3 +250,29 @@ Run on a .docx export of the whole draft (table of contents excluded).
 - **Table of contents:** a TOC element that the API cannot refresh. It must be updated by hand in Google Docs.
 
 Open items for the team are in [MANUSCRIPT_TODO.md](MANUSCRIPT_TODO.md).
+
+
+---
+
+## Placeholder pass (2026-11-12): placeholders filled from verified sources
+
+Each item lists the placeholder, the value now in the document, and the source.
+
+- **Highlight handling.** Filled text was replaced starting from the plain word before each placeholder, so it carries no highlight. The two table cells (iOS, storage) had no plain text before the placeholder, so their background was set to white (no visible highlight).
+- **Remaining placeholders:** 76 tokens, 32 distinct, all still highlighted.
+
+| # | Placeholder (sections) | Value now in the draft | Source |
+|---|---|---|---|
+| 1 | `[FILL: the three researchers / the three researchers and N volunteer annotators]` (1.7, 3.4.3, 3.7, 4.1.3) | "the three researchers" | The annotation site allows exactly three accounts, `USERS = ['Gian', 'Janmikael', 'Kyle']` (`tools/review_labels/annotate.py:39`), the first names of the three researchers on the title page; `backups/labels_FINAL_20261111_013131.db` shows all 6,399 labelled frames under those three accounts (2,849 / 2,608 / 943, including 1 skipped) |
+| 2 | `[FILL: iOS version]` (Table 4.3.2.1) | "iOS 27.0.1 and iOS 26.7 at the time of recording (GPX metadata of the 21 recordings; the version on each individual phone was not recorded)" | `platform` in `data/local/recordings.csv` and in each GPX `<bk:capture>` element: iOS 27.0.1 in 19 recordings, iOS 26.7 in 2; the GPX files do not record the phone model |
+| 3 | `[FILL: storage available for uploads, processed videos, and snapshots]` (Table 4.3.2.1) | "476 GB system drive, about 96 GB free on 12 November 2026" | Measured on the processing PC (`Get-PSDrive C`: 380 GB used + 96 GB free); same machine as the table (NVIDIA GeForce RTX 4060 8 GB via `nvidia-smi`, MSI B550M Pro SE, 16 GB RAM via CIM) |
+| 4 | `[CITATION NEEDED: volume]` (Solovyev et al., 2021) | *Image and Vision Computing, 107*, Article 104117 | Crossref, DOI 10.1016/j.imavis.2021.104117 (volume 107, article 104117) |
+| 5 | `[CITATION NEEDED: full author list]` (Zhang et al., 2025) | "Zhang, S., Liu, Z., Wang, K., Huang, W., & Li, P. (2025)." | Crossref, DOI 10.7717/peerj-cs.2593 |
+| 6 | `[CITATION NEEDED: full author list; title and journal differ from the linked record]` (Fortin et al., 2024) | "Fortin, L. V., Delos Santos, A. R. V., Cagud, P. J. B., Castor, P. R., & Llantos, O. E. (2024). Eyeway: An artificial intelligence of things pothole detection system with map visualization. *Procedia Computer Science, 251*, 216–223. https://doi.org/10.1016/j.procs.2024.11.103". In-text "Fortin et al. (2024)" unchanged. | Crossref, DOI 10.1016/j.procs.2024.11.103 (the record the old ResearchGate link pointed to) |
+| 7 | `[CITATION NEEDED: full author list]` (Dabous et al., 2025) | Entry replaced: "Abu Dabous, S., Ait Gacem, M., Zeiada, W., Hamad, K., & Al-Ruzouq, R. (2025). Artificial intelligence applications in pavement infrastructure damage detection with automated three-dimensional imaging – A systematic review. *Alexandria Engineering Journal, 117*, 510–533. https://doi.org/10.1016/j.aej.2024.11.081", moved to its alphabetical place (first). In-text "Dabous et al." → "Abu Dabous et al." (4: 1.3, 2.1 ×2, Table 2.3.1). | Crossref, DOI 10.1016/j.aej.2024.11.081 (family name "Abu Dabous"; the full title was shortened in the old entry) |
+
+Not filled; the questions go to the team:
+- **Irsal et al. (2025):** the title and IEEE link are Nurcahyo et al. (2024), DOI 10.1109/FORTEI-ICEE64706.2024.10824488.
+- **Yin et al. (2024):** the title and arXiv link are Khare et al. (2023), arXiv:2311.00073.
+- **Busireddy et al. (2026):** Crossref lists Esther Priya R. as first author, DOI 10.36106/ijsr/4816016.
+- **Abu Dabous et al.:** confirm the claims attributed to it in 1.3 and 2.1. Its full title shows it reviews AI with automated 3D imaging.
