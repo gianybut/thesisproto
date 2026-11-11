@@ -90,6 +90,17 @@ def main():
         print(f'{dst.name} is already these weights: redeploying with the new calibration only.')
     else:
         shutil.copy2(src, dst)
+    ensemble = []
+    for m in calib.get('ensemble') or []:   # further models fused with this one: copied the same way
+        msrc, mdst = ROOT / m['weights'], MODELS / f'oculubak_{m["run"]}.pt'
+        mnames = YOLO(str(msrc)).names
+        if [mnames[i] for i in range(len(mnames))] != cal.CODES:
+            sys.exit(f'Unexpected classes {mnames} in {msrc}; not deployed.')
+        if not mdst.exists():
+            shutil.copy2(msrc, mdst)
+        elif mdst.read_bytes() != msrc.read_bytes():
+            sys.exit(f'{mdst.name} exists already with other weights; not overwritten.')
+        ensemble.append({'weights': mdst.relative_to(ROOT).as_posix(), 'imgsz': m['imgsz'], 'run': m['run']})
     snap_p = ROOT / 'results' / 'FINAL_SNAPSHOT.txt'
     snapshot = snap_p.read_text().split()[0] if snap_p.exists() else None
     old = CONFIG.read_text(encoding='utf-8') if CONFIG.exists() else None
@@ -100,6 +111,9 @@ def main():
         'conf_threshold': calib['threshold'],
         'iou_threshold': cal.NMS_IOU,
         'imgsz': calib['imgsz'],
+        'border_px': calib.get('border_px', 0),
+        'tta': bool(calib.get('tta', False)),
+        'ensemble': ensemble,
         'class_names': cal.CODES,
         'run': a.run,
         'data_snapshot': snapshot,
@@ -115,8 +129,10 @@ def main():
     md = ['# Deployment', '', f'{datetime.now():%Y-%m-%d %H:%M}: model **{a.run}** deployed'
           + ('' if tested else ' **before the test evaluation**') + '.', '',
           f'- Weights: `{src.relative_to(ROOT).as_posix()}` copied to `{cfg["weights"]}`',
-          f'- `ml/models/model_config.json`: conf {cfg["conf_threshold"]:.2f}, imgsz {cfg["imgsz"]}, NMS IoU {cfg["iou_threshold"]}, '
+          f'- `ml/models/model_config.json`: conf {cfg["conf_threshold"]:.2f}, imgsz {cfg["imgsz"]}, grey border {cfg["border_px"]} px, TTA {"on" if cfg["tta"] else "off"}, NMS IoU {cfg["iou_threshold"]}, '
           f'classes {", ".join(cal.CODES)}',
+          *([f'- Fused with: ' + ', '.join(f'`{m["weights"]}` (run {m["run"]}, imgsz {m["imgsz"]})' for m in ensemble)
+             + ' (weighted box fusion, `backend/services/box_fusion.py`; the threshold applies to the fused score)'] if ensemble else []),
           f'- Threshold calibrated on {calib.get("val_set", "val")} val ({calib.get("val_frames", "?")} frames): '
           f'P {calib["val_precision"]:.2f}, R {calib["val_recall"]:.2f}, F1 {calib["val_f1"]:.2f}',
           f'- Data snapshot: `{snapshot}`',

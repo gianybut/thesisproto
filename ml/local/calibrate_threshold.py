@@ -92,7 +92,24 @@ def frames_of(split, ydir=None, list_name=None):
     return out
 
 
-def predict(weights, frames, device=0, imgsz=IMGSZ):
+MEMBER_CONF = 0.05   # backend/services/video_processor.py MEMBER_CONF: each ensemble member's floor before fusion
+
+
+def predict_fused(members, frames, device=0, border=0, tta=False):
+    """As predict(), for an ensemble [(weights, imgsz), ...]: every model at MEMBER_CONF, fused with the app's
+    own code (backend/services/box_fusion.py); 'conf' is the fused score."""
+    import sys
+    sys.path.insert(0, str(ROOT / 'backend' / 'services'))
+    from box_fusion import fuse
+    per = [predict(w, frames, device, sz, border, tta, conf=MEMBER_CONF) for w, sz in members]
+    out = {}
+    for img, _ in frames:
+        f = fuse([[(d['cls'], *d['box'], d['conf']) for d in p[img]] for p in per])
+        out[img] = [{'cls': int(x[0]), 'box': tuple(x[1:5]), 'conf': float(x[5])} for x in f]
+    return out
+
+
+def predict(weights, frames, device=0, imgsz=IMGSZ, border=0, tta=False, conf=0.01):
     """{image path: [{'cls', 'box', 'conf'}]} at the app's settings, conf >= 0.01."""
     from ultralytics import YOLO
     model = YOLO(str(weights))
@@ -100,9 +117,21 @@ def predict(weights, frames, device=0, imgsz=IMGSZ):
     assert [names[i] for i in range(len(names))] == CODES, f'unexpected classes {names}'
     det = {}
     for img, _ in frames:
-        r = model.predict(str(img), imgsz=imgsz, conf=0.01, iou=NMS_IOU, device=device, verbose=False)[0]
-        det[img] = [{'cls': int(c), 'box': tuple(map(float, b)), 'conf': float(s)}
-                    for b, c, s in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist())]
+        src = str(img)
+        if border:   # the app's grey rows above and below the crop (video_processor.INPUT_BORDER_PX)
+            import cv2
+            src = cv2.copyMakeBorder(cv2.imread(str(img)), border, border, 0, 0, cv2.BORDER_CONSTANT, value=(114, 114, 114))
+        r = model.predict(src, imgsz=imgsz, conf=conf, iou=NMS_IOU, device=device, verbose=False, augment=tta)[0]
+        if not border:   # exactly as before (what test_eval.py uses)
+            det[img] = [{'cls': int(c), 'box': tuple(map(float, b)), 'conf': float(s)}
+                        for b, c, s in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist())]
+            continue
+        h = r.orig_shape[0] - 2 * border
+        det[img] = []
+        for b, c, s in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist()):
+            y1, y2 = min(max(b[1] - border, 0), h), min(max(b[3] - border, 0), h)
+            if y2 - y1 >= 2:
+                det[img].append({'cls': int(c), 'box': (float(b[0]), float(y1), float(b[2]), float(y2)), 'conf': float(s)})
     return det
 
 
@@ -151,6 +180,10 @@ def main():
     ap.add_argument('--dataset', choices=('yolo', 'nz'), default='yolo', help='nz = data/local/yolo_nz (near zone)')
     ap.add_argument('--val', choices=tuple(VAL_LISTS), default='full', help='selection val set (with --dataset nz)')
     ap.add_argument('--imgsz', type=int, help="default: the run's training size (nz) or 1280 (yolo)")
+    ap.add_argument('--border', type=int, default=0, help='grey rows above and below the crop, as the app adds them (border_px)')
+    ap.add_argument('--members', nargs='*', default=[], metavar='RUN[:IMGSZ]',
+                    help='further models of an ensemble (fused with --run, as the app does with model_config "ensemble")')
+    ap.add_argument('--tta', action='store_true', help='test-time augmentation, as the app runs it when the config says tta')
     a = ap.parse_args()
     w = weights_for(a.run)
     nz = a.dataset == 'nz'
@@ -160,7 +193,16 @@ def main():
     sel = a.val if nz else 'full'
     if a.limit:
         sets = {k: v[:a.limit] for k, v in sets.items()}
-    det = predict(w, [f for k in sets for f in sets[k]] if a.limit else sets['full'], a.device, imgsz)
+    members = []
+    for m in a.members:
+        run, _, sz = m.partition(':')
+        members.append({'run': run, 'weights': weights_for(run).relative_to(ROOT).as_posix(),
+                        'imgsz': int(sz) if sz else train_imgsz(run)})
+    todo = [f for k in sets for f in sets[k]] if a.limit else sets['full']
+    if members:
+        det = predict_fused([(w, imgsz)] + [(ROOT / m['weights'], m['imgsz']) for m in members], todo, a.device, a.border, a.tta)
+    else:
+        det = predict(w, todo, a.device, imgsz, a.border, a.tta)
     frames = sets[sel]
     curve = []
     for t in THRESHOLDS:
@@ -180,14 +222,17 @@ def main():
         return
     RESULT.write_text(json.dumps({'run': a.run, 'weights': str(w.relative_to(ROOT)), 'threshold': thr,
                                   'val_f1': rows[-1][7], 'val_precision': rows[-1][5], 'val_recall': rows[-1][6],
-                                  'imgsz': imgsz, 'nms_iou': NMS_IOU, 'match_iou': MATCH_IOU,
+                                  'imgsz': imgsz, 'border_px': a.border, 'tta': a.tta, 'ensemble': members, 'nms_iou': NMS_IOU, 'match_iou': MATCH_IOU,
                                   'dataset': ydir.name, 'val_set': sel, 'val_frames': len(frames),
                                   'when': datetime.now().isoformat(timespec='seconds')}, indent=1))
     where = (f'Data `data/local/{ydir.name}`; selection set: {VAL_LABEL[sel]}, {len(frames)} frames' if nz else
              f'Reviewed local val set, {len(frames)} frames (road-band crops)')
     md = [f'# Confidence threshold calibrated on local val ({a.run})', '',
-          f'Weights `{w.relative_to(ROOT).as_posix()}`. {where}. '
-          f'App settings: imgsz {imgsz}, NMS IoU {NMS_IOU}. A detection is correct with the labelled class and IoU >= {MATCH_IOU}. '
+          f'Weights `{w.relative_to(ROOT).as_posix()}`'
+          + (' fused with ' + ', '.join(f'`{m["weights"]}` (imgsz {m["imgsz"]})' for m in members)
+             + f' (each model at conf {MEMBER_CONF}, weighted box fusion; the threshold is on the fused score)' if members else '')
+          + f'. {where}. '
+          f'App settings: imgsz {imgsz}, grey border {a.border} px, TTA {"on" if a.tta else "off"}, NMS IoU {NMS_IOU}. A detection is correct with the labelled class and IoU >= {MATCH_IOU}. '
           'Threshold = highest F1 over all classes (ties: the higher threshold).', '',
           f'**Chosen threshold: {thr:.2f}** (the app used 0.15 before).', '', f'## At {thr:.2f}, on the selection set', ''] + md_rows(rows)
     for k in (k for k in sets if k != sel):

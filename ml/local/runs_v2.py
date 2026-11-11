@@ -84,6 +84,23 @@ RUNS['v2b'] = dict(data='v1.yaml', ydir=V1_DATA, project='runs/local', model=V8S
                    extra=['optimizer=SGD', 'lr0=0.001', 'close_mosaic=10', 'save_period=1'],
                    note='YOLOv8s RDD2022 (SreekarAditya, external) fine-tuned on v1\'s list; 1024/12, 40 epochs, patience 100')
 
+# Deadline day, 2026-11-11 09:00 (the team asked for every possible gain). What the earlier results say: input
+# size is the strongest lever (S5_v8m_1920, 10 epochs on the old small label set, has the best reviewed-val
+# score of all weights, results/weights_benchmark_nz_val.md), and a road-damage start beats COCO early on.
+# So: YOLOv8m at 1280 on v1's list (all human labels), validated on the 270 reviewed frames (the selection
+# set, so best.pt is the best epoch on it), short fine-tunes (20 epochs, patience 8, SGD lr0 0.001).
+#   v3   from S5_v8m_1920 (ours: teacher -> B v2 -> S5; its earlier stages used RDD2022 replay)
+#   v3b  from v1 (ours, COCO lineage, local labels only): the same step with a clean local-only history
+# v2 (a repeat of v1: same list, settings and seed) is taken out of the queue for them.
+_V3 = dict(data='v1.yaml', ydir=V1_DATA, val_list='val_reviewed.txt', project='runs/local',
+           stop_at='2026-11-11 19:00', max_mem=7.6,
+           set=dict(imgsz=1280, batch=4, epochs=20, patience=8, workers=2),
+           extra=['optimizer=SGD', 'lr0=0.001', 'close_mosaic=5', 'save_period=1'])
+RUNS['v3'] = dict(_V3, model='runs/v3/S5_v8m_1920/weights/best.pt',
+                  note="YOLOv8m from S5_v8m_1920 on v1's list; 1280/4, 20 epochs, patience 8; val = 270 reviewed")
+RUNS['v3b'] = dict(_V3, model='runs/local/v1/weights/best.pt',
+                   note="YOLOv8m from v1 on v1's list; 1280/4, 20 epochs, patience 8; val = 270 reviewed")
+
 
 def snapshot(name, spec):
     """Copy the data file and the lists it names into <project>/<name>/data/; return the copied yaml."""
@@ -91,9 +108,13 @@ def snapshot(name, spec):
     dst = ROOT / spec.get('project', 'runs/v2') / name / 'data'
     dst.mkdir(parents=True, exist_ok=True)
     text = (ydir / spec['data']).read_text()
+    if spec.get('val_list'):   # validate (and pick best.pt) on another list of data/local/yolo_nz, e.g. val_reviewed.txt
+        shutil.copy2(OUT / 'yolo_nz' / spec['val_list'], dst / spec['val_list'])
+        text = re.sub(r'^val: .*$', f'val: {spec["val_list"]}', text, flags=re.M)
     for key in ('train', 'val'):
         lst = re.search(rf'^{key}: (\S+)$', text, flags=re.M).group(1)
-        shutil.copy2(ydir / lst, dst / lst)
+        if not (dst / lst).exists() or key == 'train':
+            shutil.copy2(ydir / lst, dst / lst)
     text = re.sub(r'^path: .*$', f'path: {dst.as_posix()}', text, flags=re.M)
     (dst / spec['data']).write_text(text)
     return dst / spec['data']

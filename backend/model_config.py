@@ -48,7 +48,8 @@ def public_info(cfg=None):
     weights = os.path.basename(cfg['weights'])
     return {k: cfg.get(k) for k in ('run', 'data_snapshot', 'deployed_at', 'conf_threshold', 'imgsz', 'class_names',
                                     'test_evaluated')} | \
-           {'weights': weights, 'stand_in': weights in STAND_IN_WEIGHTS}
+           {'weights': weights, 'stand_in': weights in STAND_IN_WEIGHTS,
+            'ensemble': [os.path.basename(m['weights']) for m in cfg.get('ensemble') or []]}
 
 
 # Models that are not the team's own (the demo placeholder): the About page says so.

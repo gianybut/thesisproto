@@ -35,10 +35,20 @@ NEAR_ZONE_DELTA = 0.10
 # The deployed model's own settings override the three defaults above (ml/models/model_config.json,
 # written by ml/local/deploy_model.py from the run's training size and the threshold calibrated on val).
 import model_config as _model_config  # noqa: E402
+from services.box_fusion import fuse as fuse_boxes  # noqa: E402
 MODEL_CONFIG = _model_config.load()
 CONF_THRESHOLD = float(MODEL_CONFIG['conf_threshold'])
 IOU_THRESHOLD = float(MODEL_CONFIG['iou_threshold'])
 INFERENCE_IMGSZ = int(MODEL_CONFIG['imgsz'])
+# Grey rows added above and below the road band before it goes to the model, in pixels of a 1920-wide frame
+# (scaled for other widths). Ultralytics' validation pads the 1920x432 crop this way (24 px), and the models
+# score higher with it than on the bare crop (results/infer_sweep.md), so the app can do the same.
+INPUT_BORDER_PX = int(MODEL_CONFIG.get('border_px') or 0)
+# Ultralytics test-time augmentation (flips and scales, about 3x the inference time): off unless the config says so.
+INFERENCE_TTA = bool(MODEL_CONFIG.get('tta'))
+# With an ensemble (model_config.json "ensemble"), each model's own floor before fusion; CONF_THRESHOLD then
+# applies to the fused score. Same value as ml/local/calibrate_threshold.py MEMBER_CONF.
+MEMBER_CONF = 0.05
 
 
 def road_band(top, bottom):
@@ -230,6 +240,55 @@ def _load_model(model_path):
     return model
 
 
+def _load_members():
+    """The further models of an ensemble, as [(model, imgsz)]: model_config.json "ensemble" =
+    [{"weights": "ml/models/<file>.pt", "imgsz": 1280}, ...]. Empty for a single model."""
+    from ultralytics import YOLO
+    members = []
+    for spec in MODEL_CONFIG.get('ensemble') or []:
+        path = spec['weights']
+        if not os.path.isabs(path):
+            path = os.path.normpath(os.path.join(_model_config.ROOT, path))
+        problem = model_file_problem(path)
+        if problem:
+            raise ModelUnavailable(problem)
+        print(f"📦 Loading ensemble member: {path} (imgsz {spec.get('imgsz', INFERENCE_IMGSZ)})")
+        members.append((YOLO(path), int(spec.get('imgsz', INFERENCE_IMGSZ))))
+    return members
+
+
+def _detect(model, members, band):
+    """The damage in one road-band picture: [(code, label, conf, x1, y1, x2, y2)] in the picture's pixels.
+
+    One model: its boxes at CONF_THRESHOLD. With ensemble members, every model runs at MEMBER_CONF,
+    their boxes are fused (services/box_fusion.py) and CONF_THRESHOLD applies to the fused score,
+    as ml/local/calibrate_threshold.py calibrated it.
+    """
+    labels = {}
+
+    def boxes_of(m, imgsz, conf):
+        out = []
+        for result in m(band, verbose=False, conf=conf, iou=IOU_THRESHOLD, imgsz=imgsz, augment=INFERENCE_TTA):
+            if result.boxes is None:
+                continue
+            for box in result.boxes:
+                cls_id = int(box.cls[0])
+                class_name = m.names[cls_id].lower() if cls_id < len(m.names) else ''
+                code, label, is_damage = _classify_damage(class_name, cls_id, m)
+                if is_damage or _is_pothole_class(class_name, cls_id, m):
+                    labels[code] = label
+                    x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].cpu().numpy())
+                    out.append((code, x1, y1, x2, y2, float(box.conf[0])))
+        return out
+
+    if not members:
+        dets = boxes_of(model, INFERENCE_IMGSZ, CONF_THRESHOLD)
+    else:
+        per_model = [boxes_of(model, INFERENCE_IMGSZ, MEMBER_CONF)] + [boxes_of(m, sz, MEMBER_CONF) for m, sz in members]
+        dets = [d for d in fuse_boxes(per_model) if d[5] >= CONF_THRESHOLD]
+    return [(d[0], labels[d[0]], d[5], d[1], d[2], d[3], d[4]) for d in dets]
+
+
 def _load_gps_track(video, config):
     """Load and parse GPS track file if available."""
     if not video.gps_filename:
@@ -365,10 +424,13 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     process_every_n = max(1, int(fps / INFERENCE_FPS))  # sample ~INFERENCE_FPS frames per second
 
     tracker = DamageTracker(fps)
+    members = _load_members()   # further models of an ensemble (model_config.json), usually none
     band_top, band_bottom = analysed_band(video.road_top, video.road_bottom)
     road_top_px = int(height * band_top)
     road_bottom_px = int(height * band_bottom)
-    print(f"🛣️  Road band (near zone): {band_top:.0%}–{band_bottom:.0%} of the frame height, model input {INFERENCE_IMGSZ}px")
+    border_px = int(round(INPUT_BORDER_PX * width / 1920))
+    print(f"🛣️  Road band (near zone): {band_top:.0%}–{band_bottom:.0%} of the frame height, model input {INFERENCE_IMGSZ}px"
+          + (f", grey border {border_px}px" if border_px else "") + (", TTA" if INFERENCE_TTA else ""))
     finished_tracks = []
 
     def snapshot_track(track):
@@ -461,42 +523,36 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
 
             # Only the road band goes to the model; its boxes are moved back into frame coordinates.
             band = frame[road_top_px:road_bottom_px]
-            results = model(band, verbose=False, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD, imgsz=INFERENCE_IMGSZ)
+            if border_px:
+                band = cv2.copyMakeBorder(band, border_px, border_px, 0, 0, cv2.BORDER_CONSTANT, value=(114, 114, 114))
             sightings = []
 
-            for result in results:
-                boxes = result.boxes
-                if boxes is not None and len(boxes) > 0:
-                    for box in boxes:
-                        cls_id = int(box.cls[0])
-                        conf = float(box.conf[0])
-                        class_name = model.names[cls_id].lower() if cls_id < len(model.names) else ''
+            for damage_code, damage_label, conf, x1, y1, x2, y2 in _detect(model, members, band):
+                # back into frame coordinates; a box may not reach into the grey border
+                y1 = min(max(y1 - border_px + road_top_px, road_top_px), road_bottom_px)
+                y2 = min(max(y2 - border_px + road_top_px, road_top_px), road_bottom_px)
+                if y2 - y1 < 2:
+                    continue
 
-                        damage_code, damage_label, is_damage = _classify_damage(class_name, cls_id, model)
+                box_id = f"{frame_number}_{int(x1)}_{int(y1)}"
+                damage_color = DAMAGE_COLORS.get(damage_code, (0, 69, 255))
+                active_boxes[box_id] = {
+                    'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
+                    'conf': conf,
+                    'end_frame': frame_number + box_persistence,
+                    'damage_code': damage_code,
+                    'damage_label': damage_label,
+                    'color': damage_color,
+                }
 
-                        if is_damage or _is_pothole_class(class_name, cls_id, model):
-                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                            y1, y2 = y1 + road_top_px, y2 + road_top_px
-
-                            box_id = f"{frame_number}_{int(x1)}_{int(y1)}"
-                            damage_color = DAMAGE_COLORS.get(damage_code, (0, 69, 255))
-                            active_boxes[box_id] = {
-                                'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
-                                'conf': conf,
-                                'end_frame': frame_number + box_persistence,
-                                'damage_code': damage_code,
-                                'damage_label': damage_label,
-                                'color': damage_color,
-                            }
-
-                            sightings.append({
-                                'frame': frame_number,
-                                'box': (float(x1), float(y1), float(x2), float(y2)),
-                                'conf': conf,
-                                'code': damage_code,
-                                'label': damage_label,
-                                'color': damage_color,
-                            })
+                sightings.append({
+                    'frame': frame_number,
+                    'box': (float(x1), float(y1), float(x2), float(y2)),
+                    'conf': conf,
+                    'code': damage_code,
+                    'label': damage_label,
+                    'color': damage_color,
+                })
 
             # One record per damage: sightings are joined into tracks, and a track is finished once
             # it leaves the view; it is stored from its best sighting (services/damage_tracker.py).

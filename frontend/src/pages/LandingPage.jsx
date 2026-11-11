@@ -148,6 +148,11 @@ function ModelNote() {
         <div className="card">
           <ul className="feature-list">
             <li><Icon name="check" className="feature-icon" />Model in use: <span className="code">{model.weights}</span>{model.run && <> (training run <span className="code">{model.run}</span>)</>}</li>
+            {model.ensemble?.length > 0 && (
+              <li><Icon name="check" className="feature-icon" />Working together with: {model.ensemble.map((w, i) => (
+                <span key={w}>{i > 0 && ', '}<span className="code">{w}</span></span>
+              ))} (a damage both models find counts for more)</li>
+            )}
             {model.data_snapshot && <li><Icon name="check" className="feature-icon" />Trained on the labels saved in <span className="code">{model.data_snapshot}</span></li>}
             {deployed && <li><Icon name="check" className="feature-icon" />Put into service on {deployed}</li>}
             <li><Icon name="check" className="feature-icon" />Marks a damage when it is at least <span className="num">{Math.round(model.conf_threshold * 100)}%</span> sure</li>
