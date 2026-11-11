@@ -197,3 +197,56 @@ kept and highlighted (87 highlights in Chapter V).
 | 16 | 5.5 + Table 5.5.1 | Intro → the one end-to-end survey; caption "…of the Evaluation Surveys" → "…of the End-to-End Survey"; row "Average" → "R07 (survey 3)": 590 s / 3,539 / 729 s / 112. ¶: 729 s for 590 s (about 1.2×), 0.206 s per analysed frame (computed in FM), a little slower than real time, background processing, one survey only; S5 alone 10.7 ms per crop. Device-test ¶ → still to be done `[PENDING: device tests]` | FM:211, 213-215 |
 | 17 | 5.6 | **Removed the ISO/IEC 25010:2023 framing** ("The questionnaire was based on the product quality model of ISO/IEC 25010:2023 and used…" → "The questionnaire used…") + `[FILL: align Sections 5.6.2 to 5.6.6 and Tables 5.6.3 to 5.6.8 to the dimensions of the evaluation questionnaire]` `[PENDING: UAT results]`; 5.6.1 Batangas office → `[FILL]`; 5.6.7 "Because the DPWH engineer who validated the annotations also took part … were computed" → "If … takes part … will be computed"; templates kept, highlighted | Team decision 2026-11-12 |
 | 18 | 5.7 | RQ1 rewritten from measured results (0.173; per class 0.035-0.381; 0.80 not met; P 0.31, R 0.24, F1 0.27; classification 96.0% (80.5-99.3%) of the damage found, about one in four; foreign 0.200 (v2b, not held out), 0.239, 0.318). RQ2: records carry time, GPS, type, snapshot; all 112 R07 records GPS-placed; correctness `[PENDING]`. RQ3 `[PENDING: localization accuracy]`. RQ4 `[PENDING: UAT results]`. Hypothesis `[PENDING: UAT]`, decided by the UAT not yet carried out | FM §2, §5, §6, §8, §11 |
+
+
+---
+
+## Chapter VI (applied 2026-11-12)
+
+| # | Section | Old → new (summary) | Sources |
+|---|---|---|---|
+| 1 | 6.1 ¶1 | "a YOLOv8m model fine-tuned on the RDD2022 India subset and on locally collected … imagery" → "a weighted box fusion of three YOLOv8 models fine-tuned on locally collected Philippine road imagery from weights trained on RDD2022"; "Based on the results, …" → "Based on the results measured so far, …; conclusions that depend on evaluations not yet carried out are marked as pending." | FM:16-32 |
+| 2 | 6.1 Objective 1 | Template ([n], [strength], κ, [value]) → 7,465 human-labelled near-zone frames, 3,695 boxes, 18 recordings; expert agreement `[PENDING]`; local test mAP@50 0.173, P 0.31, R 0.24, F1 0.27, 96.0% of 25 matched detections correct type; foreign 0.200-0.318 (v2b not held out); acceptance level 0.80 not met, finds about one in four damages; potholes weakest on test (0.035); teacher 0.472 foreign val vs 0.090 local val; 99 test boxes, uncertain | FM:196, 203, 44, 55, 135, 109-113, 170-173 |
+| 3 | 6.1 Objective 2 | Template → stores each record with class, confidence, time, coordinates, snapshot, AI check score, status; R07: 112 records, all GPS-placed, 590 s analysed in 729 s; correctness and duplicates `[PENDING: damage log correctness]` | FM:213-215, 159 |
+| 4 | 6.1 Objective 3 | Template → method and app implemented and used for all 18 recordings; positional error not measured `[PENDING: localization accuracy]` | FM:160 |
+| 5 | 6.1 Objective 4 | Template → UAT with the personnel of the participating offices not yet carried out `[PENDING: UAT results]`; hypothesis undecided `[PENDING: UAT]` | FM:162 |
+| 6 | 6.1 Overall | "[can / cannot yet] support … its detections reduce the footage that personnel need to review by hand" → the parts work together in one web application, detection results well below the level set, support for DPWH offices still to be judged by users `[PENDING: UAT]`; a decision-support tool that points to likely damage; at its current recall its records are not a complete list | FM:55 |
+| 7 | 6.2 Detection model | "[the class with the lowest AP@50]" sentence → more drives and labelled frames, especially D40 and D10 (21 and 8 test boxes) and D20 (152 training boxes); conditions not covered (all drives in daylight on two mornings); larger validation and test sets labelled by more than one reviewer; repeated seeded runs with confidence intervals; "the model confused" → "the models confused". Severity sentence kept | FM:200-202; GPX times (Chapter IV log, #4) |
+| 8 | 6.2 new "Model comparison." ¶ | Per-country RDD2022 comparison under the same protocol; YOLO11 and YOLO12 under the same protocol (route-group split, selection on reviewed val only, metrics fixed in advance, one test run); a second-stage classifier that re-checks the damage type; a full-band test set | FM:149-151, 228-231 |
+| 9 | 6.2 System | "A server with a GPU would shorten processing time." → "A faster graphics card would shorten the processing time, which is now about 1.2 times the length of the footage."; "partner offices" → "participating offices". Database and task-queue recommendation kept | FM:213 |
+| 10 | 6.2 Future research | "[Add the improvements suggested by the respondents in Section 5.6.8.]" → `[PENDING: improvements suggested by the respondents, Section 5.6.8]`. Android recommendation kept (Mobile capture application ¶) | — |
+
+---
+
+## Final document-wide check (2026-11-12)
+
+Run on a .docx export of the whole draft (table of contents excluded).
+
+- **Not found anywhere:** "41.1%", "0.411", "India subset", "500 MB", "partner offices", "Equations 19", "Pham et al. (2024)", "ISO/IEC", "13 boxes", "two lighting conditions", "Municipal Engineering Office", "Arya et al. (2022)".
+- **Kept on purpose:**
+  - "Roboflow" occurs once, as "Roboflow Universe" in the dated repository search (2.2).
+  - "Sarmiento & Reyes (2022)" occurs once, in its synthesis-table row, which waits for the manual row deletion.
+  - Every "YOLOv8m" left refers to the YOLOv8m members, the teacher, or the dronefreak model card.
+  - Singular "partner office" always means DPWH Cavite 2nd DEO.
+- **Placeholders:** 80 tokens (33 distinct) of `[FILL]`, `[PENDING]`, `[EQUATION]` and `[CITATION NEEDED]`; all highlighted.
+- **References inside the text:**
+  - Every "Section x.y" reference points to an existing heading, and every table reference to an existing caption.
+  - **Fixed:** Figure 3.3.1 was referenced but its caption had no number. The caption is now "Figure 3.3.1 YOLOv8 Architecture as Configured for the Four Road Damage Classes".
+  - Equation references 1-3, 12, 16, 17-23, 24-25, 26, 27, 28-30 match the labels.
+- **Numbers not found in the result and source files** (scanned: FM, test_evaluation, train_runs, pretrained_sources, metric_definitions, local_datasets_nz, step1_split, zero_shot_nz_val, model_config, code constants, args.yaml):
+  - Section numbers.
+  - The original interpretation scales (1.00-5.00, kappa bands) and the criterion 3.41.
+  - Literature figures kept from the original text (47,000; 95.43%; R² 0.58).
+  - The speed example in 5.4 (8.3 m and 16.7 m per second; original text).
+  - Three values added in this revision, each from a stated derivation:
+    - **6,399** = 5,045 + 1,354 annotation-site frames (computed here; FM:198).
+    - **1.96**, the z value of the 95% Wilson interval.
+    - **6,371 km**, the mean Earth radius in the Haversine formula.
+  - The hardware values (Ryzen 5 5600, 16 GB, build 26200, A15/A18) come from the team's statement of 2026-11-12. The drive dates and times come from the GPX files.
+- **References list:**
+  - Every in-text citation has an entry and every entry is cited. The only mismatch, Sarmiento (2022), is the table row waiting for deletion.
+  - The list is in alphabetical order.
+  - **Marked `[CITATION NEEDED]`:** the six entries that list authors as "et al." (Busireddy 2026, Dabous 2025, Fortin 2024, Irsal 2025, Yin 2024, Zhang 2025), with notes where the venue or title does not match the linked record, plus the Solovyev volume.
+- **Table of contents:** a TOC element that the API cannot refresh. It must be updated by hand in Google Docs.
+
+Open items for the team are in [MANUSCRIPT_TODO.md](MANUSCRIPT_TODO.md).
