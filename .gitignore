@@ -69,3 +69,6 @@ __pycache__/
 backups/
 labels.db*
 ml/models/pretrained/
+
+# docx package for tools/make_validation_letter.js
+tools/node_modules/

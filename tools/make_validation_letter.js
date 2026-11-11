@@ -4,6 +4,7 @@
 //   node tools/make_validation_letter.js         (needs the "docx" npm package: npm install docx)
 //
 // Writes data/local/validation_sheet/OcuLubak_dataset_validation.docx (footage-derived, gitignored).
+// The docx package is looked up in tools/node_modules: npm install --prefix tools --no-save docx
 // Text in [square brackets] is highlighted: the team fills it in before printing.
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +22,8 @@ const CLASSES = [
   ['D20', 'Alligator crack', 'connected cracks that form a pattern of small blocks'],
   ['D40', 'Pothole', 'a hole or bowl-shaped break in the road surface'],
 ];
+// The letter says how the samples were picked (counts.json, written by validation_sheet.py).
+const HOW = counts.picked === 'by_hand' ? 'selected from' : 'drew at random from';
 const total = CLASSES.reduce((s, [c]) => s + counts.boxes[c], 0);
 const num = (n) => n.toLocaleString('en-US');
 const FONT = 'Arial';
@@ -115,7 +118,7 @@ const letter = [
     + 'the four damage types of the Road Damage Dataset 2022 (RDD2022):')], { alignment: AlignmentType.JUSTIFIED }),
   table,
   para([run(`I visually inspected the ${N * CLASSES.length} sample pictures on the attached sheet, which the researchers `
-    + `drew at random from the marked damages, ${N} for each damage type. Based on this inspection, I find that the `
+    + `${HOW} the marked damages, ${N} for each damage type. Based on this inspection, I find that the `
     + 'damages shown are correctly identified and classified, as follows:')],
   { alignment: AlignmentType.JUSTIFIED, spacing: { before: 200, after: 120, line: 300 } }),
   box(`All ${N * CLASSES.length} items are correct.`),
