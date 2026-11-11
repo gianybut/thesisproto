@@ -68,18 +68,19 @@ RUNS['v1'] = dict(data='v1.yaml', ydir=OUT / 'yolo_nz', project='runs/local', mo
                   note='final freeze: all human labels, x3 rare, 1,500 negatives, no replay, COCO; 1024/6, 60/15')
 
 # Team, 2026-11-11 morning. GPU order: v2, then v2b; the final model is picked on the 270 reviewed val frames
-# (eval_val_sets.py; full val as the second column). No hyperparameter tuning (model.tune). Not queued yet.
-# v2 = v1's recipe (COCO yolov8m) on the label freeze 2 export: build_v1_list.py rebuilds v1_train.txt / v1.yaml
-# in data/local/yolo_nz, and the run snapshots them when it starts.
-RUNS['v2'] = dict(RUNS['v1'], project='runs/local', stop_at=None,
-                  note='label freeze 2: v1 recipe (COCO yolov8m, x3 rare, 1,500 negatives, no replay); 1024/6, 60/15')
+# (eval_val_sets.py; full val as the second column). No hyperparameter tuning (model.tune).
+# There was no label freeze 2: v2 and v2b both train on v1's saved training list (runs/local/v1/data, the copy
+# made when v1 started). Queue order v2b, then v2; hard stop for both Fri 13 Nov 22:00 (team).
+V1_DATA = ROOT / 'runs' / 'local' / 'v1' / 'data'
+RUNS['v2'] = dict(RUNS['v1'], ydir=V1_DATA, project='runs/local', stop_at='2026-11-13 22:00',
+                  note="v1 recipe (COCO yolov8m) on v1's saved list; 1024/6, 60/15")
 # v2b = YOLOv8s RDD2022 checkpoint (SreekarAditya/yolo-rdd2022-benchmark, yolov8s_seed0_best.pt, CC BY 4.0;
 # classes longitudinal_crack, transverse_crack, alligator_crack, pothole = D00, D10, D20, D40 in our order)
 # fine-tuned on local data only, on v1's own training list (its frozen copy in runs/local/v1/data).
 # Batch 12 = largest that fits at 1024 (6.42 GiB; 16 needs 8.84 GiB, results/bench_batch.md).
 V8S = 'ml/models/pretrained/SreekarAditya__yolo-rdd2022-benchmark/yolo-rdd2022-benchmark/yolov8s_seed0_best.pt'
-RUNS['v2b'] = dict(data='v1.yaml', ydir=ROOT / 'runs' / 'local' / 'v1' / 'data', project='runs/local', model=V8S,
-                   max_mem=7.6, set=dict(imgsz=1024, batch=12, epochs=40, patience=100, workers=2),
+RUNS['v2b'] = dict(data='v1.yaml', ydir=V1_DATA, project='runs/local', model=V8S,
+                   stop_at='2026-11-13 22:00', max_mem=7.6, set=dict(imgsz=1024, batch=12, epochs=40, patience=100, workers=2),
                    extra=['optimizer=SGD', 'lr0=0.001', 'close_mosaic=10', 'save_period=1'],
                    note='YOLOv8s RDD2022 (SreekarAditya, external) fine-tuned on v1\'s list; 1024/12, 40 epochs, patience 100')
 

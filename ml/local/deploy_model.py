@@ -3,6 +3,11 @@
     python ml/local/deploy_model.py --run v1 --before-test     # Wednesday: v1, test not run yet (§7)
     python ml/local/deploy_model.py --run v2                   # Saturday: the final, test-evaluated model
     python ml/local/deploy_model.py --rollback                 # back to the previous model_config.json
+    python ml/local/deploy_model.py --restore placeholder      # a named config: model_config.placeholder.json
+
+Named configs kept in ml/models/: model_config.placeholder.json (the demo placeholder,
+rdd2022_pretrained.pt at conf 0.15 / 1280) and model_config.v1_conf024.json (v1 at conf 0.24, chosen on
+full val).
 
 Only the weights, the confidence threshold and the input size change; the detection algorithm (road
 band, near zone, NMS IoU 0.45, tracking, fixed-spot filter, AI check) stays as it is.
@@ -39,7 +44,20 @@ def main():
     ap.add_argument('--before-test', action='store_true',
                     help='deploy before the one test evaluation (it is then reported as not test-evaluated)')
     ap.add_argument('--rollback', action='store_true', help='restore model_config.previous.json')
+    ap.add_argument('--restore', metavar='NAME',
+                    help='restore a named config, ml/models/model_config.NAME.json (e.g. placeholder)')
     a = ap.parse_args()
+    if a.restore:
+        src = MODELS / f'model_config.{a.restore}.json'
+        if not src.exists():
+            sys.exit(f'No {src.name}.')
+        old = CONFIG.read_text(encoding='utf-8') if CONFIG.exists() else None
+        if old:
+            PREVIOUS.write_text(old, encoding='utf-8')
+        shutil.copy2(src, CONFIG)
+        print(f'Restored {src.name}: {json.loads(CONFIG.read_text())["weights"]}. The replaced config is in '
+              f'{PREVIOUS.name}. Restart the backend.')
+        return
     if a.rollback:
         if not PREVIOUS.exists():
             sys.exit('No model_config.previous.json to roll back to.')

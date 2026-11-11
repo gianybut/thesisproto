@@ -1,0 +1,26 @@
+{
+ "weights": "ml/models/oculubak_v1.pt",
+ "conf_threshold": 0.24,
+ "iou_threshold": 0.45,
+ "imgsz": 1024,
+ "class_names": [
+  "D00",
+  "D10",
+  "D20",
+  "D40"
+ ],
+ "run": "v1",
+ "data_snapshot": "labels_FINAL_20261111_013131.db",
+ "deployed_at": "2026-11-11T04:48:58",
+ "calibration": {
+  "dataset": "yolo_nz",
+  "val_set": "full",
+  "val_frames": 1624,
+  "val_precision": 0.19966722129783693,
+  "val_recall": 0.18209408194233687,
+  "val_f1": 0.1904761904761905
+ },
+ "test_evaluated": false,
+ "note": "The team's model (v1), trained on local human labels only. Not test-evaluated yet: its numbers are val numbers.",
+ "previous": "ml/models/rdd2022_pretrained.pt"
+}

@@ -152,7 +152,7 @@ real paths. Datasets and run artifacts are gitignored; `.pt` files are Git LFS (
 imgsz, class names, run, data snapshot), read once at start by
 [backend/model_config.py](backend/model_config.py); `ml/local/deploy_model.py --run X` writes it
 (copying best.pt to `ml/models/oculubak_<run>.pt`, never overwriting) and keeps the replaced version
-in `model_config.previous.json` (`--rollback`). Restart the backend after a change. Since 2026-11-11
+in `model_config.previous.json` (`--rollback`); named configs are restored with `--restore NAME`: `model_config.placeholder.json` (the demo placeholder) and `model_config.v1_conf024.json` (v1 at conf 0.24). Restart the backend after a change. There was no label freeze 2: v2 (v1 recipe) and v2b (CC BY 4.0 YOLOv8s RDD2022 start, `ml/models/pretrained/`, gitignored) both train on v1's saved list (`runs/local/v1/data`), v2b first, hard stop 2026-11-13 22:00; the final model is picked on the 270 reviewed frames. Since 2026-11-11
 it runs **v1** (`oculubak_v1.pt`, conf 0.32 chosen on the 270 reviewed val frames, imgsz 1024, four classes, deployed before the test
 evaluation; `results/deployment.md`, `results/train_runs.md`). `GET /api/server/model` feeds the model
 note on the About page (signed-in users). The previous model, `ml/models/rdd2022_pretrained.pt`, is an
