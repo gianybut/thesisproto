@@ -7,11 +7,13 @@ The dataset must use Ultralytics' classification layout:
       train/D10/*.jpg
       val/D00/*.jpg
       val/D10/*.jpg
-      test/D00/*.jpg
-      test/D10/*.jpg
 
 Only reviewed detector crops should be placed in these folders. Classification accuracy is
 reported separately from detection mAP@50.
+
+The test split is never evaluated here (2026-11-12): the test set was used once, on 2026-11-11, and is
+not used for anything new. Validation metrics: results/classifier_metric_definitions.md and
+ml/local/classifier_val_compare.py.
 """
 
 import argparse
@@ -53,11 +55,8 @@ def train(data, model_name, epochs, batch, imgsz, project, name, workers, deploy
     print(f'Validation top-1 accuracy: {top1:.4f} ({top1:.1%})')
     print(f'Validation top-5 accuracy: {top5:.4f} ({top5:.1%})')
     if (data / 'test').is_dir():
-        test_results = model.val(data=str(data), split='test', workers=workers)
-        test_top1 = float(getattr(test_results, 'top1', 0.0))
-        test_top5 = float(getattr(test_results, 'top5', 0.0))
-        print(f'Test top-1 accuracy: {test_top1:.4f} ({test_top1:.1%})')
-        print(f'Test top-5 accuracy: {test_top5:.4f} ({test_top5:.1%})')
+        print(f'NOTE: {data / "test"} exists and was NOT evaluated (the test set is not used for anything new). '
+              'Delete it: crops of the test frames do not belong in the classifier dataset.')
 
     if deploy:
         destination = Path(__file__).parent / 'models' / 'classifier.pt'

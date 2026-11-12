@@ -2,6 +2,10 @@
 
     python tools/damage_log_check.py export --video 3 --n 50     # writes the checklist (seed 42)
     python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv
+    python tools/damage_log_check.py flagged results/damage_log_check/survey3_flagged_review.csv
+
+The answers are best entered on the review page (tools/review_log/server.py), which writes them into
+the checklist and the flagged-record review file.
 
 export draws N records of the survey at random (fixed seed), lists them in video order, and writes
 results/damage_log_check/survey<id>_checklist.csv (UTF-8 with BOM, opens in Excel) with:
@@ -128,6 +132,48 @@ def score(a):
     if types:
         md += ['', 'Type correct per recorded type:', '', '| Recorded type | Yes | No | Rate |', '|---|---|---|---|'] + \
               [f'| {k} | {y} | {n} | {100 * y / (y + n):.1f}% |' for k, (y, n) in sorted(types.items())]
+    state_p = path.with_name(path.stem.replace('_checklist', '') + '_review_state.json')
+    if state_p.exists():
+        import json
+        st = json.loads(state_p.read_text(encoding='utf-8')).get('log', {})
+        md += ['', f'Automatic results (tools/damage_log_auto.py) confirmed or overridden on the review page '
+               f'(`{state_p.name}`):', '', '| Attribute | Confirmed | Overridden |', '|---|---|---|']
+        for c in ('time_correct', 'location_correct', 'duplicate'):
+            hows = [v[c].get('how') for v in st.values() if isinstance(v.get(c), dict)]
+            md.append(f'| {c} | {hows.count("confirmed")} | {hows.count("overridden")} |')
+    text = '\n'.join(md) + '\n'
+    path.with_name(path.stem + '_score.md').write_text(text, encoding='utf-8')
+    print(text)
+
+
+def flagged(a):
+    """Batch 2: were the AI check's flags right? real_damage = no means the flag was correct."""
+    path = Path(a.review)
+    with open(path, newline='', encoding='utf-8-sig') as fh:
+        rows = list(csv.DictReader(fh))
+    per = {}
+    for r in rows:
+        v = answer(r['real_damage'])
+        e = per.setdefault(r['code'], [0, 0, 0])   # flag correct (not damage), flag wrong (real damage), unanswered
+        e[0 if v is False else 1 if v is True else 2] += 1
+    md = [f'# AI-flagged records reviewed: {path.name}', '',
+          f'{len(rows)} records of the survey had an AI check score below 0.6 (flagged "likely not road damage").',
+          'A flag is correct when the reviewer marked the record as not real road damage.', '',
+          '| Recorded class | Flagged | Flag correct (not damage) | Flag wrong (real damage) | Not answered / unsure | Share of flags correct | 95% CI |',
+          '|---|---|---|---|---|---|---|']
+    tot = [0, 0, 0]
+    for code in sorted(per):
+        ok, bad, na = per[code]
+        tot = [tot[0] + ok, tot[1] + bad, tot[2] + na]
+        lo, hi = wilson(ok, ok + bad)
+        md.append(f'| {NAMES.get(code, code)} ({code}) | {ok + bad + na} | {ok} | {bad} | {na} | '
+                  + (f'{100 * ok / (ok + bad):.1f}% | {100 * lo:.1f}% to {100 * hi:.1f}%' if ok + bad else 'n/a | n/a') + ' |')
+    ok, bad, na = tot
+    lo, hi = wilson(ok, ok + bad)
+    md.append(f'| **All** | {ok + bad + na} | {ok} | {bad} | {na} | '
+              + (f'{100 * ok / (ok + bad):.1f}% | {100 * lo:.1f}% to {100 * hi:.1f}%' if ok + bad else 'n/a | n/a') + ' |')
+    md += ['', 'This is the precision of the flag among flagged records only. It says nothing about false detections '
+           'the AI check did not flag (its recall), which would need every record of the survey reviewed.']
     text = '\n'.join(md) + '\n'
     path.with_name(path.stem + '_score.md').write_text(text, encoding='utf-8')
     print(text)
@@ -142,8 +188,10 @@ def main():
     e.add_argument('--force', action='store_true')
     s = sub.add_parser('score')
     s.add_argument('checklist')
+    f = sub.add_parser('flagged')
+    f.add_argument('review', help='results/damage_log_check/survey3_flagged_review.csv (tools/review_log)')
     a = ap.parse_args()
-    export(a) if a.cmd == 'export' else score(a)
+    {'export': export, 'score': score, 'flagged': flagged}[a.cmd](a)
 
 
 if __name__ == '__main__':

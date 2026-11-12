@@ -175,6 +175,20 @@ The only allowed re-run is `--team-approved --labels-corrected`, after correctio
 must differ from the recorded one; the earlier report is kept as `test_evaluation_run<N>.md`).
 Damage log correctness (RQ2): `tools/damage_log_check.py export --video 3 --n 50` wrote
 `results/damage_log_check/survey3_checklist.csv` (seed 42; filled in by hand), `score <csv>` computes the rates.
+Never "Analyse again" survey 3 (R07): it replaces the records the checklist points at.
+
+**Second-stage classifier** (`5d796a1`, 2026-11-12): `ml/models/classifier.pt` (YOLOv8n-cls, 224 px) relabels every
+fused detection when `model_config.json` `"classifier": {"enabled": true}` (`backend/services/damage_classifier.py`);
+records, times and positions are unchanged, `damage_type` is not. With it on, the deployed system differs from the
+test-evaluated one. It is evaluated on validation only (`results/classifier_metric_definitions.md`,
+`ml/local/classifier_val_compare.py`); `build_classifier_dataset.py` / `train_classifier.py` no longer touch test.
+Status and reporting options: `results/classifier_report.md`.
+
+Remaining evaluations (`results/REMAINING_EVALUATIONS.md`, run order for the PC): `tools/damage_log_auto.py` (time,
+location, duplicate checks) and `tools/review_log/server.py` (127.0.0.1:8771, the 50 checklist records and the
+AI-flagged records, autosaved into the checklist; `damage_log_check.py score` / `flagged`); `tools/repeat_drive.py
+find|process|pair` (positional consistency between drives, train/val recordings only, frozen config = `378f0a9` with
+the classifier off); `tools/device_tests.py` (per-recording video and GPX figures). Shared helpers: `tools/eval_common.py`.
 
 Model comparisons on near-zone val use `ml/local/eval_val_sets.py` (`results/val_sets_comparison.md`).
 The annotation-site pre-labels came from S5_v8m_1280, so on the site val frames that model is partly
