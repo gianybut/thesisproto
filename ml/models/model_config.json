@@ -35,6 +35,18 @@
   "val_f1": 0.33183856502242154
  },
  "test_evaluated": true,
+ "classifier": {
+  "enabled": true,
+  "weights": "ml/models/classifier.pt",
+  "conf_threshold": 0.0,
+  "imgsz": 224,
+  "class_names": [
+   "D00",
+   "D10",
+   "D20",
+   "D40"
+  ]
+ },
  "note": "The team's models v2b (YOLOv8s, CC BY 4.0 RDD2022 start, fine-tuned on local human labels only), v3 (S5_v8m_1920 fine-tuned on local human labels only, 1280) and S5_v8m_1920 (teacher -> B v2 -> S5: local labels plus RDD2022 replay images), fused. Deployed 2026-11-11 13:14, chosen on the 270 reviewed val frames. Test-evaluated once on 2026-11-11 (results/test_evaluation.md): local test mAP@50 0.173; at 0.25 precision 0.31, recall 0.24, F1 0.27.",
  "previous": "ml/models/oculubak_v1.pt"
 }

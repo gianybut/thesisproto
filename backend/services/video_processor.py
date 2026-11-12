@@ -166,6 +166,7 @@ def process_video(video_id, config):
     try:
         # Load YOLOv8 model
         model = _load_model(config['MODEL_PATH'])
+        classifier = _load_classifier()
 
         # Load GPS track if available
         gps_points = _load_gps_track(video, config)
@@ -183,7 +184,7 @@ def process_video(video_id, config):
         snapshots_dir = config['SNAPSHOTS_FOLDER']
 
         detections, actual_filename = _run_detection_pipeline(
-            model, input_path, output_path, snapshots_dir,
+            model, classifier, input_path, output_path, snapshots_dir,
             video_id, video, db, gps_points, control_points
         )
 
@@ -238,6 +239,18 @@ def _load_model(model_path):
         model = YOLO('yolov8n.pt')
 
     return model
+
+
+def _load_classifier():
+    """Load the optional second-stage classifier configured with the deployed model."""
+    settings = MODEL_CONFIG.get('classifier') or {}
+    if not settings.get('enabled'):
+        return None
+    try:
+        from services.damage_classifier import ClassifierUnavailable, load_classifier
+        return load_classifier(MODEL_CONFIG)
+    except (ClassifierUnavailable, ImportError, OSError, ValueError, RuntimeError) as exc:
+        raise ModelUnavailable(f'Could not load the configured damage classifier: {exc}') from exc
 
 
 def _load_members():
@@ -361,7 +374,7 @@ def _classify_damage(class_name, cls_id, model):
     return 'D40', 'Pothole', False
 
 
-def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video_id, video, db,
+def _run_detection_pipeline(model, classifier, input_path, output_path, snapshots_dir, video_id, video, db,
                             gps_points=None, control_points=None):
     """Run frame-by-frame detection and generate annotated video."""
     from models import Detection
@@ -369,6 +382,7 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
     from services.georeference_service import interpolate_from_control_points
     from services.damage_tracker import DamageTracker, drop_fixed_spots
     from services import damage_verifier
+    classifier_settings = MODEL_CONFIG.get('classifier') or {}
 
     cap, rotate, width, height = open_upright(input_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -438,9 +452,15 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
         best = track.best
         # The AI check looks at the clean frame, before the box and its label are drawn on it.
         track.ai_score = damage_verifier.score(track.best_image, best['box'])
+        track.classification_code = best.get('classification_type')
+        track.classification_label = best.get('classification_label')
+        track.classification_conf = best.get('classification_confidence')
         track.snapshot = f"snap_{video_id}_{best['frame']}_{track.id}.jpg"
         snap_frame = track.best_image
-        _draw_detection(snap_frame, *best['box'], best['conf'], best['code'], best['label'], best['color'])
+        display_code = track.classification_code or best['code']
+        display_label = track.classification_label or best['label']
+        _draw_detection(snap_frame, *best['box'], best['conf'], display_code, display_label, best['color'],
+                        track.classification_conf)
         cv2.imwrite(os.path.join(snapshots_dir, track.snapshot), snap_frame)
         track.best_image = None   # free the frame copy
         finished_tracks.append(track)
@@ -480,8 +500,13 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
             confidence=best['conf'],
             bbox_x1=x1, bbox_y1=y1, bbox_x2=x2, bbox_y2=y2,
             frame_snapshot=snapshot_name,
-            damage_type=best['code'],
-            damage_label=best['label'],
+            damage_type=getattr(track, 'classification_code', None) or best['code'],
+            damage_label=getattr(track, 'classification_label', None) or best['label'],
+            classification_type=getattr(track, 'classification_code', None),
+            classification_label=getattr(track, 'classification_label', None),
+            classification_confidence=getattr(track, 'classification_conf', None),
+            classification_model=(os.path.basename(classifier_settings.get('weights', ''))
+                                  if getattr(track, 'classification_code', None) else None),
             latitude=latitude,
             longitude=longitude,
             position_source=position_source,
@@ -534,14 +559,24 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                 if y2 - y1 < 2:
                     continue
 
+                classification = None
+                if classifier is not None:
+                    from services.damage_classifier import classify_crop
+                    classification = classify_crop(
+                        classifier, frame, (x1, y1, x2, y2), classifier_settings
+                    )
+                display_code = classification[0] if classification else damage_code
+                display_label = classification[1] if classification else damage_label
+                display_conf = classification[2] if classification else None
                 box_id = f"{frame_number}_{int(x1)}_{int(y1)}"
-                damage_color = DAMAGE_COLORS.get(damage_code, (0, 69, 255))
+                damage_color = DAMAGE_COLORS.get(display_code, (0, 69, 255))
                 active_boxes[box_id] = {
                     'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
                     'conf': conf,
                     'end_frame': frame_number + box_persistence,
-                    'damage_code': damage_code,
-                    'damage_label': damage_label,
+                    'damage_code': display_code,
+                    'damage_label': display_label,
+                    'classification_confidence': display_conf,
                     'color': damage_color,
                 }
 
@@ -549,8 +584,11 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                     'frame': frame_number,
                     'box': (float(x1), float(y1), float(x2), float(y2)),
                     'conf': conf,
-                    'code': damage_code,
-                    'label': damage_label,
+                    'code': display_code,
+                    'label': display_label,
+                    'classification_type': classification[0] if classification else None,
+                    'classification_label': classification[1] if classification else None,
+                    'classification_confidence': display_conf,
                     'color': damage_color,
                 })
 
@@ -569,7 +607,8 @@ def _run_detection_pipeline(model, input_path, output_path, snapshots_dir, video
                             box_info['x2'], box_info['y2'], box_info['conf'],
                             box_info.get('damage_code', 'D40'),
                             box_info.get('damage_label', 'Pothole'),
-                            box_info.get('color', (0, 69, 255)))
+                            box_info.get('color', (0, 69, 255)),
+                            box_info.get('classification_confidence'))
 
         # Write frame to output
         out.write(frame)
@@ -668,7 +707,7 @@ def _is_pothole_class(class_name, cls_id, model):
 
 
 def _draw_detection(frame, x1, y1, x2, y2, confidence, damage_code='D40',
-                    damage_label='Pothole', color=(0, 69, 255)):
+                    damage_label='Pothole', color=(0, 69, 255), classification_confidence=None):
     """Draw a styled bounding box and label on the frame with damage type info."""
     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
@@ -686,7 +725,8 @@ def _draw_detection(frame, x1, y1, x2, y2, confidence, damage_code='D40',
     cv2.rectangle(frame, (x1, y1), (x2, y2), display_color, 3)
 
     # Draw filled background for label
-    label = f"{damage_label} {confidence:.0%}"
+    label = f"{damage_label} {classification_confidence:.0%} cls" if classification_confidence is not None \
+        else f"{damage_label} {confidence:.0%}"
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 0.7
     thickness = 2

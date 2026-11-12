@@ -57,6 +57,7 @@ export function AiCheck({ detection: d, withScore = false }) {
   if (d.ai_check_score == null) {
     return <span className="status-label status-waiting"><Icon name="clock" size={16} />AI check not run</span>;
   }
+
   const pct = Math.round(d.ai_check_score * 100);
   return d.ai_flagged ? (
     <span className="status-label status-failed">
@@ -65,6 +66,21 @@ export function AiCheck({ detection: d, withScore = false }) {
   ) : (
     <span className="status-label status-ready">
       <Icon name="check" size={16} />Looks like road damage{withScore && <span className="num"> · {pct}%</span>}
+    </span>
+  );
+}
+
+/** The damage class shown by the detector, or by the optional second-stage classifier. */
+export function AiClassification({ detection: d, withScore = false }) {
+  if (d.source_type === 'public_report') return null;
+  const label = d.classification_label || d.damage_label;
+  const code = d.classification_type || d.damage_type;
+  const prefix = d.classification_type ? 'AI classification' : 'Detector classification';
+  const score = d.classification_confidence;
+  return (
+    <span className="status-label status-ready">
+      <Icon name="check" size={16} />{prefix}: {label} <span className="code">{code}</span>
+      {withScore && score != null && <span className="num"> · {Math.round(score * 100)}%</span>}
     </span>
   );
 }

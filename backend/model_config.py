@@ -22,6 +22,13 @@ DEFAULTS = {
     'run': 'placeholder',
     'data_snapshot': None,
     'deployed_at': None,
+    'classifier': {
+        'enabled': False,
+        'weights': 'ml/models/classifier.pt',
+        'conf_threshold': 0.0,
+        'imgsz': 224,
+        'class_names': ['D00', 'D10', 'D20', 'D40'],
+    },
 }
 
 
@@ -46,10 +53,17 @@ def public_info(cfg=None):
     """What the About page may show about the deployed model."""
     cfg = cfg or load()
     weights = os.path.basename(cfg['weights'])
+    classifier = cfg.get('classifier') or {}
     return {k: cfg.get(k) for k in ('run', 'data_snapshot', 'deployed_at', 'conf_threshold', 'imgsz', 'class_names',
                                     'test_evaluated')} | \
            {'weights': weights, 'stand_in': weights in STAND_IN_WEIGHTS,
-            'ensemble': [os.path.basename(m['weights']) for m in cfg.get('ensemble') or []]}
+            'ensemble': [os.path.basename(m['weights']) for m in cfg.get('ensemble') or []],
+            'classifier': {
+                'enabled': bool(classifier.get('enabled')),
+                'weights': os.path.basename(classifier.get('weights', '')),
+                'imgsz': classifier.get('imgsz'),
+                'class_names': classifier.get('class_names'),
+            }}
 
 
 # Models that are not the team's own (the demo placeholder): the About page says so.

@@ -10,7 +10,7 @@ import Notice from '../components/Notice';
 import Disclosure from '../components/Disclosure';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DamagePreview, { DamageThumb } from '../components/DamagePreview';
-import { AiCheck } from '../components/StatusLabel';
+import { AiCheck, AiClassification } from '../components/StatusLabel';
 import { isAdmin } from '../roles';
 import useMediaQuery, { WIDE } from '../useMediaQuery';
 
@@ -242,6 +242,7 @@ export default function DatabasePage({ user }) {
           <p>{d.road_name || <span className="muted">No road name</span>}</p>
           <p>{location(d)}</p>
           <p className="muted">Recorded <span className="num">{formatDate(d.created_at)}</span></p>
+          <AiClassification detection={d} withScore />
           {d.can_open_video && <p>{openInVideo(d)}</p>}
           {d.source_type !== 'public_report' && (
             <div className="ai-check">

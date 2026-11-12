@@ -154,6 +154,9 @@ function ModelNote() {
               ))} (a damage both models find counts for more)</li>
             )}
             {model.data_snapshot && <li><Icon name="check" className="feature-icon" />Trained on the labels saved in <span className="code">{model.data_snapshot}</span></li>}
+            {model.classifier?.enabled && (
+              <li><Icon name="check" className="feature-icon" />A second model classifies each detected region using <span className="code">{model.classifier.weights}</span></li>
+            )}
             {deployed && <li><Icon name="check" className="feature-icon" />Put into service on {deployed}</li>}
             <li><Icon name="check" className="feature-icon" />Marks a damage when it is at least <span className="num">{Math.round(model.conf_threshold * 100)}%</span> sure</li>
           </ul>

@@ -193,6 +193,11 @@ class Detection(db.Model):
     # Damage classification
     damage_type = db.Column(db.String(50), default='D40')  # D00, D10, D20, D40 (RDD2022 codes)
     damage_label = db.Column(db.String(100), default='Pothole')
+    # Optional second-stage YOLO classification, kept separate from detector confidence.
+    classification_type = db.Column(db.String(50), nullable=True)
+    classification_label = db.Column(db.String(100), nullable=True)
+    classification_confidence = db.Column(db.Float, nullable=True)
+    classification_model = db.Column(db.String(200), nullable=True)
 
     # GPS coordinates (populated when GPS track file is provided)
     latitude = db.Column(db.Float, nullable=True)
@@ -242,6 +247,11 @@ class Detection(db.Model):
             'frame_snapshot': self.frame_snapshot,
             'damage_type': self.damage_type,
             'damage_label': self.damage_label,
+            'classification_type': self.classification_type,
+            'classification_label': self.classification_label,
+            'classification_confidence': (round(self.classification_confidence, 4)
+                                          if self.classification_confidence is not None else None),
+            'classification_model': self.classification_model,
             'latitude': self.latitude,
             'longitude': self.longitude,
             'position_source': self.position_source,

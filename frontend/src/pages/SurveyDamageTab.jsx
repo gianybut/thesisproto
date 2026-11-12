@@ -6,7 +6,7 @@ import Icon from '../icons';
 import Notice from '../components/Notice';
 import AnalysisFailed from '../components/AnalysisFailed';
 import DamagePreview from '../components/DamagePreview';
-import { AiCheck } from '../components/StatusLabel';
+import { AiCheck, AiClassification } from '../components/StatusLabel';
 import EmptyState from '../components/EmptyState';
 import { ProgressBar } from '../components/StatusLabel';
 
@@ -113,7 +113,10 @@ export default function SurveyDamageTab({ video, detections, onChange }) {
                   </>
                 ) : 'Close-up'}
               >
-                {active && <div><AiCheck detection={active} withScore /></div>}
+                {active && <div className="stack-sm">
+                  <AiClassification detection={active} withScore />
+                  <AiCheck detection={active} withScore />
+                </div>}
               </DamagePreview>
             </div>
           )}

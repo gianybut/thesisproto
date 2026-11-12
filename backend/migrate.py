@@ -30,6 +30,11 @@ NEW_COLUMNS = [
     ('videos', 'road_bottom', "road_bottom FLOAT"),
     # AI check of each detection (services/damage_verifier.py)
     ('detections', 'ai_check_score', "ai_check_score FLOAT"),
+    # Optional second-stage YOLO classification
+    ('detections', 'classification_type', "classification_type VARCHAR(50)"),
+    ('detections', 'classification_label', "classification_label VARCHAR(100)"),
+    ('detections', 'classification_confidence', "classification_confidence FLOAT"),
+    ('detections', 'classification_model', "classification_model VARCHAR(200)"),
 ]
 
 # (label, SQL) — must be safe to re-run
