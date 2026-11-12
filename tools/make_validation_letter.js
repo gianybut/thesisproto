@@ -5,7 +5,9 @@
 //
 // Writes data/local/validation_sheet/OcuLubak_dataset_validation.docx (footage-derived, gitignored).
 // The docx package is looked up in tools/node_modules: npm install --prefix tools --no-save docx
-// Text in [square brackets] is highlighted: the team fills it in before printing.
+// The validator, the thesis title, the researchers and the program are filled in below (VALIDATOR, THESIS).
+// The samples were selected by hand (counts.json "picked": "by_hand"), so the letter certifies the samples
+// shown and the labeling criteria; it is not an agreement measure.
 const fs = require('fs');
 const path = require('path');
 const {
@@ -16,6 +18,14 @@ const {
 const DIR = path.join(__dirname, '..', 'data', 'local', 'validation_sheet');
 const counts = JSON.parse(fs.readFileSync(path.join(DIR, 'counts.json'), 'utf8'));
 const N = counts.shown;
+// Expert validator (team decision, 2026-11-12): replaces the DPWH Batangas engineer.
+const VALIDATOR = { name: 'Engr. Carlo Almanzor', office: 'DPWH Cavite 2nd District Engineering Office' };
+// From the title page of the manuscript; "DLSU-D" is how the manuscript names the school (Section 4.1.7).
+const THESIS = {
+  title: 'OCULUBAK: A Web-Based Road Damage Detection and Mapping System Using Deep Learning and GPS Synchronization',
+  researchers: 'Kyle Cedric R. Panganiban, Janmikael A. Samson, and Gian Paolo A. Ybut',
+  program: 'Bachelor of Science in Computer Science with Intelligence Systems Track, De La Salle University – Dasmariñas',
+};
 const CLASSES = [
   ['D00', 'Longitudinal crack', 'a crack that runs along the direction of the road'],
   ['D10', 'Transverse crack', 'a crack that runs across the road'],
@@ -33,7 +43,6 @@ const STRIP_W = 7.3 * 96;              // px at 96 dpi; a strip is 3048 x 772
 const STRIP_H = STRIP_W * 772 / 3048;
 
 const run = (text, o = {}) => new TextRun({ text, font: FONT, size: 22, ...o });
-const fill = (text) => run(text, { highlight: 'yellow' });
 const para = (children, o = {}) => new Paragraph({ children, spacing: { after: 160, line: 300 }, ...o });
 const blank = (label, pos = WIDTH) => new Paragraph({
   children: [run(label), run('\t')],
@@ -109,9 +118,8 @@ const letter = [
   blank('Date: ', 3 * IN),
   para([run('TO WHOM IT MAY CONCERN:', { bold: true })], { spacing: { before: 200, after: 200 } }),
   para([
-    run('This is to certify that I examined the road damage image dataset prepared for the thesis study “OcuLubak: '),
-    fill('[full thesis title]'), run('” by '), fill('[names of the researchers]'), run(' of '),
-    fill('[program and school]'), run('.'),
+    run(`This is to certify that I, ${VALIDATOR.name} of the ${VALIDATOR.office}, examined the road damage image `
+      + `dataset prepared for the thesis study “${THESIS.title}” by ${THESIS.researchers}, ${THESIS.program}.`),
   ], { alignment: AlignmentType.JUSTIFIED }),
   para([run(`The dataset has ${num(counts.frames)} road images taken from survey videos that the researchers recorded `
     + `from a vehicle. On these images the researchers marked ${num(total)} damages and classified each one into one of `
@@ -121,6 +129,9 @@ const letter = [
     + `${HOW} the marked damages, ${N} for each damage type. Based on this inspection, I find that the `
     + 'damages shown are correctly identified and classified, as follows:')],
   { alignment: AlignmentType.JUSTIFIED, spacing: { before: 200, after: 120, line: 300 } }),
+  ...(counts.picked === 'by_hand' ? [para([run('The samples were chosen by the researchers, not drawn at random. This '
+    + 'certification concerns the samples shown and the labeling criteria they illustrate; it is not a measure of the '
+    + 'accuracy of every label in the dataset.', { size: 20 })], { alignment: AlignmentType.JUSTIFIED })] : []),
   box(`All ${N * CLASSES.length} items are correct.`),
   new Paragraph({
     indent: { left: 360 }, spacing: { after: 160 },
@@ -132,9 +143,10 @@ const letter = [
   para([run('This certification is issued at the request of the researchers for academic purposes only.')],
     { spacing: { before: 200, after: 480 } }),
   blank('', 3.6 * IN),
+  para([run(VALIDATOR.name.toUpperCase(), { bold: true })], { spacing: { after: 0 } }),
   para([run('Signature over printed name', { size: 20 })], { spacing: { after: 160 } }),
   blank('Position / Designation: ', 5 * IN),
-  blank('Office / Agency: ', 5 * IN),
+  para([run('Office / Agency: '), run(VALIDATOR.office, { bold: true })], { spacing: { after: 100 } }),
   blank('PRC License No. (if any): ', 5 * IN),
 ];
 

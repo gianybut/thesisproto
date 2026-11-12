@@ -1,21 +1,23 @@
 """User acceptance test (UAT) analysis for Chapter V, Section 5.6.
 
 Reads the Google Forms CSV export of the evaluation questionnaire and computes, as defined in
-Chapter III, Section 3.8 (Equations 28 to 30) and Table 4.4.5.2:
+Chapter III, Section 3.8 (Equations 26 to 28) and Table 4.4.5.2:
 
-  * the weighted mean of each item, x = sum(f_i * w_i) / n            (Equation 28)
+  * the weighted mean of each item, x = sum(f_i * w_i) / n            (Equation 26)
   * the weighted mean and sample standard deviation of each dimension and of all items together,
     taken over the respondents' scores (a respondent's score for a dimension is the mean of their
-    answers to its items)                                               (Equation 29)
+    answers to its items)                                               (Equation 27)
   * a one-tailed one-sample t-test of each mean against the criterion mean 3.41,
-    t = (x - 3.41) / (s / sqrt(n)), df = n - 1, p = P(T > t)            (Equation 30)
+    t = (x - 3.41) / (s / sqrt(n)), df = n - 1, p = P(T > t)            (Equation 28)
   * the verbal interpretation of each mean (Table 4.4.5.2), and the decision rule: the hypothesis
     is supported if the overall weighted mean is at least 3.41 and significantly greater than
     3.41 at the 0.05 level.
 
-Everything is computed twice when --engineer is given: with all respondents, and without the
-respondent(s) matched by --engineer (the DPWH Batangas engineer who validated the annotations;
-Sections 3.6 and 4.4.1 promise both versions).
+Everything is computed twice when the validator is identified: with all respondents, and without the
+annotation validator, Engr. Carlo Almanzor of the DPWH Cavite 2nd District Engineering Office, who checked
+the labels and also works at the main respondent office (Sections 3.6, 4.4.1 and 5.6.7 promise both
+versions). Identify him by his respondent ID with --validator-id (and --id-column if the ID column is not
+named "Respondent ID" or "ID"), or by any other column with --exclude COLUMN=VALUE / COLUMN~REGEX.
 
 The dimensions of the questionnaire are not fixed in the code: they come from a JSON file that
 maps each dimension to the CSV column headers of its items, in the order they should be reported:
@@ -35,9 +37,11 @@ skipped. Any other answer stops the script, so a wrongly mapped column is not si
 Usage:
     python tools/uat_analysis.py responses.csv --items uat_items.json
     python tools/uat_analysis.py responses.csv --items uat_items.json \\
-        --engineer "Office=DPWH Batangas" --out results/uat_results.md
+        --validator-id R07 --out results/uat_results.md
+    python tools/uat_analysis.py responses.csv --items uat_items.json --id-column "Respondent code" --validator-id 7
 
---engineer takes COLUMN=VALUE (exact match after trimming, case-insensitive) or COLUMN~REGEX.
+--exclude takes COLUMN=VALUE (exact match after trimming, case-insensitive) or COLUMN~REGEX; --engineer is kept
+as an older name for --exclude.
 Only the standard library is used.
 """
 import argparse
@@ -166,15 +170,36 @@ def resolve_columns(headers, items):
     return dims
 
 
+VALIDATOR = 'Engr. Carlo Almanzor (annotation validator, DPWH Cavite 2nd District Engineering Office)'
+ID_COLUMNS = ('Respondent ID', 'ID')
+
+
+def validator_matcher(validator_id, id_column, headers):
+    """Match the validator's row by respondent ID (exact, after trimming, case-insensitive)."""
+    if validator_id is None:
+        return None
+    names = {h.strip().lower(): h for h in headers}
+    if id_column:
+        col = names.get(id_column.strip().lower())
+        if col is None:
+            raise SystemExit(f'--id-column: no CSV column {id_column!r}')
+    else:
+        col = next((names[c.lower()] for c in ID_COLUMNS if c.lower() in names), None)
+        if col is None:
+            raise SystemExit(f'--validator-id needs an ID column: none of {ID_COLUMNS} found; give --id-column')
+    vid = str(validator_id).strip().lower()
+    return lambda row: (row.get(col) or '').strip().lower() == vid
+
+
 def engineer_matcher(spec, headers):
     if not spec:
         return None
     m = re.match(r'^(.*?)(=|~)(.*)$', spec)
     if not m:
-        raise SystemExit('--engineer must be COLUMN=VALUE or COLUMN~REGEX')
+        raise SystemExit('--exclude must be COLUMN=VALUE or COLUMN~REGEX')
     col, op, val = m.group(1).strip(), m.group(2), m.group(3).strip()
     if col not in [h.strip() for h in headers]:
-        raise SystemExit(f'--engineer: no CSV column {col!r}')
+        raise SystemExit(f'--exclude: no CSV column {col!r}')
     col = next(h for h in headers if h.strip() == col)
     if op == '=':
         return lambda row: (row.get(col) or '').strip().lower() == val.lower()
@@ -194,7 +219,7 @@ def analyse(rows, dims):
                 continue
             freq = [vals.count(w) for w in range(1, 6)]
             n = len(vals)
-            wm = sum(f * w for f, w in zip(freq, range(1, 6))) / n          # Equation 28
+            wm = sum(f * w for f, w in zip(freq, range(1, 6))) / n          # Equation 26
             _, sd = mean_sd(vals)
             item_stats.append((dim, c, freq, n, wm, sd))
     dim_tests = {}
@@ -231,14 +256,14 @@ def fmt_p(p):
 def report(title, rows, dims):
     item_stats, dim_tests, overall = analyse(rows, dims)
     out = [f'## {title}', '', f'Respondents: {len(rows)}', '']
-    out += ['### Items (Equation 28)', '',
+    out += ['### Items (Equation 26)', '',
             '| Dimension | Item | SA (5) | A (4) | N (3) | D (2) | SD (1) | n | Weighted mean | SD | Interpretation |',
             '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|']
     for dim, c, freq, n, wm, sd in item_stats:
         f = freq[::-1]
         out.append(f'| {dim} | {c} | ' + ' | '.join(str(v) for v in f) + f' | {n} | {fmt(wm)} | {fmt(sd)} | '
                    + (interpret(wm) if n else 'n/a') + ' |')
-    out += ['', f'### Dimensions and overall: one-tailed one-sample t-test against {CRITERION} (Equations 29 and 30)', '',
+    out += ['', f'### Dimensions and overall: one-tailed one-sample t-test against {CRITERION} (Equations 27 and 28)', '',
             '| Dimension | n | Weighted mean | SD | t | df | p (one-tailed) | Significant at 0.05 | Interpretation |',
             '|---|---:|---:|---:|---:|---:|---:|---|---|']
     for dim, res in list(dim_tests.items()) + [('Overall', overall)]:
@@ -266,7 +291,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('csv', help='Google Forms responses exported as CSV')
     ap.add_argument('--items', required=True, help='JSON file mapping each dimension to its item columns')
-    ap.add_argument('--engineer', help='COLUMN=VALUE or COLUMN~REGEX that identifies the annotation-validating engineer')
+    ap.add_argument('--validator-id', help="respondent ID of Engr. Carlo Almanzor, the annotation validator")
+    ap.add_argument('--id-column', help='CSV column that holds the respondent ID (default: "Respondent ID" or "ID")')
+    ap.add_argument('--exclude', '--engineer', dest='exclude',
+                    help='COLUMN=VALUE or COLUMN~REGEX that identifies the validator, if there is no ID column')
     ap.add_argument('--out', help='also write the report to this Markdown file')
     a = ap.parse_args()
 
@@ -276,7 +304,10 @@ def main():
         rows = list(reader)
     items = json.load(open(a.items, encoding='utf-8'))
     dims = resolve_columns(headers, items)
-    is_eng = engineer_matcher(a.engineer, headers)
+    if a.validator_id is not None and a.exclude:
+        raise SystemExit('give either --validator-id or --exclude, not both')
+    is_eng = validator_matcher(a.validator_id, a.id_column, headers) or engineer_matcher(a.exclude, headers)
+    how = f'--validator-id {a.validator_id!r}' if a.validator_id is not None else f'--exclude {a.exclude!r}'
 
     out = ['# User acceptance test results', '',
            f'Source: `{a.csv}`; items: `{a.items}`; criterion mean {CRITERION}; one-tailed, α = {ALPHA}.', '']
@@ -284,13 +315,17 @@ def main():
     if is_eng:
         eng = [r for r in rows if is_eng(r)]
         if not eng:
-            out += [f'Note: --engineer {a.engineer!r} matched no respondent; the second analysis is not shown.', '']
+            out += [f'Note: {how} matched no respondent, so {VALIDATOR} did not answer the questionnaire '
+                    'under that ID; the second analysis is not shown. Check the ID before reporting this.', '']
         else:
             others = [r for r in rows if not is_eng(r)]
-            out += report(f'Without the annotation-validating engineer ({len(eng)} response(s) excluded)', others, dims)
+            if len(eng) > 1:
+                out += [f'Warning: {how} matched {len(eng)} responses; only one respondent was expected.', '']
+            out += [f'{VALIDATOR} answered the questionnaire ({len(eng)} response). State this in Section 5.6.', '']
+            out += report(f'Without {VALIDATOR} ({len(eng)} response(s) excluded)', others, dims)
     else:
-        out += ['Note: --engineer was not given, so only the analysis with all respondents is shown. '
-                'If the DPWH Batangas engineer answered the questionnaire, rerun with --engineer.', '']
+        out += ['Note: --validator-id was not given, so only the analysis with all respondents is shown. '
+                f'If {VALIDATOR} answered the questionnaire, rerun with his respondent ID.', '']
     text = '\n'.join(out)
     sys.stdout.reconfigure(encoding='utf-8')
     print(text)

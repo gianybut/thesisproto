@@ -380,3 +380,53 @@ Checked against the code, `results/FINAL_METRICS_FOR_PAPER.md`, `results/train_r
 | 3.4 | Upper lane rebuilt with the real lineage: RDD2022 → teacher (COCO start, 5,750 images) → B v2 (local + 600 replay) → S5_v8m_1920 (local + 600 replay, 1,920 px) → v3 (local only, 1,280 px); external YOLOv8s checkpoint (SreekarAditya) → v2b (1,024 px). Before, the teacher was drawn as the starting weights of all three. Label counts (1,066 and 6,399) added; selection on the 270 reviewed val frames; one test. Lower lane: the missing edge from the no-GPS branch into the AI check was added (those records are still checked and stored); "by-type view" removed; the "Analyse again" arrow re-routed so it no longer crosses the storage arrow; member sizes added. |
 | 3.4.1 | "Damage by type" page (does not exist) → "Place on the map (control points)" (`SurveyPlaceTab.jsx`, route `/videos/:id/georeference`). API routes list completed (detections, resident reports). Database adds resident reports (`PublicReport`); file storage adds `reports/` (`backend/app.py:23`). Web client link label "HTTPS" → "REST API calls + JWT" (no online copy is deployed). |
 | 3.5.1 | "damage by type" removed from "View detections…". Association lines now attach to the near side of each use case, so they no longer run through other use cases. |
+
+
+## Validator change (2026-11-12)
+
+Team decisions:
+- **Validator.** Engr. Carlo Almanzor of the DPWH Cavite 2nd District Engineering Office is now the expert validator, replacing the DPWH Batangas engineer.
+- **Batangas.** DPWH Batangas stays as a backup respondent office; its name is still `[FILL]`.
+- **Sample.** The hand-picked sheet is kept. The check is described as an expert check of the labeling criteria, not an agreement measure.
+- **Status.** `[PENDING: expert validation]` stays until the signed letter is back.
+
+### Revision draft
+
+| # | Where | Change |
+|---|---|---|
+| 1 | 3.4.3 | "A road engineer from the DPWH in Cavite will check a random sample of 40 boxes … agreement … Section 3.8.2" → Engr. Carlo Almanzor (DPWH Cavite 2nd DEO) checks 40 boxes selected by the researchers; chosen by hand, not drawn at random, so an expert check of the labeling criteria, not a measure of agreement. Source: `data/local/validation_sheet/counts.json` (`"picked": "by_hand"`), `selection.json`. |
+| 2 | 3.6 | The Batangas-engineer disclosure → Engr. Almanzor works at the main respondent office and may also answer the questionnaire; if so, disclosed and reported with and without his responses. The Batangas backup-recruitment sentence is unchanged. |
+| 3 | 3.7 | Frames shared "with the DPWH engineer who validates the annotations" → "with Engr. Carlo Almanzor of the DPWH Cavite 2nd District Engineering Office, who checks the annotations". |
+| 4 | 3.8 intro | "The agreement of the local labels with an expert's is examined in Section 3.8.2" → "The expert check of the local labels is described in Section 3.8.2". |
+| 5 | 3.8.2 | Heading "Annotation Agreement" → "Expert Check of the Annotations". Body rewritten to match the sheet and letter (`tools/make_validation_letter.js`): he marks whether each box shows the class named on the sheet, lists incorrect boxes and signs; reported as boxes confirmed and corrected per class with remarks; no agreement statistic. Equations (24) percent agreement and (25) Cohen's kappa and their where-lines deleted. |
+| 6 | 3.8.3–3.8.6 | Equations renumbered (26)→(24), (27)→(25), (28)→(26), (29)→(27), (30)→(28), (31)→(29); references updated: "Equation 26/27" (4.1.5) → 24/25, "Equation 28" (4.4.5) → 26, "Equations 28 to 30" (4.1.5) → 26 to 28. Equations now run 1–29 without gaps. |
+| 7 | Tables of tools (3.x, 4.3.x) | "annotation agreement" removed from the computations listed. |
+| 8 | Ch IV intro; 4.1.1 (training data); 4.1.3 (annotation check); 4.1.5; 4.1.6 | Validator named; "random sample"/"drawn at random" → "selected by the researchers"; 4.1.5 agreement and kappa sentence → expert check reported as boxes confirmed and corrected, no agreement statistic; 4.1.5 UAT disclosure → Engr. Almanzor; 4.1.6 "check by an outside engineer and the agreement measured with Cohen's kappa" → review by Engr. Almanzor, an expert check on 40 boxes selected by the researchers. |
+| 9 | 4.4.1 and Table 4.4.1.1 | Batangas-engineer disclosure and table note → Engr. Almanzor (DPWH Cavite 2nd DEO). |
+| 10 | 4.4.2 | Annotation validation sheet: "drawn at random … The DPWH Batangas engineer will mark each box … compared with the researchers' labels" → selected by the researchers; Engr. Almanzor marks whether each box shows the named class, lists incorrect boxes, signs. |
+| 11 | 4.4.4 evaluation table | Row "Annotation agreement / Whether the local labels are trustworthy / Percent agreement and Cohen's kappa per class" → "Expert check of the annotations / Whether the labels follow the labeling criteria, in the view of a DPWH engineer / Boxes confirmed and corrected per class, out of 40 selected by the researchers, with remarks". |
+| 12 | 4.4.5 | The Cohen's-kappa sentence (Landis & Koch) and Table 4.4.5.3 deleted. |
+| 13 | Ch V intro; 5.1 limitations | "the agreement of the local annotations" → "the expert check of the local annotations"; "expert validation of the labels" → "expert check of the labels". |
+| 14 | 5.2 | Heading → "5.2 EXPERT CHECK OF THE ANNOTATIONS"; intro rewritten (validator, hand-picked, does not estimate agreement of all labels); Table 5.2.1 retitled "Expert Check of the Annotations per Damage Class", columns "Boxes Checked / Confirmed / Corrected / Main Remark" (were Instances Checked / Percent Agreement / Cohen's Kappa / Strength of Agreement); result template rewritten without kappa and Landis & Koch, and no longer claims that the check supports the test labels (the 40 boxes come from training and validation frames); its `[n]` and instruction brackets highlighted as before. |
+| 15 | 5.6.7 | Disclosure before Table 5.6.9 → Engr. Almanzor. |
+| 16 | 6.1 | "the agreement of its labels with those of a DPWH engineer is still to be measured" → "an expert check of its labeling criteria by Engr. Carlo Almanzor … is still pending". |
+| 17 | References | Landis & Koch (1977) deleted (no longer cited). |
+
+Checked after the edit: no "Batangas engineer", "kappa", "Landis", "random sample of 40" or "annotation agreement" remain; "Batangas" remains only for the backup office (7 highlighted `[FILL]`s) and Batangas State University (Ch II). 1.6 never mentioned the validator. Every table and figure reference resolves.
+
+Not filled (the user also asked to fix all highlighted `[ ]` text): the 64 remaining highlighted tokens are pending measurements, the Chapter V result templates, the Table 4.4.1.1 counts, the Batangas office name, the UAT dimensions, the online-copy procedure, the figure inserts and the Roy & Bhaduri source. No result file for any of them exists in the repository (`results/damage_log_check/survey3_checklist.csv` has no check column filled), so none can be filled without inventing values.
+
+### Repo
+
+- `tools/make_validation_letter.js`:
+  - the letter names Engr. Carlo Almanzor and the DPWH Cavite 2nd District Engineering Office (opening sentence, printed name, Office / Agency);
+  - fills the three former `[ ]` fields from the title page (thesis title, researchers, program) and the school as De La Salle University – Dasmariñas (the manuscript writes "DLSU-D");
+  - adds, for a hand-picked sample, a sentence that the samples were chosen by the researchers and that the certification is not a measure of the accuracy of every label.
+
+  `data/local/validation_sheet/OcuLubak_dataset_validation.docx` was regenerated (gitignored; the sample sheet and class strips are unchanged, still the hand pick).
+- `tools/uat_analysis.py`:
+  - new `--validator-id` (with `--id-column`, default "Respondent ID" or "ID") excludes Engr. Almanzor by respondent ID and reports whether he answered;
+  - `--exclude` (old name `--engineer`) is kept;
+  - equation numbers updated to 26–28.
+
+  Tested on synthetic responses: exclusion by ID, an unknown ID, the old option name, and a CSV without an ID column.
