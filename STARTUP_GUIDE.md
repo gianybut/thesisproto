@@ -87,9 +87,20 @@ Once both servers are running, open your web browser and navigate to:
 ## 🛠️ Troubleshooting
 
 - **Virtual Environment Not Found:** Make sure you have installed the requirements using `pip install -r requirements.txt` in a `.venv` directory at the root of the project.
-- **Port Already in Use:** If you see an error about ports `5000` or `5173` being in use, make sure you don't have other instances of the app running in the background. You can close them or use Task Manager / Activity Monitor to kill the processes.
-- **Node.js Not Installed:** If the frontend script fails, ensure you have [Node.js](https://nodejs.org/) installed (version 16 or higher).
+- **Port Already in Use:** This usually means the app is already running. Check the backend before starting another copy:
+  ```bash
+  curl -i http://localhost:5000/api/server/info
+  ```
+  A `401` response with `token_missing` means the backend is healthy and only needs authentication; continue with the frontend and open http://localhost:5173.
+  If you really need to stop the existing backend on macOS/Linux, identify its PID and stop only that process:
+  ```bash
+  lsof -nP -iTCP:5000 -sTCP:LISTEN
+  kill <PID>
+  ```
+  On Windows, use `netstat -ano | findstr :5000` followed by `taskkill /PID <PID>`.
+- **Startup script path:** Run `./start_backend.sh` from the project root. `/start_backend.sh` means a file at the filesystem root and is not the project script.
+- **Node.js Not Installed:** If the frontend script fails, ensure you have [Node.js](https://nodejs.org/) installed (version 20 or newer).
 - **Processed video won't play:** ffmpeg is missing — see Step 0. The backend warns about this at startup.
 - **A video is stuck at "processing":** processing runs inside the backend process, so it dies if the backend is stopped. On the next start the backend marks any interrupted video as *failed*; upload it again.
-- **Upload rejected as too long:** videos are capped at 10 minutes and 500 MB. Trim the clip and retry.
+- **Upload rejected as too long:** videos are capped at 10 minutes. Trim the clip and retry. There is currently no file-size cap.
 - **Database column errors after pulling new code:** run `python backend/migrate.py` once (safe to re-run).
