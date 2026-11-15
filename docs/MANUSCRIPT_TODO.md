@@ -159,3 +159,29 @@ I cannot read highlight colours through the API. This list comes from what I app
 11. **Abstract:** the document still has none.
 12. **Table 5.3.1 was rebuilt** (7 rows; the API cannot add rows), so its borders and widths are Google Docs defaults: match them to the other tables by hand. The Table 5.1.6 cell "22 of 36 (61.1%)", the two 4.4.4 table cells and the 5.1.8 additions are not all highlighted (cells have no positions in the API).
 13. **AI-check figure.** Your instruction quoted "63% vs 61% real". After the three records were settled (809 is flagged and in the sample), it is **57.9% (11 of 19) vs 61.3% (19 of 31)**; the manuscript uses these.
+
+---
+
+## Update 2026-11-15 (evening): Chapter V restructured, Figure 5.1.2 slots
+
+- **Removed at your request:** 5.1.5 Training Behavior (Figure 5.1.3 and its `[FILL]`) and 5.1.6 Effect of the Detection
+  Pipeline (Table 5.1.6, mostly "Not measured"). The one real result of 5.1.6 (R07's 112 records by class and the review of
+  the 36 flagged records) moved to **5.3** as its last paragraph.
+- **Renumbered:**
+  - 5.1.7 Second-Stage Classifier → **5.1.5**;
+  - Tables 5.1.7 / 5.1.8 → **5.1.6 / 5.1.7**;
+  - every "Section 5.1.7" → "Section 5.1.5" (including your 3.7 Responsible Use paragraph: a number change only);
+  - 1.7's "(Section 5.1.6)" → "(Section 5.3)".
+- **5.1.8 Limitations of the Detection Results** → new **5.7 LIMITATIONS OF THE STUDY** (Heading 2, numbered list, before the
+  summary, which is now **5.8 SUMMARY OF FINDINGS**). It keeps the 8 earlier items and adds study-wide ones: positional error not
+  measured, recording conditions, perceived (not measured) efficiency, prototype deployment.
+- **Figure 5.1.2 (still to do by hand, 1 minute):** the `[FILL]` note is replaced by three empty lines, each followed by a label
+  "(a) v2b (YOLOv8s)", "(b) v3 (YOLOv8m)" and "(c) S5_v8m_1920 (YOLOv8m)". The cropped images are in your Google Drive (My Drive):
+  - `OcuLubak_Fig5.1.2a_v2b_confusion_matrix_normalized.png`;
+  - `OcuLubak_Fig5.1.2b_v3_confusion_matrix_normalized.png`;
+  - `OcuLubak_Fig5.1.2c_S5_v8m_1920_confusion_matrix_normalized.png`.
+  
+  To place them: click each empty line above a label, then Insert › Image › Drive, and set a width of about 5.5 in.
+  The API could not insert them: Google Docs only fetches images that are publicly shared, and making them public was not permitted.
+- **Table of contents:** refresh it. The headings changed: 5.1.5, 5.1.6, 5.1.7 and 5.1.8 are gone or renamed, and 5.7 and 5.8 are new.
+- **Bracket placeholders left: none.**

@@ -820,3 +820,17 @@ refers to it.
 | R21 | Sub-tab (sub-tab) | “Damage flagged by the AI check: 36 of the 112 R07 records were marked "likely not road damage". [PENDING: review of the 36 flagged records]” → “Damage flagged by the AI check: 36 of the 112 R07 records were marked "likely not road damage". On review, 22 of them were indeed not damage, but 14 w … equally often (58% and 61%), so the AI check is only a hint.” |
 | R22 | 5.3 Table 5.3.1 | 5 × 4 (Damage type: not reviewed; Duplicate: 10 candidates in 5 pairs) → 7 × 4 with the scored rates |
 | R23 | 5.1.8 Limitations | Added "Damage log review. Nineteen records appeared in both review batches; the reviewer’s first two judgments disagreed on 3 of them (16 of 19 consistent), which were re-examined and settled before scoring. …" and "AI check. … 57.9% of the flagged and 61.3% of the unflagged records showed real damage. It should be treated as advisory only." |
+
+
+---
+
+## Chapter V restructure (2026-11-15, at the user's request)
+
+| # | Place | Change |
+|---|---|---|
+| S1 | 5.1.4, Figure 5.1.2 | `[FILL: insert runs/eval/final_…/confusion_matrix_normalized.png …]` → three empty centred image lines with labels "(a) v2b (YOLOv8s)", "(b) v3 (YOLOv8m)", "(c) S5_v8m_1920 (YOLOv8m)". The images (title and white margins cropped, values unchanged) were uploaded to the user's Drive. They could not be inserted through the API, because Docs fetches only public images; the user places them by hand. |
+| S2 | 5.1.5 Training Behavior | Section deleted (heading, Figure 5.1.3 caption, `[FILL]`, paragraph). |
+| S3 | 5.1.6 Effect of the Detection Pipeline | Section deleted (heading, intro, Table 5.1.6, paragraph). Its result paragraph moved to the end of 5.3 ("Over the whole recording, R07 produced 112 damage records … advisory only …"), without the sentence on unrecorded stage counts. |
+| S4 | 5.1.7 → 5.1.5 | Heading renumbered; Table 5.1.7 → 5.1.6, Table 5.1.8 → 5.1.7; "Section 5.1.7" → "Section 5.1.5" in 1.2, 1.7, 3.3.1, 3.7 (team paragraph, number only), 4.1.6, the 5.1 intro and 5.1.1; "(Section 5.1.6)" → "(Section 5.3)" in 1.7. |
+| S5 | 5.1.8 → 5.7 | "5.1.8 Limitations of the Detection Results" deleted; new "5.7 LIMITATIONS OF THE STUDY" (Heading 2, ordered list) before the summary. It holds the 8 earlier items (the review item now adds "and only on recording R07, a validation route") plus four new ones: positional error not measured; recording conditions; perceived efficiency; prototype deployment. |
+| S6 | 5.7 → 5.8 | "5.7 SUMMARY OF FINDINGS" → "5.8 SUMMARY OF FINDINGS". |
