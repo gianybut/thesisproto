@@ -83,6 +83,16 @@ a reviewed box of the right class.
 | B. Correct type | fusion | 37 | 33 | 26 | 174 | 0.781 | 0.529 | 0.587 | 0.556 |
 | B. Correct type | fusion + classifier | 36 | 33 | 27 | 174 | 0.778 | 0.522 | 0.571 | 0.545 |
 
+**Table S2b. All 1,624 validation frames** (270 reviewed + 1,354 annotation-site frames; 310 with damage). Added
+2026-11-15 for manuscript Table 5.1.4 with `python ml/local/system_level_eval.py --val-all`. Validation only; nothing
+is selected on it. JSON `val_all_1624`.
+
+| Measure | Pipeline | TP | FP | FN | TN | Accuracy | Precision | Recall | F1 |
+|---|---|---|---|---|---|---|---|---|---|
+| A. Damage present | fusion (= fusion + classifier) | 165 | 147 | 145 | 1167 | 0.820 | 0.529 | 0.532 | 0.531 |
+| B. Correct type | fusion | 135 | 147 | 175 | 1167 | 0.802 | 0.479 | 0.435 | 0.456 |
+| B. Correct type | fusion + classifier | 129 | 147 | 181 | 1167 | 0.798 | 0.467 | 0.416 | 0.440 |
+
 ## 3. Per class (definition C), test, 270 frames
 
 **Table S3. Deployed fusion at 0.25.**
@@ -232,7 +242,7 @@ Classification of the damage that is found is above 0.80.
 
 ## 8. What still needs a decision or input
 
-1. **Which pipeline the manuscript reports as "the system":**
+1. **Decided 2026-11-15: the fusion + classifier (the deployed pipeline).** The question was which pipeline the manuscript reports as "the system":
    - the fusion as test-evaluated on 2026-11-11, or
    - the fusion + classifier that has been deployed since 2026-11-12 (and that produced the R07 records).
    - Detection measures are identical; only type measures differ (slightly lower with the classifier).

@@ -430,3 +430,190 @@ Not filled (the user also asked to fix all highlighted `[ ]` text): the 64 remai
   - equation numbers updated to 26–28.
 
   Tested on synthetic responses: exclusion by ID, an unknown ID, the old option name, and a CSV without an ID column.
+
+---
+
+## System-level revision (2026-11-15, per adviser consultation)
+
+Decision: `docs/decisions.md` (2026-11-15). The manuscript now reports system-level (frame-level) performance;
+box-level mAP@50 (test 0.173) stays in `results/test_evaluation.md` as evidence and is removed from the manuscript.
+
+- **Edited document:** "OCULUBAK_Manuscript" (Drive title now "OCULUBAK_Manuscript_CLAUDED", last edited by the team on
+  2026-11-14): https://docs.google.com/document/d/1nn5vxNuuDDfNycLGlEwNVaJkqvsrUo4MOAzarpffXuw/edit
+- **Backup made before any edit:** "OCULUBAK_Manuscript — backup before system-level revision (2026-11-15)":
+  https://docs.google.com/document/d/1z_fNYcfeOQyLCzKNbW0gic7rVlo4P3Qbe3pL2UzhXwQ/edit
+- **Source for every number:** `results/system_level_evaluation.md` / `.json` (SL), computed by
+  `ml/local/system_level_eval.py`; box-level figures that remain come from `results/test_evaluation.md` (TE).
+- **Highlights in the document:** light green (#D9EAD3) = changed wording (approved wording in Chapters I, III and IV,
+  results text in V and VI); yellow = `[PENDING: ...]` record-level items, left until the R07 review is scored.
+  Earlier passes used yellow for both; green is new so that the two can be told apart. Changed table cells in Chapter V
+  are not highlighted (their captions are); the changed cells in Tables 3.8.7, 4.1.1, 4.2.2.1 (NFR1), 4.3.1.1 and the
+  4.4.4 table are.
+- **Decisions applied (user, 2026-11-15):** "the system" = the deployed pipeline, the fusion followed by the second-stage
+  classifier (configuration unchanged); type correctness reported with the classifier (23/25 = 92.0%); the classifier
+  alone on the 99 held-out test crops (85.9%, 85/99, per class); the 0.80 statement as instructed; the comparison
+  wording as instructed; limitations: potholes 1 of 17, 63 damage frames, padding mismatch, adoption after the initial
+  evaluation.
+- **Method:** every text change was one find/replace whose find text was checked to occur exactly once, in order, on
+  the full text before sending; after applying, the document text was compared with the simulated result (0 differing
+  lines). Tables were edited by cell position; positions were re-read after every write.
+
+### Text changes (in document order)
+
+| # | Section | Old → new (abridged; full text in the document) | Highlight |
+|---|---|---|---|
+| 1 | 1.2 Purpose and Description | "Both parts are evaluated: detection by mean Average Precision, and classification by the classification accuracy of detected damage" → "Both parts are evaluated at the level at which the system is used: detection by frame-level accuracy, precision, recall, and F1-score (whether the system reports damage i …" | green |
+| 2 | 1.2 Purpose and Description | "A second-stage classification model that re-checks the damage class of each detected box was added after the test evaluation; it is optional and was evaluated on validati …" → "A second-stage classification model that re-checks the damage class of each detected box was added after the first test evaluation; it is part of the deployed system and …" | green |
+| 3 | 1.3 RQ1 | "from uploaded road survey videos, as measured by precision, recall, F1-score, mean Average Precision, and the classification accuracy of detected damage?" → "from uploaded road survey videos, as measured by frame-level accuracy, precision, recall, and F1-score for damage detection, the classification accuracy of detected damag …" | green |
+| 4 | 1.5.2 SO1 | "using precision, recall, F1-score, mean Average Precision at IoU 0.50, and the classification accuracy of detected damage as performance measures, with results reported s …" → "using frame-level accuracy, precision, recall, and F1-score for damage detection, the classification accuracy of detected damage, the correctness of the stored damage rec …" | green |
+| 5 | 3.3.1 training paragraph | "Each run kept the weights of the epoch with the highest mAP@50-95 on its own validation list, which is Ultralytics’ default choice, although the models were compared with …" → "Each run kept the weights of the epoch with the best box-level score on its own validation list, which is Ultralytics’ default choice, and the models were compared with o …" | green |
+| 6 | 3.3.1 input size of S5_v8m_1920 | "but on the reviewed validation frames it scored about the same at 1,280, 1,600, and 1,920 pixels (mAP@50 of 0.200, 0.205, and 0.201)." → "but on the reviewed validation frames it scored about the same at 1,280, 1,600, and 1,920 pixels on that box-level score." | green |
+| 7 | 3.3.1 second-stage classifier | "Because it was added after the single test run, it has no test result, and all test figures in Chapter V describe the class labels of the fusion alone (Section 5.1.7)." → "It is part of the deployed system, so the system-level test results in Chapter V include it; because it was added after the first test evaluation, its own test figure was …" | green |
+| 8 | 3.3.3 intro | "including precision, recall, F1-score, mean Average Precision, and positional error," → "including accuracy, precision, recall, F1-score, classification accuracy, and positional error," | green |
+| 9 | 3.7 Ethical Considerations | "The test evaluation reported in Chapter V uses only the fusion of the researchers’ three fine-tuned four-class models, as deployed on 11 November 2026." → "The test results reported in Chapter V as results of this study are those of the researchers’ deployed system: the fusion of their three fine-tuned four-class models, as …" | green |
+| 10 | 3.7 Ethical Considerations | "and no model of another party is reported as a result of this study. The second-stage classifier added after the test is reported with a validation figure only." → "and no model of another party is reported as a result of this study; pretrained models of other parties appear only as comparisons and are credited to their authors. The …" | green |
+| 11 | 3.8.1 first paragraph | "Detection performance was computed at an IoU threshold of 0.50 on two test subsets. The local test subset, 270 near-zone frames from the three test route groups with 99 b …" → "Detection performance is measured at the level at which the system is used: whether it reports damage in a frame that shows damage, and whether it gives that damage the c …" | green |
+| 12 | 3.8.1 precision definition | "measures the proportion of detections that are correct:" → "measures the proportion of frames reported as damaged that show damage:" | green |
+| 13 | 3.8.1 recall definition | "measures the proportion of actual damage that the model detects:" → "measures the proportion of frames with damage that the system reports:" | green |
+| 14 | 3.8.1 reporting paragraph | "Precision, recall, and F1-score are reported at the deployed threshold of 0.25, with the system’s own settings, overall and for each class. Because the counts are small, …" → "All four measures are reported at the deployed threshold of 0.25, with the system’s own settings, overall and for each class. Because the counts are small, 95 percent Wil …" | green |
+| 15 | 3.8.1 AP paragraph -> accuracy | "(AP) for one class is the area under its precision-recall curve over all confidence levels, computed by Ultralytics with 101-point interpolation, and the mean Average Pre …" → "is the proportion of all frames that the system judges correctly, with or without damage:" | green |
+| 16 | 3.8.1 AP paragraph -> accuracy (term) | "Average Precision is the proportion of all frames" → "Accuracy is the proportion of all frames" | green |
+| 17 | 3.8.1 where-list | "pc(r) = precision of class c as a function of recall r" → "TP, FP, FN, TN = numbers of frames counted as defined above; N = TP + FP + FN + TN = 270" | green |
+| 18 | 3.8.1 where-list (baseline note) | "C = number of damage classes (4)" → "Because 207 of the 270 test frames show no damage, a system that never reported damage would reach an accuracy of 0.767, so accuracy is always read together with precisio …" | green |
+| 19 | 3.8.1 classification accuracy | "It measures the class decision only for damage that was found, so it is always reported together with recall and the number of matched detections." → "It is computed for the deployed system, whose damage types are set by the second-stage classifier, and for the fusion without it. It measures the class decision only for …" | green |
+| 20 | 3.8.1 Wilson z | "z = 1.96, used for overall precision, overall recall, and classification accuracy" → "z = 1.96, used for accuracy, precision, recall, and classification accuracy" | green |
+| 21 | 3.8.1 model selection | "Within each training run, Ultralytics kept the weights of the epoch with the highest mAP@50-95, while the runs and fusions were compared on mAP@50. The metrics in this se …" → "Within each training run, Ultralytics kept the weights of the epoch with the best box-level score, its default. The box-level metrics first planned for this study were wr …" | green |
+| 22 | 3.8.1 model selection (system-level added later) | "and the deployed fusion was then evaluated on the local test subset once, starting at 17:09 the same day. The test subset was not used for training, model selection, or t …" → "and the deployed fusion was then evaluated on the local test subset once, starting at 17:09 the same day. The system-level measures in this section were adopted afterward …" | green |
+| 23 | 3.8.1 second-stage classifier | " The classifier described in Section 3.3.1 is scored by its top-1 accuracy, the share of validation crops whose predicted class is the same as the labeled class, on the c …" → " The classifier described in Section 3.3.1 is also scored alone by its top-1 accuracy, the share of crops whose predicted class is the same as the labeled class, with a W …" | green |
+| 24 | 3.8.1 acceptance criterion | "As required by the panel, the model must reach an mAP@50 of at least 0.80 overall and an AP@50 of at least 0.80 for each of the four damage classes on the local test subs …" → "As required by the panel, the system must reach a performance of at least 0.80 in accuracy, precision, recall, or F1-score on the local test subset, which represents the …" | green |
+| 25 | 3.8.7 software tools table | "Model training, and computation of precision, recall, AP, mAP@50, and mAP@50-95 per class and per test subset" → "Model training and inference, and computation of box-level precision and recall per test subset" | green |
+| 26 | 4.1.1 Table 4.1.1 (RQ1 measure) | "Precision, recall, F1-score, and mAP@50 per class, and the classification accuracy of detected damage, on the local test subset (primary) and the foreign test subset (sec …" → "Frame-level accuracy, precision, recall, and F1-score for damage detection, overall and per class; the classification accuracy of detected damage; the correctness of the …" | green |
+| 27 | 4.1.5 detection bullet | "Detection performance was computed at an IoU threshold of 0.50 with Ultralytics and the system’s own fusion code, per class, on the local test subset (the deployed fusion …" → "Detection performance was computed at the frame level on the 270 local test frames with the deployed system (the fusion with the second-stage classifier) at its threshold …" | green |
+| 28 | 4.1.5 classifier bullet | "The second-stage classifier was scored by its top-1 accuracy on the crops of the 122 reviewed validation boxes, with a Wilson interval; it has no test result." → "The second-stage classifier was scored alone by its top-1 accuracy, with a Wilson interval and per-class precision and recall, on the crops of the 122 reviewed validation …" | green |
+| 29 | 4.1.6 validity | "The metrics were written down before the test was run, and the local test subset was evaluated once. The second-stage classifier was added after this test and is reported …" → "The box-level metrics were written down before the test was run, and the local test subset was evaluated once with them; the system-level measures reported in Chapter V w …" | green |
+| 30 | 4.2.2 NFR1 | "The fine-tuned model shall reach an mAP@50 of at least 0.80 overall and an AP@50 of at least 0.80 for each of the four damage classes on the local test subset (Section 3. …" → "The system shall reach a performance of at least 0.80 in accuracy, precision, recall, or F1-score on the local test subset, for the detection and the classification of th …" | green |
+| 31 | 4.2.5 model testing | "The deployed fusion was then evaluated once on the local test subset on 11 November 2026, with metrics fixed beforehand, and each model alone on the foreign test subset ( …" → "The deployed fusion was then evaluated once on the local test subset on 11 November 2026, with box-level metrics fixed beforehand, and each model alone on the foreign tes …" | green |
+| 32 | 4.3.1 software specifications table | "including precision, recall, AP, and mAP@50 per class, and training of the second-stage YOLOv8n classification model;" → "including box-level precision and recall, and training of the second-stage YOLOv8n classification model;" | green |
+| 33 | 4.4.4 Detection performance row (what it shows) | "How well the deployed models find and classify each of the four damage classes" → "How well the deployed system finds and classifies each of the four damage classes" | green |
+| 34 | 4.4.4 Detection performance row (basis) | "Precision, recall, F1-score, and mAP@50 at IoU 0.50 on the local test subset (primary) and the foreign test subset (secondary), and the classification accuracy of detecte …" → "Frame-level accuracy, precision, recall, and F1-score for damage detection, overall and per class, and the classification accuracy of detected damage, on the local test s …" | green |
+| 35 | 4.4.4 paragraph | "The F1-score combines the two, and mAP@50 summarizes performance across all confidence levels and all four classes." → "The F1-score combines the two, and accuracy counts every frame judged correctly, with or without damage; because most road frames show no damage, accuracy is read togethe …" | green |
+| 36 | Chapter V intro | "the detection and classification performance of the deployed fusion of three fine-tuned YOLOv8 models," → "the detection and classification performance of the deployed system, a fusion of three fine-tuned YOLOv8 models with a second-stage classifier," | green |
+| 37 | 5.1 intro | "A second-stage classifier added after the test evaluation is reported separately in Section 5.1.7; the test results below describe the class labels of the fusion alone." → "The deployed system then passes each detected box to a second-stage classifier that sets its damage type (Section 3.3.1). The test results below are those of the deployed …" | green |
+| 38 | 5.1.1 first paragraph | "Table 5.1.2 presents the per-class results at an IoU threshold of 0.50: AP@50 over all confidence levels, and precision, recall, and F1-score at the deployed threshold of …" → "Table 5.1.2 presents the frame-level results of the deployed system at its threshold of 0.25 on the 270 test frames, 63 of which show damage: whether it reported damage i …" | green |
+| 39 | Table 5.1.2 caption | "Table 5.1.2 Per-Class Detection Results on the Local Test Subset" → "Table 5.1.2 Frame-Level Detection Results on the Local Test Subset (270 Frames, Threshold 0.25)" | green |
+| 40 | 5.1.1 mAP paragraph | "The deployed fusion reached an overall mAP@50 of 0.173 on the local test subset (mAP@50-95 of 0.057), far below the acceptance level of 0.80 set in NFR1 (Section 3.8.1); …" → "The deployed system reported damage in 58 of the 270 test frames: 34 of the 63 frames with damage and 24 of the 207 frames without, for a frame-level accuracy of 0.804 (9 …" | green |
+| 41 | 5.1.1 precision/recall paragraph | "At the deployed threshold of 0.25, precision was 0.31 (95% CI 21.6% to 41.7%) and recall 0.24 (95% CI 16.9% to 33.5%), for an F1-score of 0.27: of the 78 detections, 24 m …" → "When the damage type must also be correct, the deployed system found 23 of the 63 frames with damage, for an accuracy of 0.763, precision of 0.489, recall of 0.365, and a …" | green |
+| 42 | 5.1.1 classification paragraph | "Among the 25 detections that matched a reviewed damage at an IoU of at least 0.50, regardless of class, 24 were given the correct damage type, a classification accuracy o …" → "Among the 25 detections of the deployed system that matched a reviewed damage at an IoU of at least 0.50, regardless of class, 23 were given the correct damage type, a cl …" | green |
+| 43 | 5.1.1 per-class paragraph (before Table 5.1.3) | "The per-class results rest on few boxes, from 8 transverse cracks to 36 longitudinal cracks, so differences between classes are uncertain. Longitudinal cracks, the most c …" → "Table 5.1.3 presents the frame-level results for each damage class, with a frame counted as positive for a class when it holds a reviewed box of that class, and as correc …" | green |
+| 44 | Table 5.1.3 caption | "Table 5.1.3 mAP of the Deployed Fusion and of Each Model Alone on the Local Test Subset" → "Table 5.1.3 Frame-Level Results per Damage Class on the Local Test Subset, Deployed System, Threshold 0.25" | green |
+| 45 | 5.1.1 paragraph after Table 5.1.3 | "On the same test frames, each model alone reached a lower mAP@50 than the fusion (0.146 for v2b, 0.160 for v3, and 0.141 for S5_v8m_1920), so combining the three models i …" → "The per-class accuracies of 0.896 to 0.944 meet the acceptance level, but they come almost entirely from the many frames without that class: each class appears in only 5 …" | green |
+| 46 | 5.1.2 first paragraph | "Table 5.1.4 shows the deployed fusion on these frames and on all 1,624 validation frames." → "Table 5.1.4 shows the deployed system on these frames and on all 1,624 validation frames, at the frame level and, for the fusion, at the box level." | green |
+| 47 | Table 5.1.4 caption | "Table 5.1.4 Validation Results of the Deployed Fusion" → "Table 5.1.4 Validation Results of the Deployed System" | green |
+| 48 | 5.1.2 paragraph after Table 5.1.4 | "The reviewed validation figure of 0.275 is the selection figure: the models, the fusion, and the threshold were all picked by looking at these frames, so it is optimistic …" → "The reviewed validation figures are selection figures: the models, the fusion, and the threshold were all picked by looking at these frames, so they are optimistic, and t …" | green |
+| 49 | 5.1.3 heading | "5.1.3 Detection Performance on the Foreign Test Subset" → "5.1.3 Comparison with Pretrained Models and Foreign Test Results" | green |
+| 50 | 5.1.3 first paragraph | "Table 5.1.5 presents the results on the foreign test subset, 3,277 images from six RDD2022 countries. Each model was evaluated alone at its deployed input size; the fusio …" → "Table 5.1.5 compares the deployed system with four models that were not fine-tuned on local roads, on the same 270 test frames and with the same frame-level measures (Sec …" | green |
+| 51 | Table 5.1.5 caption | "Table 5.1.5 Per-Class AP@50 of Each Model on the Foreign Test Subset" → "Table 5.1.5 Frame-Level Comparison with Pretrained Models on the Local Test Subset (270 Frames)" | green |
+| 52 | 5.1.3 paragraph after table (foreign mAP -> comparison) | "On the foreign test subset, the models reached an mAP@50 of 0.200 (v2b), 0.239 (v3), and 0.318 (S5_v8m_1920). The v2b figure is not a held-out result: v2b starts from an …" → "The deployed system is comparable to the best public RDD2022 checkpoints (overlapping confidence intervals) and better than the RDD2022-only model and the stand-in model …" | green |
+| 53 | 5.1.3 paragraph (teacher / stand-in mAP -> foreign box-level) | "The opposite gap, between foreign and local roads, motivated the local labels. The RDD2022-only teacher model, a YOLOv8m trained on 5,750 RDD2022 images and never deploye …" → "On the foreign test subset, 3,277 images from six RDD2022 countries, each of the three fused models was evaluated alone at its deployed input size with Ultralytics; the f …" | green |
+| 54 | 5.1.4 text | "The local errors are therefore mostly missed damage and false alarms, not wrong types." → "With the second-stage classifier, as deployed, 2 of the 4 transverse cracks were labeled potholes and every other type was unchanged (Section 5.1.1). The local errors are …" | green |
+| 55 | 5.1.5 text | "In each run, the kept weights are those of the epoch with the highest mAP@50-95." → "In each run, the kept weights are those of the epoch with the best box-level validation score, Ultralytics’ default." | green |
+| 56 | 5.1.7 first paragraph | "After the test evaluation, a second-stage classifier was added" → "After the first test evaluation, a second-stage classifier was added" | green |
+| 57 | 5.1.7 first paragraph (table intro) | "Table 5.1.7 presents its training settings and its result on the validation crops." → "Table 5.1.7 presents its training settings and its results on the validation and test crops." | green |
+| 58 | Table 5.1.7 caption | "Table 5.1.7 Training Settings and Validation Result of the Second-Stage Classifier" → "Table 5.1.7 Training Settings and Results of the Second-Stage Classifier" | green |
+| 59 | 5.1.7 second paragraph | "A comparison of the two on the same matched validation detections was not run, so it is not known whether the classifier labels the detections of the fusion better than t …" → "On the 99 crops of the local test subset, which the classifier never saw in training or selection, it gave the correct class to 85, a top-1 accuracy of 85.9% (95% CI 77.7 …" | green |
+| 60 | 5.1.7 third paragraph | "The classifier has no test result. It was trained after the single test run of 11 November 2026, and no metrics were fixed for it beforehand, so evaluating it on the test …" → "The classifier was trained after the single box-level test run of 11 November 2026, and no metrics were fixed for it beforehand. Its test figure was computed on 15 Novemb …" | green |
+| 61 | 5.1.7 fourth paragraph | "The classifier is enabled in the current settings of the system. When it is enabled, it replaces the damage type of every record with its own prediction, while the number …" → "The classifier is part of the deployed system. It replaces the damage type of every record with its own prediction, while the number of records and their boxes, times, po …" | green |
+| 62 | 5.1.8 item 1 | "Small evaluation sets. The reviewed validation frames hold 122 boxes and the test frames 99, with only 8 transverse cracks and 21 potholes in the test set. Differences of …" → "Small evaluation sets. Only 63 of the 270 test frames show damage, and only 5 of them hold a transverse crack and 17 a pothole. The frame-level intervals are about ±12 pe …" | green |
+| 63 | 5.1.8 item 2 | "The reviewed validation figure of 0.275 is a selection figure," → "The reviewed validation figures are selection figures," | green |
+| 64 | 5.1.8 item 3 | "Selection of the kept weights. Each training run kept the epoch with the highest mAP@50-95, Ultralytics’ default, while the models were compared on mAP@50." → "Selection of the kept weights. Each training run kept its epoch by Ultralytics’ default box-level score, while the system is judged at the frame level." | green |
+| 65 | 5.1.8 item 7 | "Validation does not predict per-class test results: potholes fell from 0.376 AP@50 on validation to 0.035 on test, and alligator cracks rose from 0.027 to 0.152." → "Validation does not predict per-class test results: the frame-level F1-score of potholes fell from 0.517 on the reviewed validation frames to 0.071 on test, and that of a …" | green |
+| 66 | 5.1.8 item 9 (+ new items 10-11) | "The second-stage classifier has no test result. It was added after the single test run, its 82.0% accuracy is a selection figure on validation crops, and the test figures …" → "The second-stage classifier was evaluated on the test crops only after the change to system-level measures, and that figure was not fixed in advance. It is trained on cro …" | green |
+| 67 | 5.1.6 (pending review of flagged records) | "whether those flags are correct was not reviewed within the study period." → "whether those flags are correct was not reviewed within the study period. [PENDING: review of the 36 flagged records]" | yellow (pending) |
+| 68 | 5.3 (pending record-level review) | "Table 5.3.1 presents the results." → "Table 5.3.1 presents the results. [PENDING: manual review of the 50 sampled R07 records: record precision (real damage), type correctness, location correctness, and dupli …" | yellow (pending) |
+| 69 | 5.7 item 1 (RQ1) | "On the local test subset, the deployed fusion of three YOLOv8 models reached an mAP@50 of 0.173, with per-class AP@50 from 0.035 for potholes (D40) to 0.381 for longitudi …" → "On the 270 frames of the local test subset, 63 of which show damage, the deployed system, the fusion of three YOLOv8 models with the second-stage classifier, reached a fr …" | green |
+| 70 | 5.7 item 2 (pending) | "The correctness of the damage type was not measured, because the manual review was not completed within the study period." → "The correctness of the damage type was not measured, because the manual review was not completed within the study period. [PENDING: R07 record review]" | yellow (pending) |
+| 71 | 6.1 objective 1 | "On the held-out local test subset, the deployed fusion reached an mAP@50 of 0.173, with precision of 0.31, recall of 0.24, and an F1-score of 0.27 at its threshold, and 9 …" → "On the held-out local test subset of 270 frames, 63 of them with damage, the deployed system reported damage with a frame-level accuracy of 0.804, precision of 0.586, rec …" | green |
+| 72 | 6.1 objective 2 (pending) | "Whether the damage type of each record is correct was not measured, because the manual review was not completed, so no conclusion on the damage type or on the duplicate r …" → "Whether the damage type of each record is correct was not measured, because the manual review was not completed, so no conclusion on the damage type or on the duplicate r …" | yellow (pending) |
+| 73 | 6.1 overall paragraph | "but the measured detection results are well below the level set for the system, while its intended users" → "but its detection precision, recall, and F1-score are below the level set for the system, although the damage it finds is classified above that level, while its intended …" | green |
+| 74 | 6.2 model comparison recommendation | "and compared with the class labels of the fusion on the same detections, since its present result is a validation figure only." → "since its test figure was computed after the fact, and it should be trained on crops cut in the same way as the boxes it receives in the system, since on the present test …" | green |
+| 75 | 4.1.5 Haversine reference | "the Haversine formula (Equation 25)" → "the Haversine formula (Equation 24)" | green |
+| 76 | 4.1.5 damage log reference | "for time and location (Equation 24)" → "for time and location (Equation 23)" | green |
+| 77 | 4.1.5 t-test reference | "at the 0.05 level (Equations 26 to 28)" → "at the 0.05 level (Equations 25 to 27)" | green |
+| 78 | 4.4.5 weighted mean reference | "will be computed with Equation 26." → "will be computed with Equation 25." | green |
+
+### Tables, equations and formatting
+
+| Place | Change | Source |
+|---|---|---|
+| Table 5.1.2 | Was per-class P / R / F1 / AP@50 of the fusion. Now frame-level results, 6 × 5: damage present (deployed system); correct type (deployed system); correct type (fusion without the classifier); reference "reports no damage" (accuracy 0.767); damage present on the reviewed validation frames (selection set). Accuracy, precision, recall and F1 with 95% CIs (Wilson; F1 bootstrap). Last row un-bolded (it had kept the bold of the old "All classes" row). | SL §2; JSON `fusion_cls.test`, `fusion.test`, `fusion_cls.val` |
+| Table 5.1.3 | Was mAP / mAP@50-95 / AP@50 per class for the fusion and each model alone. Now frame-level results per class for the deployed system: frames with the class, TP / FP / FN / TN, accuracy, precision, recall, F1 with CIs. | SL §3 Table S4; JSON `fusion_cls.test.per_class_typed` |
+| Table 5.1.4 | The two mAP columns replaced by frame-level F1 (damage present; correct type) of the deployed system; the box-level P / R / F1 columns of the fusion kept and relabelled "Box-level … (fusion)". The all-validation frame-level figures (0.531, 0.440) were newly computed on the 1,624 val frames (`system_level_eval.py --val-all`); validation only, nothing selected. | SL JSON `fusion_cls.val`, `val_all_1624`; TE Table 5.B |
+| Table 5.1.5 | Old foreign per-class AP@50 table deleted. New 7 × 7 frame-level comparison: deployed system, fusion without the classifier, teacher, SA YOLOv8s, SA YOLOv12s, stand-in; threshold, accuracy / precision / recall / F1 (CI) for damage present, and F1 for the correct type. | SL §5 |
+| Table 5.1.7 | Last row "Result on the local test subset: None; not evaluated on test" → "Top-1 accuracy on the 99 held-out test crops: 85.9% (85 of 99; 95% CI 77.7% to 91.4%)". | SL §4 |
+| Table 5.1.8 (new) | Caption and 6 × 6 table after Table 5.1.7: reviewed class × predicted class of the classifier on the 99 test crops, per-class recall and precision with CIs, top-1 accuracy. | SL §4 |
+| 3.8.1 equations | The AP equation (20) replaced by the typed equation `Accuracy = (TP + TN) / (TP + FP + FN + TN)` (20) in Cambria Math; the mAP equation (21) deleted; its "where" lines replaced (TP / FP / FN / TN definition; the 0.767 baseline note). | — |
+| Equation numbers | (22)→(21) classification accuracy, (23)→(22) Wilson, (24)→(23) correctness rate, (25)→(24) Haversine, (26)→(25), (27)→(26), (28)→(27) UAT, (29)→(28) frequency and percentage. References updated: 3.8.1 "(Equation 22)"; 4.1.5 "Equations 17 to 22", "(Equation 24)" Haversine, "(Equation 23)" damage log, "(Equations 25 to 27)"; 4.4.5 "Equation 25". Equations 1-19 unchanged. | — |
+| 3.8.1 bold | "Comparison with pretrained models." set bold as a run-in heading; only "Accuracy " bold in the paragraph that replaced the "Average Precision" run-in. | — |
+
+### Every place mAP@50, mAP@50-95 or AP@50 was removed
+
+- **Chapter I:** 1.2 (detection evaluated by mean Average Precision); 1.3 RQ1; 1.5.2 SO1.
+- **Chapter III:** 3.3.1 (kept epoch on mAP@50-95, compared on mAP@50; S5_v8m_1920 at 0.200 / 0.205 / 0.201); 3.3.3
+  intro; 3.8.1 (AP and mAP definitions, equations 20-21 and their "where" lines, model-selection sentence, acceptance
+  criterion); Table 3.8.7 (Ultralytics row).
+- **Chapter IV:** Table 4.1.1 (RQ1 measure); NFR1 in Table 4.2.2.1; Table 4.3.1.1 (Ultralytics row); the 4.4.4 table
+  (detection basis and acceptance) and the paragraph under it.
+- **Chapter V:** 5.1.1 (text and Tables 5.1.2, 5.1.3, including the "0.173 (mAP@50)" cell); 5.1.2 (Table 5.1.4 columns
+  and the 0.275 / 0.161 / 0.173 paragraph); 5.1.3 (Table 5.1.5, the foreign mAP paragraph, the model-card sentence,
+  teacher 0.472 / 0.090, stand-in 0.155, fusion 0.275); 5.1.5 (kept epoch on mAP@50-95); 5.1.8 items 1, 2, 3 and 7;
+  5.7 item 1.
+- **Chapter VI:** 6.1 objective 1.
+- **Table of contents:** no entry mentions mAP, but the heading "5.1.3 Detection Performance on the Foreign Test Subset"
+  was renamed "5.1.3 Comparison with Pretrained Models and Foreign Test Results", so the TOC must be refreshed by hand
+  (the API cannot do it).
+- **Abstract:** the document has **no abstract** (nothing between the title page and Chapter I), so none was edited or
+  written. If one should be added, it would be written only from SL.
+- **Figure captions:** none mentioned mAP. **Figure 5.1.3** (training curves, `results.png`, image still to be inserted)
+  plots Ultralytics' mAP50 and mAP50-95 panels; replace the image or crop those panels if mAP must not appear in figures.
+
+### Chapter II literature that cites mAP (not changed; for the team's decision)
+
+| # | Place | Text |
+|---|---|---|
+| L1 | 2.1, Khare et al. (2023) | "their YOLOv8 nano model reached an mAP@0.5 of 0.91 at 8.8 ms per image" |
+| L2 | 2.1, Zeng & Zhong (2024) | "which raised mAP by 1.4 percentage points on RDD2022" |
+| L3 | 2.1, Zhang et al. (2025) | "reported increases of 1.8% in mAP@0.5 and 1.6% in F1-score on the China subset of RDD2022" |
+| L4 | 2.1, RDD2022 model cards | "these models report an mAP@50 of about 0.60 to 0.63: 0.5995 for a YOLOv8s model …" |
+| L5 | 2.2, Sarmiento (2021) | "YOLOv4 reached an mAP of only 0.272" |
+| L6 | 2.2, local study (three universities) | "achieved an average precision of 95.43%" |
+| L7 | 2.2, Fortin et al. (2024) | "Its YOLOv5m model reached an mAP of 91.8%" |
+| L8 | Table 2.3.1, Khare et al. | "YOLOv8 nano reached an mAP@0.5 of 0.91 …" |
+| L9 | Table 2.3.1, Zeng & Zhong | "Raised mAP by 1.4 percentage points on RDD2022 …" |
+| L10 | Table 2.3.1, Zhang et al. | "Increased mAP@0.5 by 1.8% and F1-score by 1.6% on RDD2022-China" |
+| L11 | Table 2.3.1, Sarmiento | "YOLOv4 reached an mAP of 0.272 on 305 DPWH images …" |
+| L12 | Table 2.3.1, Fortin et al. | "YOLOv5m reached an mAP of 91.8% …" |
+| L13 | Table 2.3.1, local study (three universities) | "Achieved 95.43% average precision …" |
+
+The Chapter V sentence that compared with the model cards (5.1.3, "Published RDD2022 model cards report about 0.60 to
+0.63 mAP@50 … (Section 2.1)") was removed with the foreign-mAP paragraph; if L4 is removed from 2.1, nothing else
+refers to it.
+
+### Points to check
+
+1. **"Better than the RDD2022-only model."** True for damage present (F1 0.562 vs 0.462; CIs overlap). For the correct
+   type the teacher is slightly higher (0.448 vs 0.418). The text uses the instructed sentence, scoped "in detecting
+   damage", and states the teacher's type F1 next to it (5.1.3).
+2. **An earlier statement in 5.1.7 was removed as inaccurate.** It said a test-crop figure "was not saved" and that "the
+   test crops have since been removed from the scripts". In the repository a test-crop validation was saved on
+   2026-11-12 (`runs/classify/road_damage_test/`, confusion matrices), and `ml/build_classifier_dataset.py` still builds
+   the test crops. The new text says that a test-crop result was produced once on 12 November and that the classifier
+   was not chosen or changed on it.
+3. **Foreign test subset.** Its only per-class results were AP@50; 5.1.3 now gives each model's box-level precision and
+   recall at Ultralytics' validation settings (TE Table 5.F). SO1 no longer says "reported separately for the foreign
+   and local test subsets", following the instructed SO1 wording.
+4. **Figure 5.1.1** (matched pairs, image) shows the fusion without the classifier; 5.1.4 now adds that, with the
+   classifier, 2 of the 4 transverse cracks are labelled potholes.
+5. **Record-level subsections** (5.1.6 flagged records, 5.3, 5.7 item 2, 6.1 objective 2) carry yellow `[PENDING]`
+   markers; the existing automatic time and location results in 5.3 are unchanged. To be scored after the R07 review.
+6. **Not changed:** the high-confidence operating point (box-level precision ≥ 0.80, 3.8.1 and 5.1.1), the UAT results
+   (4.62, hypothesis supported), and everything not listed above.

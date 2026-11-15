@@ -261,10 +261,32 @@ def cached(name, fn):
     return d
 
 
+def val_all(device):
+    """The deployed system on all 1,624 val frames (val.txt: 270 reviewed + 1,354 annotation-site frames), for
+    Table 5.1.4 next to the box-level figures of results/test_evaluation.md. Val only; nothing is selected on it."""
+    val = cal.frames_of('val', ydir=YDIR, list_name='val.txt')
+    fus = cached('fusion_valall', lambda: deployed_fused(val, device)[0])
+    cls = cached('fusion_cls_valall', lambda: classify(val, fus, device, DEPLOYED_THR))
+    out = {'n': len(val), 'pos': sum(1 for _, g in val if g),
+           'fusion': full(val, fus, DEPLOYED_THR), 'fusion_cls': full(val, cls, DEPLOYED_THR)}
+    p = ROOT / 'results' / 'system_level_evaluation.json'
+    d = json.loads(p.read_text())
+    d['val_all_1624'] = out
+    p.write_text(json.dumps(d, indent=1))
+    for k in ('fusion', 'fusion_cls'):
+        for m in ('present', 'typed'):
+            r = out[k][m]
+            print(k, m, r['tp'], r['fp'], r['fn'], r['tn'], *(round(r[x], 3) for x in ('acc', 'p', 'r', 'f1')))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--device', default='0')
+    ap.add_argument('--val-all', action='store_true',
+                    help='only add the deployed system on all 1,624 val frames (val.txt) to the JSON')
     a = ap.parse_args()
+    if a.val_all:
+        return val_all(a.device)
     test = cal.frames_of('test', ydir=YDIR, list_name='test.txt')
     val = cal.frames_of('val', ydir=YDIR, list_name='val_reviewed.txt')
     res = {'n_test': len(test), 'test_pos': sum(1 for _, g in test if g), 'n_val': len(val),
