@@ -72,3 +72,6 @@ ml/models/pretrained/
 
 # docx package for tools/make_validation_letter.js
 tools/node_modules/
+
+# damage log review page (tools/review_damage_log)
+results/damage_log_check/review_server.log

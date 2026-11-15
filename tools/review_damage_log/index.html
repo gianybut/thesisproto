@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Damage log review</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --page: #F6F8FB; --surface: #FFFFFF; --ink: #1A2433; --muted: #5B6778; --border: #E2E8F0;
+  --primary: #3B6FA8; --primary-soft: #E8F0F8; --success: #1F7A55; --success-soft: #E6F4EE;
+  --error: #B42318; --error-soft: #FDECEA; --warning: #B45309; --warning-soft: #FDF1E3;
+  --d00: #0E9384; --d10: #D97706; --d20: #7C5CC4; --d40: #D64545;
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08); --r: 8px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+.num { font-variant-numeric: tabular-nums; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 1000; }
+header h1 { font-size: 16px; margin: 0; font-weight: 700; }
+.tabs button { border: 1px solid var(--border); background: var(--surface); padding: 6px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+.tabs button.on { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.prog { flex: 1; min-width: 220px; }
+.bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--success); }
+.save { font-size: 13px; color: var(--muted); }
+.save.err { color: var(--error); font-weight: 600; }
+select, input[type=text] { font: inherit; padding: 4px 6px; border: 1px solid #C5CED9; border-radius: 6px; }
+.strip { display: flex; flex-wrap: wrap; gap: 3px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.strip button { width: 26px; height: 22px; font-size: 11px; border: 1px solid var(--border); background: var(--surface); border-radius: 4px; cursor: pointer; padding: 0; }
+.strip button.part { background: var(--warning-soft); border-color: #F3C78F; }
+.strip button.done { background: var(--success-soft); border-color: #9FD3BB; color: var(--success); }
+.strip button.cur { outline: 2px solid var(--primary); outline-offset: 1px; font-weight: 700; }
+main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(340px, 1fr); gap: 16px; padding: 16px; }
+.card { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 12px; }
+.card h2 { font-size: 14px; margin: 0 0 8px; }
+.stack { display: grid; gap: 16px; align-content: start; }
+canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: #0b0f14; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+#map { height: 300px; border-radius: 6px; }
+video { width: 100%; border-radius: 6px; background: #000; display: block; }
+.vbar { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+button.s { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid #C5CED9; background: var(--surface); border-radius: 6px; cursor: pointer; }
+button.s:hover { background: var(--primary-soft); }
+.meta { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; }
+.meta dt { color: var(--muted); }
+.meta dd { margin: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.q { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 8px; border-radius: 6px; border: 2px solid transparent; }
+.q + .q { margin-top: 4px; }
+.q.focus { border-color: var(--primary); background: var(--primary-soft); }
+.q.off { opacity: .4; }
+.q kbd { font: 700 12px/1 ui-monospace, Consolas, monospace; border: 1px solid #C5CED9; border-bottom-width: 2px; border-radius: 4px; padding: 3px 0; text-align: center; background: #fff; }
+.q .lab { font-weight: 600; }
+.q .hint { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.ans { display: flex; gap: 4px; }
+.ans button { font: inherit; font-size: 13px; min-width: 44px; padding: 3px 8px; border: 1px solid #C5CED9; background: #fff; border-radius: 6px; cursor: pointer; }
+.ans button.yes.on { background: var(--success); border-color: var(--success); color: #fff; }
+.ans button.no.on { background: var(--error); border-color: var(--error); color: #fff; }
+.ans button.unsure.on { background: var(--muted); border-color: var(--muted); color: #fff; }
+.ans button.sug { border-style: dashed; border-width: 2px; }
+.ans button.yes.sug { border-color: var(--success); color: var(--success); }
+.ans button.no.sug { border-color: var(--error); color: var(--error); }
+.auto { font-size: 12px; color: var(--muted); margin: 2px 0 0 34px; }
+.cands { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 0 34px; }
+.cand { width: 120px; font-size: 11px; cursor: pointer; border: 2px solid transparent; border-radius: 6px; padding: 2px; }
+.cand.sel { border-color: var(--primary); }
+.cand canvas { height: 72px; object-fit: cover; }
+.keys { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.keys kbd { font: 11px ui-monospace, Consolas, monospace; border: 1px solid #C5CED9; border-radius: 3px; padding: 0 4px; background: #fff; }
+.done-msg { margin-top: 8px; padding: 8px; border-radius: 6px; background: var(--success-soft); color: var(--success); font-weight: 600; display: none; }
+.note { font-size: 12px; color: var(--muted); }
+textarea { width: 100%; font: inherit; font-size: 13px; border: 1px solid #C5CED9; border-radius: 6px; padding: 6px; min-height: 40px; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Damage log review · R07</h1>
+  <div class="tabs"><button id="tab-sample">50 sampled records</button> <button id="tab-flagged">36 flagged records</button></div>
+  <div class="prog"><div class="num" id="progtxt"></div><div class="bar"><i id="progbar"></i></div></div>
+  <label>Reviewer <select id="reviewer"></select></label>
+  <span class="save" id="save">Ready</span>
+</header>
+<div class="strip" id="strip"></div>
+<main>
+  <div class="stack">
+    <div class="card">
+      <h2 id="snaptitle">Snapshot</h2>
+      <canvas id="snap" width="1920" height="1080"></canvas>
+    </div>
+    <div class="two">
+      <div class="card"><h2>Map: record and survey route</h2><div id="map"></div>
+        <div class="note">Dark line: the GPS route of the survey. Coloured dot: this record. Grey dots: possible duplicates.</div></div>
+      <div class="card"><h2>Video at the record's time</h2>
+        <video id="video" controls muted preload="auto"></video>
+        <div class="vbar">
+          <button class="s" id="v-jump">Back to the record (J)</button>
+          <button class="s" id="v-pre">Play from 3 s before (P)</button>
+          <button class="s" id="v-src">Show the analysed video</button>
+          <span class="note num" id="v-time"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <h2>Close-up</h2>
+      <canvas id="close" width="640" height="360"></canvas>
+    </div>
+    <div class="card">
+      <dl class="meta" id="meta"></dl>
+    </div>
+    <div class="card">
+      <h2 id="qtitle">Your answers</h2>
+      <div id="qs"></div>
+      <div class="done-msg" id="donemsg">All answered for this record. Press → for the next one.</div>
+      <div style="margin-top:10px"><label class="note" for="notes">Notes (optional, saved when you leave the box)</label>
+        <textarea id="notes"></textarea></div>
+      <div class="keys" id="keys"></div>
+    </div>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = { D00: '#0E9384', D10: '#D97706', D20: '#7C5CC4', D40: '#D64545' };
+const SAMPLE_Q = [
+  { f: 'real_damage', k: 'R', lab: 'Real road damage?', hint: 'The box shows a crack or a pothole of any of the four kinds.' },
+  { f: 'type_correct', k: 'T', lab: 'Type correct?', hint: 'Only for real damage: the kind named is the right one.' },
+  { f: 'time_correct', k: 'M', lab: 'Time correct?', hint: 'The video at this time shows this damage.' },
+  { f: 'location_correct', k: 'L', lab: 'Location correct?', hint: 'The point is where this damage is on the road (phone GPS: a few metres off is still yes).' },
+  { f: 'duplicate', k: 'D', lab: 'Duplicate?', hint: 'The same damage is already an earlier record. Mark the later record of a pair.' },
+];
+const FLAG_Q = [SAMPLE_Q[0]];
+let D, batch = 'sample', idx = 0, focus = 'real_damage', map, layers = [], showAnnotated = false;
+const imgs = {};
+
+function img(name) {
+  if (!imgs[name]) { imgs[name] = new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = '/snap/' + name; }); }
+  return imgs[name];
+}
+const rows = () => D.rows[batch];
+const row = () => rows()[idx];
+const rec = r => D.records[String((r || row()).record_id)];
+const qs = () => batch === 'sample' ? SAMPLE_Q : FLAG_Q;
+const applicable = (r, f) => f !== 'type_correct' || r.real_damage === 'yes';
+function complete(r, b = batch) {
+  if (!r.real_damage) return false;
+  if (b === 'flagged') return true;
+  return (r.real_damage !== 'yes' || r.type_correct) && r.time_correct && r.location_correct && r.duplicate;
+}
+const started = r => (batch === 'sample' ? SAMPLE_Q : FLAG_Q).some(q => r[q.f]);
+const name = code => `${D.names[code] || code} (${code})`;
+const mmss = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+
+async function init() {
+  D = await (await fetch('/api/data')).json();
+  $('reviewer').innerHTML = D.reviewers.map(n => `<option>${n}</option>`).join('');
+  map = L.map('map');
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  L.polyline(D.route, { color: '#1A2433', weight: 4, opacity: .85 }).addTo(map);
+  $('tab-sample').onclick = () => setBatch('sample');
+  $('tab-flagged').onclick = () => setBatch('flagged');
+  $('v-jump').onclick = jump; $('v-pre').onclick = preroll; $('v-src').onclick = toggleSrc;
+  $('notes').addEventListener('change', e => send({ notes: e.target.value }));
+  $('video').src = '/video/original';
+  $('video').addEventListener('error', () => {
+    if (showAnnotated) return;
+    $('v-time').textContent = 'This browser cannot play the original (.mov); showing the analysed video.';
+    toggleSrc();
+  });
+  $('video').addEventListener('timeupdate', () => { $('v-time').textContent = 'video ' + mmss($('video').currentTime); });
+  setBatch('sample');
+}
+
+function setBatch(b) {
+  batch = b;
+  $('tab-sample').classList.toggle('on', b === 'sample');
+  $('tab-flagged').classList.toggle('on', b === 'flagged');
+  const i = rows().findIndex(r => !complete(r));
+  go(i < 0 ? 0 : i);
+}
+
+function go(i) {
+  idx = Math.max(0, Math.min(rows().length - 1, i));
+  const r = row();
+  focus = qs().find(q => applicable(r, q.f) && !r[q.f])?.f || 'real_damage';
+  render(true);
+}
+
+function render(full) {
+  const r = row(), d = rec(r);
+  // progress and strip
+  const n = rows().length, done = rows().filter(x => complete(x)).length;
+  $('progtxt').textContent = `${batch === 'sample' ? 'Sample' : 'Flagged'}: ${done} of ${n} records answered · item ${r.item}`;
+  $('progbar').style.width = (100 * done / n) + '%';
+  $('strip').innerHTML = rows().map((x, k) => `<button data-k="${k}" class="${complete(x) ? 'done' : started(x) ? 'part' : ''} ${k === idx ? 'cur' : ''}" title="Item ${x.item}, record ${x.record_id}">${x.item}</button>`).join('');
+  $('strip').querySelectorAll('button').forEach(b => b.onclick = () => go(+b.dataset.k));
+  // meta
+  const a = D.auto[String(r.record_id)];
+  $('meta').innerHTML = `
+    <dt>Record</dt><dd class="num">${d.id} (item ${r.item} of ${n})</dd>
+    <dt>Kind recorded</dt><dd><span class="chip"><i style="background:${COLORS[d.damage_type] || '#64748B'}"></i>${name(d.damage_type)}</span></dd>
+    <dt>Confidence</dt><dd class="num">${d.confidence.toFixed(2)}</dd>
+    <dt>AI check</dt><dd class="num">${d.ai_check_score == null ? 'not checked' : d.ai_check_score.toFixed(2) + (d.ai_check_score < 0.6 ? ' (flagged: likely not road damage)' : ' (passed)')}</dd>
+    <dt>Video time</dt><dd class="num">${mmss(d.timestamp)} (frame ${d.frame_number})</dd>
+    <dt>Position</dt><dd class="num">${d.latitude?.toFixed(7)}, ${d.longitude?.toFixed(7)}</dd>
+    ${r.type_before_reanalysis && r.type_before_reanalysis !== r.type ? `<dt>Before re-analysis</dt><dd>${r.type_before_reanalysis} (changed by the second-stage classifier)</dd>` : ''}
+    ${batch === 'flagged' && r.in_sample_item ? `<dt>Also in sample</dt><dd>item ${r.in_sample_item}</dd>` : ''}`;
+  $('snaptitle').textContent = `Snapshot · ${name(d.damage_type)} · ${mmss(d.timestamp)}`;
+  // questions
+  $('qtitle').textContent = batch === 'sample' ? 'Your answers' : 'Your answer (flagged records: real damage only)';
+  $('qs').innerHTML = qs().map(q => {
+    const on = applicable(r, q.f), v = r[q.f] || '';
+    const sug = batch === 'sample' && !v && a ? ({ time_correct: a.time.suggest, location_correct: a.location.suggest, duplicate: a.duplicate.suggest })[q.f] : null;
+    let auto = '';
+    if (batch === 'sample' && a) {
+      if (q.f === 'time_correct') auto = `Automatic check: suggests <b>${a.time.suggest}</b>. Stored time ${a.time.timestamp.toFixed(3)} s = frame ${d.frame_number} / fps; the snapshot is the video frame at that time (grey-level difference ${a.time.snapshot_diff['-1']} of 255).`;
+      if (q.f === 'location_correct') auto = `Automatic check: suggests <b>${a.location.suggest}</b>. ${a.location.gps_shift_m} m from the GPS position at that time, ${a.location.route_m} m from the route. It cannot tell how far ahead of the car the damage is.`;
+      if (q.f === 'duplicate') auto = a.duplicate.candidates.length
+        ? `Automatic check: suggests <b>${a.duplicate.suggest}</b>. Records within 15 m and 5 s (click one to set it as "duplicate of"; currently ${r.duplicate_of || 'none'}):`
+        : 'Automatic check: suggests <b>no</b>. No other record within 15 m and 5 s.';
+    }
+    return `<div class="q ${focus === q.f ? 'focus' : ''} ${on ? '' : 'off'}" data-f="${q.f}">
+      <kbd>${q.k}</kbd><span class="lab">${q.lab}<span class="hint">${q.hint}</span></span>
+      <span class="ans">${['yes', 'no', 'unsure'].map(x => `<button class="${x} ${v === x ? 'on' : ''} ${sug === x ? 'sug' : ''}" data-f="${q.f}" data-v="${x}" ${on ? '' : 'disabled'}>${x === 'yes' ? 'Y' : x === 'no' ? 'N' : '?'}</button>`).join('')}</span></div>
+      ${auto ? `<div class="auto">${auto}</div>` : ''}
+      ${q.f === 'duplicate' && a && a.duplicate.candidates.length ? `<div class="cands">${a.duplicate.candidates.map(c => `<div class="cand ${String(r.duplicate_of) === String(c.id) ? 'sel' : ''}" data-id="${c.id}"><canvas data-snap="${c.snapshot}" data-id="${c.id}" width="240" height="144"></canvas><span class="num">${c.id} · ${c.type} · ${c.dt > 0 ? '+' : ''}${c.dt} s · ${c.dm} m${c.earlier ? '' : ' (later)'}</span></div>`).join('')}</div>` : ''}`;
+  }).join('');
+  $('qs').querySelectorAll('.ans button').forEach(b => b.onclick = () => { focus = b.dataset.f; answer(b.dataset.v); });
+  $('qs').querySelectorAll('.q').forEach(el => el.onclick = e => { if (e.target.tagName !== 'BUTTON' && applicable(row(), el.dataset.f)) { focus = el.dataset.f; render(false); } });
+  $('qs').querySelectorAll('.cand').forEach(el => el.onclick = () => send({ duplicate: 'yes', duplicate_of: el.dataset.id }));
+  $('qs').querySelectorAll('.cand canvas').forEach(c => drawCrop(c, D.records[c.dataset.id], 1.0));
+  $('donemsg').style.display = complete(r) ? 'block' : 'none';
+  if (document.activeElement !== $('notes')) $('notes').value = r.notes || '';
+  $('keys').innerHTML = batch === 'sample'
+    ? '<kbd>R</kbd> <kbd>T</kbd> <kbd>M</kbd> <kbd>L</kbd> <kbd>D</kbd> pick a question · <kbd>Y</kbd> yes · <kbd>N</kbd> no · <kbd>U</kbd> unsure · <kbd>Backspace</kbd> clear · <kbd>Enter</kbd> accept the dashed suggestions (time, location, duplicate) · <kbd>←</kbd> <kbd>→</kbd> previous / next · <kbd>Space</kbd> play / pause · <kbd>J</kbd> back to the record · <kbd>P</kbd> play from 3 s before'
+    : '<kbd>Y</kbd> real damage · <kbd>N</kbd> not road damage · <kbd>U</kbd> unsure · <kbd>Backspace</kbd> clear · <kbd>←</kbd> <kbd>→</kbd> previous / next · <kbd>Space</kbd> play / pause · <kbd>J</kbd> back to the record';
+  if (full) { drawSnap(d); drawMap(d, a); jump(); }
+}
+
+async function drawSnap(d) {
+  const c = $('snap'), x = c.getContext('2d'), im = await img(d.frame_snapshot);
+  if (rec() !== d) return;
+  if (!im) { x.fillStyle = '#333'; x.fillRect(0, 0, c.width, c.height); return; }
+  c.width = im.naturalWidth; c.height = im.naturalHeight;
+  x.drawImage(im, 0, 0);
+  box(x, d, 1, 4);
+  drawCrop($('close'), d, 0.6);
+}
+function box(x, d, s, w) {
+  x.strokeStyle = COLORS[d.damage_type] || '#fff'; x.lineWidth = w;
+  x.strokeRect(d.bbox_x1 * s, d.bbox_y1 * s, (d.bbox_x2 - d.bbox_x1) * s, (d.bbox_y2 - d.bbox_y1) * s);
+}
+async function drawCrop(c, d, margin) {
+  const im = await img(d.frame_snapshot);
+  const x = c.getContext('2d');
+  if (!im) return;
+  const bw = d.bbox_x2 - d.bbox_x1, bh = d.bbox_y2 - d.bbox_y1, ar = c.width / c.height;
+  let w = Math.max(bw * (1 + 2 * margin), 200), h = Math.max(bh * (1 + 2 * margin), 200 / ar);
+  if (w / h > ar) h = w / ar; else w = h * ar;
+  w = Math.min(w, im.naturalWidth); h = Math.min(h, im.naturalHeight);
+  let sx = (d.bbox_x1 + d.bbox_x2) / 2 - w / 2, sy = (d.bbox_y1 + d.bbox_y2) / 2 - h / 2;
+  sx = Math.max(0, Math.min(im.naturalWidth - w, sx)); sy = Math.max(0, Math.min(im.naturalHeight - h, sy));
+  x.fillStyle = '#0b0f14'; x.fillRect(0, 0, c.width, c.height);
+  const s = Math.min(c.width / w, c.height / h);
+  x.drawImage(im, sx, sy, w, h, (c.width - w * s) / 2, (c.height - h * s) / 2, w * s, h * s);
+  x.save(); x.translate((c.width - w * s) / 2 - sx * s, (c.height - h * s) / 2 - sy * s); box(x, d, s, 2); x.restore();
+}
+function drawMap(d, a) {
+  layers.forEach(l => map.removeLayer(l)); layers = [];
+  if (d.latitude == null) return;
+  if (a && batch === 'sample') a.duplicate.candidates.forEach(c => {
+    const o = D.records[String(c.id)];
+    layers.push(L.circleMarker([o.latitude, o.longitude], { radius: 6, color: '#fff', weight: 2, fillColor: '#64748B', fillOpacity: 1 }).bindTooltip(`${c.id} · ${c.type} · ${c.dt} s`).addTo(map));
+  });
+  layers.push(L.circleMarker([d.latitude, d.longitude], { radius: 9, color: '#fff', weight: 3, fillColor: COLORS[d.damage_type] || '#64748B', fillOpacity: 1 }).addTo(map));
+  map.setView([d.latitude, d.longitude], 18);
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+function jump() {
+  const v = $('video'), d = rec();
+  const t = (d.frame_number - 1) / D.video.fps;   // frame numbers count from 1
+  v.pause();
+  const set = () => { v.currentTime = t; };
+  if (v.readyState >= 1) set(); else v.addEventListener('loadedmetadata', set, { once: true });
+}
+function preroll() { const v = $('video'); v.currentTime = Math.max(0, (rec().frame_number - 1) / D.video.fps - 3); v.play(); }
+function toggleSrc() {
+  showAnnotated = !showAnnotated;
+  $('video').src = showAnnotated ? '/video/annotated' : '/video/original';
+  $('v-src').textContent = showAnnotated ? 'Show the original video' : 'Show the analysed video';
+  jump();
+}
+
+async function send(set) {
+  const r = row(), b = batch, i = idx;
+  $('save').textContent = 'Saving…'; $('save').classList.remove('err');
+  try {
+    const res = await fetch('/api/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch: b, item: r.item, reviewer: $('reviewer').value, set }) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || res.statusText);
+    D.rows[b][i] = j.row;
+    $('save').textContent = `Saved ${new Date().toLocaleTimeString()} · item ${j.row.item}`;
+    if (b === batch && i === idx) render(false);
+    return true;
+  } catch (e) {
+    $('save').textContent = 'Not saved: ' + e.message; $('save').classList.add('err');
+    return false;
+  }
+}
+async function answer(v) {
+  const r = row();
+  if (!applicable(r, focus)) return;
+  const set = { [focus]: v };
+  if (focus === 'duplicate' && v === 'yes' && !r.duplicate_of) set.duplicate_of = D.auto[String(r.record_id)]?.duplicate.duplicate_of || '';
+  const ok = await send(set);
+  if (!ok) return;
+  const now = row();
+  const next = qs().find(q => applicable(now, q.f) && !now[q.f]);
+  if (next) focus = next.f;
+  render(false);
+}
+async function acceptSuggestions() {
+  if (batch !== 'sample') return;
+  const r = row(), a = D.auto[String(r.record_id)], set = {};
+  if (!r.time_correct) set.time_correct = a.time.suggest;
+  if (!r.location_correct) set.location_correct = a.location.suggest;
+  if (!r.duplicate) { set.duplicate = a.duplicate.suggest; if (a.duplicate.suggest === 'yes') set.duplicate_of = a.duplicate.duplicate_of; }
+  if (Object.keys(set).length && await send(set)) {
+    const now = row(); focus = qs().find(q => applicable(now, q.f) && !now[q.f])?.f || focus; render(false);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const q = qs().find(q => q.k.toLowerCase() === k);
+  if (q) { if (applicable(row(), q.f)) { focus = q.f; render(false); } e.preventDefault(); return; }
+  if (k === 'y') answer('yes');
+  else if (k === 'n') answer('no');
+  else if (k === 'u') answer('unsure');
+  else if (k === 'backspace' || k === 'delete') answer('');
+  else if (k === 'enter') acceptSuggestions();
+  else if (k === 'arrowright') go(idx + 1);
+  else if (k === 'arrowleft') go(idx - 1);
+  else if (k === ' ') { const v = $('video'); v.paused ? v.play() : v.pause(); }
+  else if (k === 'j') jump();
+  else if (k === 'p') preroll();
+  else return;
+  e.preventDefault();
+});
+init();
+</script>
+</body>
+</html>
