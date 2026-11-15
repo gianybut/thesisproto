@@ -199,19 +199,40 @@ JSON (`comparators[*]`).
 
 ## 6. Record-level results (R07 damage log)
 
-**Not measured: the review is not done.**
+Reviewed 2026-11-15 by Gian Paolo Ybut on the review page (`tools/review_damage_log/`); scored with
+`python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv`
+(full output: `results/damage_log_check/survey3_checklist_score.md`; every answer in `review_events.csv`).
 
-- `results/damage_log_check/survey3_checklist.csv` lists 50 random records (seed 42) of survey 3.
-  Survey 3 is R07 (`20261031T021049-3x76.mov`, Alfonso Bayan National Road; 112 records, fusion + classifier).
-- All four answer columns (`type_correct`, `time_correct`, `location_correct`, `duplicate`) are
-  blank in all 50 rows. Record precision, type correctness, location correctness and duplicate rate
-  therefore cannot be computed yet.
-- When filled in, `python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv` gives them.
-  Record precision (real damage) = rows whose snapshot shows road damage of any type. The scorer's
-  `type_correct = no` mixes "another type" with "not damage", so the "not road damage" cases should
-  be written in `notes` to separate the two.
-- **The 36 AI-flagged R07 records** (`ai_check_score` < 0.6) have **not been reviewed**: there is no
-  review file in the repository (`docs/MANUSCRIPT_TODO.md`, `[PENDING: review of flagged records]`).
+- Survey 3 is R07 (`20261031T021049-3x76.mov`, Alfonso Bayan National Road; 112 records, fusion + classifier).
+  The 50-record sample (seed 42) was drawn on 2026-11-11, before the survey was analysed again on 2026-11-12;
+  the same 50 detections (same snapshots, boxes, confidences) were re-linked to the current record ids, and
+  3 now carry the classifier's type (items 13, 31, 32). Old ids/types are kept in the checklist.
+- Consistency: 19 records are in both batches; the first two judgments disagreed on 3 (794, 809, 838;
+  16 of 19 consistent). The reviewer settled all three as "not real damage" before scoring.
+
+| Measure (50 sampled records) | Count | Rate | 95% CI (Wilson) |
+|---|---|---|---|
+| Record precision (box shows real road damage) | 30 / 50 | 60.0% | 46.2–72.4% |
+| Type correct, among real-damage records | 30 / 30 | 100% | 88.6–100% |
+| Time correct | 50 / 50 | 100% | 92.9–100% |
+| Location correct | 50 / 50 | 100% | 92.9–100% |
+| Duplicate rate | 0 / 50 | 0.0% | 0.0–7.1% |
+| Fully correct (real, type, time, location, not duplicate) | 30 / 50 | 60.0% | 46.2–72.4% |
+
+Real damage by recorded type: D40 18/27, D00 6/10, D10 5/8, D20 1/5. The automatic check had suggested 22
+possible duplicates (an earlier record of any class within 15 m and 5 s); none was confirmed.
+
+| Flagged records (AI check < 0.6) | Records | Real damage | Not damage | Real-damage rate (95% CI) |
+|---|---|---|---|---|
+| D20 | 7 | 0 | 7 | 0.0% (0.0–35.4%) |
+| D00 | 5 | 3 | 2 | 60.0% (23.1–88.2%) |
+| D40 | 11 | 5 | 6 | 45.5% (21.3–72.0%) |
+| D10 | 13 | 6 | 7 | 46.2% (23.2–70.9%) |
+| All | 36 | 14 | 22 | 38.9% (24.8–55.1%) |
+
+The flag was right (not road damage) for 22 of 36 (61.1%, 95% CI 44.9–75.2%). In the 50-record sample the
+AI check did not separate real from false damage: 11 of 19 flagged (57.9%, 36.3–76.9%) and 19 of 31 unflagged
+(61.3%, 43.8–76.3%) records were real. It stays advisory.
 
 ## 7. The 0.80 criterion (system performance ≥ 0.80 in accuracy, precision, recall or F1)
 
@@ -233,7 +254,7 @@ Test set, deployed fusion at 0.25 unless stated. Point estimates against 0.80.
 | C. Per-class F1, D00 / D10 / D20 / D40 | 0.509 / 0.261 / 0.412 / 0.083 | No |
 | Classification accuracy among matched detections | 96.0% (80.5–99.3%), 24/25 (fusion + classifier: 92.0%, 75.0–97.8%) | Yes (lower bound 0.805 for the fusion; 0.750 with the classifier) |
 | Second-stage classifier, held-out test crops | 85.9% (77.7–91.4%), 85/99 | Yes (lower bound below 0.80) |
-| Record-level (R07): precision, type, location, duplicates | not measured | Pending |
+| Record-level (R07): precision, type, location, duplicates | 60.0% / 100% / 100% / 0% | Measured (§6) |
 
 **In one line.** The only frame-level measure at or above 0.80 is damage-present accuracy (0.804).
 It rests largely on the 207 empty frames, and it is not distinguishable from 0.80 or from the

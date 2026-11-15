@@ -20,7 +20,7 @@ https://docs.google.com/document/d/1nn5vxNuuDDfNycLGlEwNVaJkqvsrUo4MOAzarpffXuw/
 | "0.80" anywhere | 12 lines | 2, both the **high-confidence operating point**: 3.8.1 and 5.1.1. This is a precision target fixed in advance, not an acceptance level (see Consistency risks, item 1). |
 | "will" in Chapters I–III | 85 sentences | 1, kept on purpose (3.7: "Upon completion of the study, all remaining footage … will be deleted", which is still in the future) |
 | mAP / AP@50 | 12 lines, all in Chapter II (literature) | 12, unchanged; awaiting your decision |
-| Bracket placeholders (excluding reference-type brackets) | 6: two `[FILL]` and four `[PENDING]` | 6: the same two `[FILL]`, and four `[PENDING]` (5.7 and 6.1 reworded) |
+| Bracket placeholders (excluding reference-type brackets) | 6: two `[FILL]` and four `[PENDING]` | 2: the two `[FILL]` (all `[PENDING]` filled on 15 Nov after the R07 review) |
 | 5.7 / 6.1 / 6.2 | 5.7: an intro plus a 5-item numbered list. 6.1: 6 paragraphs. 6.2: an intro plus 6 run-in paragraphs | 5.7: 1 paragraph. 6.1: 3 paragraphs (your team's text). 6.2: **3 paragraphs** (your team's text; see Consistency risks, item 2) |
 
 ## Your edits that I did not touch
@@ -67,20 +67,15 @@ Sentences in these team-edited paragraphs that Part B would otherwise have chang
 |---|---|---|
 | 5.1.4 Confusion Matrices | `[FILL: insert runs/eval/final_v2b_foreign_test_all_six_countries/confusion_matrix_normalized.png, the same file of final_v3_foreign_test_all_six_countries, and of final_S5_v8m_1920_foreign_test_all_six_countries]` (under the Figure 5.1.2 caption) | **A file to insert**: the three normalized confusion matrices (they are in `runs/eval/…`, which is gitignored). |
 | 5.1.5 Training Behavior | `[FILL: insert runs/local/v2b/results.png, runs/local/v3/results.png, and runs/v3/S5_v8m_1920/results.png]` (under the Figure 5.1.3 caption) | **A file to insert.** These Ultralytics plots contain **mAP50 and mAP50-95 panels**. To keep mAP out of the manuscript, crop those panels or re-plot only the losses. |
-| 5.1.6 Effect of the Detection Pipeline | "… [PENDING: review of the 36 flagged records]" | **A result to compute**: the flagged batch of the review page, then `score`. |
-| 5.3 Damage Log Correctness | "… Table 5.3.1 presents the results. [PENDING: manual review of the 50 sampled R07 records: record precision (real damage), type correctness, location correctness, and duplicate rate]" | **A result to compute**: the 50-record review, then `python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv`. Table 5.3.1 then gets rows for real damage and type, and the duplicate row is replaced. |
-| 5.7 Summary of Findings | "… from the track point of its video time. [PENDING: R07 record review: record precision, type correctness, duplicate rate, and the review of the 36 flagged records] The positional error …" | The same result. |
-| 6.1 Conclusion (2nd paragraph) | "… with every sampled record lying on the GPS track at its video time. [PENDING: results of the R07 record review] The actual distance …" | The same result. |
+| ~~5.1.6, 5.3, 5.7, 6.1 and the sub-tab `[PENDING]`~~ | Filled on 15 Nov from the scored R07 review (change log, "Record-level fills"). The yellow is removed. | Done. |
 | References | "[Model weights, AGPL-3.0]", "[Computer software]", "[Model weights, CC BY 4.0]" | Nothing to fill. These are APA source-type labels, not placeholders. |
 
-How to do the review: `powershell -ExecutionPolicy Bypass -File tools\start_damage_review.ps1` (page at
-http://127.0.0.1:8771). Then tell me "score it".
 
 ## 2. Highlights
 
 I cannot read highlight colours through the API. This list comes from what I applied, and what you have since removed may differ.
 
-- **Yellow** (the `[PENDING]` markers above): 5.1.6, 5.3, 5.7. 6.1 has your own `[PENDING]` marker; I don't know whether you coloured it.
+- **Yellow:** none left from me; every `[PENDING]` was filled on 15 Nov. 6.1 held your own marker; check that no yellow remains there.
 - **Green, this revision:**
   - Chapter I: 1.1, 1.2, 1.3, 1.4, 1.6, 1.7.
   - 2.1: "worked".
@@ -127,7 +122,7 @@ I cannot read highlight colours through the API. This list comes from what I app
    - Table 2.3.1: six cells.
    
    The model-card paragraph (2.1) is no longer referred to by Chapter V.
-4. **Record-level method text needs updating when you score.** I'll do it with "score it":
+4. **Record-level method text: updated on 15 Nov.** Updated: 3.8.3, 4.1.1, 4.1.4, 4.1.5, 4.2.5, 4.4.2, 4.4.4, the Chapter V intro, 1.7, 5.3, and Table 5.3.1 (rebuilt). What was outdated, kept for reference:
    - **3.8.3** says duplicate candidates are "records of the same class … within 15 meters and a few seconds". The review page lists records of **any** class within 15 m and **5 s** of all 112 records, and adds a "real damage" question.
    - **4.4.2** "Damage log checklist" and **4.4.4** ("the correctness of the damage type [was] not [measured]") also need updating.
    - **5.3 / Table 5.3.1** still say "10 candidates in 5 pairs". That count compared same-class records inside the sample only. The new automatic check suggests that 22 of the 50 records have an earlier record of the survey within 15 m and 5 s. Your answers decide the final rate.
@@ -162,3 +157,5 @@ I cannot read highlight colours through the API. This list comes from what I app
    - Add the UAT output file if you have one.
 10. **1.6 Significance:** "…detection and classification results reported separately for foreign and local test subsets…". SO1 no longer requires the foreign subset. The sentence is still true, but optional.
 11. **Abstract:** the document still has none.
+12. **Table 5.3.1 was rebuilt** (7 rows; the API cannot add rows), so its borders and widths are Google Docs defaults: match them to the other tables by hand. The Table 5.1.6 cell "22 of 36 (61.1%)", the two 4.4.4 table cells and the 5.1.8 additions are not all highlighted (cells have no positions in the API).
+13. **AI-check figure.** Your instruction quoted "63% vs 61% real". After the three records were settled (809 is flagged and in the sample), it is **57.9% (11 of 19) vs 61.3% (19 of 31)**; the manuscript uses these.
