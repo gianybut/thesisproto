@@ -1,121 +1,164 @@
 # Manuscript TODO
 
-What is still open in the Google Doc **"OCULUBAK Manuscript — revision draft"**
-(https://docs.google.com/document/d/1SaaJn2eGL9cCUOT7B0pXqCJUZk2z4U2iLjvXZUgn6S0/edit).
+What the Google Doc **"OCULUBAK_Manuscript"** still lacks, as of 2026-11-15, after the Part B revision
+(acceptance level removed, Chapters I–III in past tense, 5.7 / 6.1 / 6.2 condensed):
+https://docs.google.com/document/d/1nn5vxNuuDDfNycLGlEwNVaJkqvsrUo4MOAzarpffXuw/edit
 
-- The original document ("OCULUBAK CHAPTER 1-6") was not edited.
-- Every open item below is highlighted in yellow in the draft: 64 placeholder tokens, 20 distinct (2026-11-12, after the validator change). Every one is a measurement not yet taken or a team decision; none can be filled from the repository.
-- The record of what changed and why is in [manuscript_change_log.md](manuscript_change_log.md).
-- The only source for numbers is [results/FINAL_METRICS_FOR_PAPER.md](../results/FINAL_METRICS_FOR_PAPER.md).
+- Every change is logged in [manuscript_change_log.md](manuscript_change_log.md).
+- Number sources: [results/system_level_evaluation.md](../results/system_level_evaluation.md) (SL) and
+  [results/test_evaluation.md](../results/test_evaluation.md).
+- This file replaces the 2026-11-12 TODO. That file described an older draft and is now obsolete:
+  - the validator has signed;
+  - the UAT is done;
+  - the old `[FILL]` and `[PENDING]` tokens are gone.
 
----
+## Before and after this revision
 
-## 1. Fill-ins (team decisions or facts the repository does not hold)
-
-Each fill-in appears in the sections listed. Once decided, replace every copy with the same wording, then remove the highlight.
-
-| Placeholder | Sections | What is needed |
+| Check | Before (start of 15 Nov session) | After |
 |---|---|---|
-| `[FILL: dimensions of the evaluation questionnaire]` | 3.6, 3.8.5, 4.1.3, 4.4.2 | The UAT instrument. Choose either the six dimensions (usability, perceived detection accuracy, interface design, inspection efficiency, decision-making support, overall usefulness) or the existing Google Form's dimensions. |
-| `[FILL: confirm the instrument — …]` | 4.4.4 | The same decision. Keep or replace the six-item list below it. |
-| `[FILL: align Sections 5.6.2 to 5.6.6 and Tables 5.6.3 to 5.6.8 …]` | 5.6 | The same decision. The 5.6 headings and tables still follow the old ISO/IEC 25010 characteristics. Retitle them, and re-group their items, to match the chosen instrument. |
-| `[FILL: exact name of the DPWH Batangas office]` | 3.6, 4.1.2, 4.1.4, 4.4.1 (text and Table 4.4.1.1 header), 5.6.1 | The Batangas office's official name. Batangas stays as a backup respondent office (team decision, 2026-11-12); it is no longer the validator's office. |
-| `[FILL: no online copy was deployed (Section 4.2.6); state how respondents will use the system instead]` ×5 | 4.1.3 (evaluation data), NFR12, 4.4.2 (materials; procedure), 5.6 intro | 4.2.6 now says no online copy was deployed. Decide how respondents will see and use the system instead, for example a session on the researchers' computer or the demonstration video only. Then rewrite these five places to match. NFR12 ("Online access") can be deleted if there is no online copy. |
+| Acceptance level (0.80 as a pass mark, "acceptance criterion/level", "meets … 0.80") | 10 places: 3.8.1, NFR1, 4.4.4, 5.1.1 ×4, 5.1.7, 5.7, 6.1 ×2 (6.1 also said "the level set for the system"), and the plain-language sub-tab ("Did the system reach the 0.80 goal?") | 0 |
+| "0.80" anywhere | 12 lines | 2, both the **high-confidence operating point**: 3.8.1 and 5.1.1. This is a precision target fixed in advance, not an acceptance level (see Consistency risks, item 1). |
+| "will" in Chapters I–III | 85 sentences | 1, kept on purpose (3.7: "Upon completion of the study, all remaining footage … will be deleted", which is still in the future) |
+| mAP / AP@50 | 12 lines, all in Chapter II (literature) | 12, unchanged; awaiting your decision |
+| Bracket placeholders (excluding reference-type brackets) | 6: two `[FILL]` and four `[PENDING]` | 6: the same two `[FILL]`, and four `[PENDING]` (5.7 and 6.1 reworded) |
+| 5.7 / 6.1 / 6.2 | 5.7: an intro plus a 5-item numbered list. 6.1: 6 paragraphs. 6.2: an intro plus 6 run-in paragraphs | 5.7: 1 paragraph. 6.1: 3 paragraphs (your team's text). 6.2: **3 paragraphs** (your team's text; see Consistency risks, item 2) |
 
-Reference to confirm:
-- **Roy & Bhaduri (2023).** The entry has a highlighted `[CITATION NEEDED]`. No paper with these authors was found. A paper with the same title is Aina et al. (2025), *International Conference on Transportation and Development 2025*, DOI 10.1061/9780784486191.036. Its abstract does not compare YOLOv8 with earlier versions, which Chapter II attributes to Roy & Bhaduri. Find the paper the team actually read. If it is Aina et al., re-cite it and reword the claims (Ch I ×2, 2.1, Table 2.3.1) to what it says. If it cannot be found, remove the citation and the claims.
+## Your edits that I did not touch
 
-Claims checked only against abstracts, or not at all (no placeholder in the draft; verify before submission):
-- **Dacanay et al. (2024)** (Project PAVE, DOST, UP Diliman, DPWH practice) and **Ramos et al. (2024)** (R² 0.58, DPWH photographs, VCI): behind the Springer login, not checked.
-- **Manalo et al. (2022):** "Philippine roads", "locally compiled dataset" and the three universities are not in the abstract.
-- **Abu Dabous et al. (2025):** the full text could not be read (publisher access); the draft now cites only what the abstract states.
+The current Google Doc was compared with my last saved version of the main tab (end of Stage 2).
+These paragraphs differed, so they are your team's and final. Part B did not change them:
 
----
+- Title page: "May 2026" → "November 2026".
+- **2.2** "The researchers searched four public repositories…" (date removed).
+- **2.3** "The literature also showed web-based platforms…" (date removed).
+- **3.3.1** "Second-stage classifier…" (dates removed).
+- **3.7** "Responsible Use of AI" paragraph.
+- **3.8.1** "Model selection and the test…" and "Second-stage classifier…" (dates removed).
+- **4.2.4** "Five changes were made…".
+- **4.2.5** "Model testing…".
+- Hardware: "iPhone 14 Pro Max", and "476 GB system drive, about 96 GB free".
+- **5.1.7** "The classifier was trained after the single box-level test run…".
+- **5.1.8** five limitation items deleted.
+- **Four "[image]" items in 4.1.8** removed.
+- **During this session**, while I was editing, your team rewrote three more places:
+  - the Chapter VI intro;
+  - **6.1** ("The study achieved its general objective…", 3 paragraphs);
+  - **6.2** ("To improve detection…", 3 paragraphs).
+  
+  Your team also added the **Appendices A–G** list. Your 6.1 and 6.2 replaced the versions I had written a few minutes earlier, and I left them as they are.
 
-## 2. Pending evaluations (results to measure, then write into the draft)
+Sentences in these team-edited paragraphs that Part B would otherwise have changed (your decision):
 
-Nothing here may be estimated. Each `[PENDING]` stays until a result file exists.
-
-| Placeholder | Sections | How to get it |
+| Section | Sentence | Why it would have changed |
 |---|---|---|
-| `[PENDING: damage log correctness]` | 4.1.4, 4.1.5, 4.4.2, 5.3 (Table 5.3.1), 5.7, 6.1 | 1. Fill in `results/damage_log_check/survey3_checklist.csv` (50 records of survey 3, seed 42; the columns are explained in `tools/damage_log_check.py`). 2. Run `python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv`. |
-| `[PENDING: localization accuracy]` (and `…, Section 5.4`) | 1.6, 3.8.4, 4.1.3, 4.1.5, 4.2.5, 5.4 (Tables 5.4.1-5.4.2), 5.7, 6.1 | Field validation of 20-30 damages: stand beside each damage and average one minute of phone fixes. Compute the Haversine error (Equation 27). **No script exists yet**: write one that reads the reference positions, the records and the GPX files, and reports mean, SD and maximum error and the survey conditions. |
-| `[PENDING: expert validation]` | 3.4.3, 4.1.3, 4.1.5, 4.1.6, 4.4.2, 5.2 (Table 5.2.1), 6.1 | Print `data/local/validation_sheet/OcuLubak_dataset_validation.docx` (regenerated 2026-11-12 with `node tools/make_validation_letter.js`; check in print preview that the letter fits on page 2). Engr. Carlo Almanzor (DPWH Cavite 2nd District Engineering Office) checks the 40 hand-picked boxes, 10 per class, and signs the letter. Then fill Table 5.2.1 with the boxes confirmed and corrected per class and his remarks, and the 5.2 template text. No agreement statistic: the sample was picked by hand, so `ml/local/annotation_agreement.py` (percent agreement, kappa) is no longer used. Keep `[PENDING: expert validation]` until the signed letter is back. |
-| `[PENDING: UAT]`, `[PENDING: UAT results]` | 4.1.3, 4.1.5, 4.2.5, 4.4.3, 5.6 (all tables), 5.7, 6.1 | 1. Decide the instrument and how respondents use the system (section 1). 2. Run the questionnaire and export the Google Forms responses as CSV. 3. Write a JSON file that maps each dimension to its item columns. 4. Run `python tools/uat_analysis.py responses.csv --items uat_items.json --validator-id <Engr. Almanzor's respondent ID> --out results/uat_results.md` (add `--id-column NAME` if the ID column is not "Respondent ID" or "ID"). It gives Equations 26–28 (item and dimension weighted means and SDs, one-tailed t-tests against 3.41, the Table 4.4.5.2 interpretation and the decision rule), with and without Engr. Almanzor, and says whether he answered. If he did, state it in 5.6 and fill Table 5.6.9. |
-| `[PENDING: n]` | 4.1.4, 4.4.1 (and Table 4.4.1.1) | The number of respondents, after the UAT. |
-| `[PENDING: device tests]` | 4.2.5, 5.5 | The stopwatch start-time gap, full-length sessions in a moving vehicle, and the midday heat test of the mobile app. |
-| `[PENDING: review of flagged records]` | 5.1.6 (text and Table 5.1.6) | Review the 36 R07 records flagged by the AI check, and count how many are truly false. |
-| `[PENDING: improvements suggested by the respondents, Section 5.6.8]` | 6.2 | From the UAT comments. |
-| `[PENDING]` (bare) | 4.1.1, 4.1.2, 4.2.4, 4.3.4 | These mark sentences that list the evaluations above as still to be done. Remove each one when its evaluation is done. |
-
-Before these are written up, also update the sentences that call these evaluations pending: Chapter V intro, 4.4.4 ("so far only detection performance has been measured"), and 5.7 / 6.1.
+| 2.3 | "Therefore, the present study aims to address this research gap by developing a web-based road damage detection and mapping system…" | Present tense ("aims") for the study's purpose |
+| 3.8.1 | "Second-stage classifier. The classifier described in Section 3.3.1 is also scored alone by its top-1 accuracy, …" | Present tense for an evaluation procedure ("is also scored") |
+| 3.8.1 | "Model selection and the test. … the threshold is the value from 0.01 to 0.50 that gives the highest overall F1-score there." | Present tense for a procedure (could stay as a definition) |
+| 6.2 | The whole section: it has **three** paragraphs ("To improve detection…", "To improve positioning and the system…", "Future studies may explore…") | Part B asked for exactly two |
+| 6.2 | "The mobile application should be built for Android, …" | Part B asked to keep "Android validation". The text now says "built for", not "validated on". |
+| 6.2 | (missing) | Part B asked to keep "handling shadows, glare and wet roads". It is not in your 6.2, but it is in 5.6.8. |
+| 6.2 | "…and larger test sets labeled by more than one reviewer, together with repeated training runs…" | Part B asked for "larger val/test sets". Only test sets are named. |
 
 ---
 
-## 3. Manual edits in Google Docs (the API cannot do these)
+## 1. Bracket placeholders
 
-1. **Equations (12), (22), (23), (27): done as typed math, optional upgrade.** On 2026-11-12 the placeholders were replaced with typed equations in Cambria Math (Unicode symbols, linear fractions); none is highlighted any more.
-   - The API cannot create equation objects. For the same look as the other equations, retype each with Insert › Equation; the text on the line shows what to type.
-   - (12) already has the centre and right tab stops. (22), (23) and (27) are centred lines without them, because the API cannot set tab stops, so their numbers are not aligned at the right margin like the others. Fix: Format › Align & indent › Left, then add a centre tab at 3 in and a right tab at 6 in, or copy the line format from (21) with the paint-format tool.
-2. **Table 2.3.1 (synthesis table): still manual.** The Google connector cannot insert or delete table rows; deleting a row as a text range is refused by the Docs API; and the "Foreign studies" / "Local studies" rows are merged cells, so rows cannot be imitated by moving text. Enabling the Apps Script API for the connector's Google Cloud project (project 358976420000) would let this be done by script.
-   - Delete the **Sarmiento & Reyes (2022)** row. Its paragraph and reference are already removed. It is the last in-text citation without a reference entry.
-   - Insert a row below **Asian Development Bank (2025)** for **Radford et al. (2021)**:
-     - Focus: "Learning visual models from natural language supervision (CLIP)"
-     - Method: "Trained an image encoder and a text encoder to match images with their captions on a large collection of image–text pairs"
-     - Findings: "The model classifies images into categories described in text without task-specific training (zero-shot classification)"
-     - Implication: "Supports the use of CLIP as an advisory check that flags detections that are likely not road damage"
-   - Optional: a row for **Arya et al. (2020)**, now cited in Chapter I and 2.1:
-     - Focus: "Road damage detection across countries"
-     - Method: "Trained and tested models on smartphone road images from Japan, India, and the Czech Republic"
-     - Findings: "A model's performance mostly degrades significantly on road images from another country; mixing foreign and local data helps"
-     - Implication: "Supports fine-tuning on locally collected Philippine images"
-3. **Table of contents: still manual, and do it last.** Click the TOC, then **Update table of contents**. No Google API (Docs API or Apps Script) can refresh or insert a table of contents. Do it after the figure images are in, since they move the page numbers. It still lists old headings, for example "3.3.1 YOLOv8m …" and "3.8.2 User Acceptance Testing", and no 5.x entries.
-4. **Algorithm 3.1:** done. The block's title line now carries the label "Algorithm 3.1" that the text refers to. The steps were checked against `backend/services/video_processor.py`, `box_fusion.py` and `damage_tracker.py` and needed no change.
-5. **Figure images** (the team uploads them), replacing the highlighted `[FILL: insert …]` notes, and the six Chapter III diagrams from `figures/*.drawio` (section 4):
-   - **Figure 5.1.1** (5.1.4): a 4 × 4 chart or table of matched test pairs, reviewed by detected class: D00 17/0/0/0; D10 0/3/0/1; D20 0/0/3/0; D40 0/0/0/1 (`results/test_evaluation.md`, lines 44-51). This is the deployed fusion on the local test subset at 0.25.
-   - **Figure 5.1.2** (5.1.4): `runs/eval/final_v2b_foreign_test_all_six_countries/confusion_matrix_normalized.png` and the same file for `final_v3_…` and `final_S5_v8m_1920_…`. Each model alone, on the foreign test subset.
-   - **Figure 5.1.3** (5.1.5): `runs/local/v2b/results.png`, `runs/local/v3/results.png`, `runs/v3/S5_v8m_1920/results.png`. Training curves of each model on its own validation list during training, not the test set.
+| Section | Full sentence | What is needed |
+|---|---|---|
+| 5.1.4 Confusion Matrices | `[FILL: insert runs/eval/final_v2b_foreign_test_all_six_countries/confusion_matrix_normalized.png, the same file of final_v3_foreign_test_all_six_countries, and of final_S5_v8m_1920_foreign_test_all_six_countries]` (under the Figure 5.1.2 caption) | **A file to insert**: the three normalized confusion matrices (they are in `runs/eval/…`, which is gitignored). |
+| 5.1.5 Training Behavior | `[FILL: insert runs/local/v2b/results.png, runs/local/v3/results.png, and runs/v3/S5_v8m_1920/results.png]` (under the Figure 5.1.3 caption) | **A file to insert.** These Ultralytics plots contain **mAP50 and mAP50-95 panels**. To keep mAP out of the manuscript, crop those panels or re-plot only the losses. |
+| 5.1.6 Effect of the Detection Pipeline | "… [PENDING: review of the 36 flagged records]" | **A result to compute**: the flagged batch of the review page, then `score`. |
+| 5.3 Damage Log Correctness | "… Table 5.3.1 presents the results. [PENDING: manual review of the 50 sampled R07 records: record precision (real damage), type correctness, location correctness, and duplicate rate]" | **A result to compute**: the 50-record review, then `python tools/damage_log_check.py score results/damage_log_check/survey3_checklist.csv`. Table 5.3.1 then gets rows for real damage and type, and the duplicate row is replaced. |
+| 5.7 Summary of Findings | "… from the track point of its video time. [PENDING: R07 record review: record precision, type correctness, duplicate rate, and the review of the 36 flagged records] The positional error …" | The same result. |
+| 6.1 Conclusion (2nd paragraph) | "… with every sampled record lying on the GPS track at its video time. [PENDING: results of the R07 record review] The actual distance …" | The same result. |
+| References | "[Model weights, AGPL-3.0]", "[Computer software]", "[Model weights, CC BY 4.0]" | Nothing to fill. These are APA source-type labels, not placeholders. |
 
----
+How to do the review: `powershell -ExecutionPolicy Bypass -File tools\start_damage_review.ps1` (page at
+http://127.0.0.1:8771). Then tell me "score it".
 
-## 4. Chapter III diagrams (`figures/*.drawio`, checked and corrected 2026-11-12)
+## 2. Highlights
 
-The six draw.io files were checked against the code, the results files and the Chapter III text, and corrected (change log, "Diagram check"). Export each from draw.io (File › Export as › PNG, 300 dpi) and insert it in place of the old image. The requirements they were checked against:
+I cannot read highlight colours through the API. This list comes from what I applied, and what you have since removed may differ.
 
-| Figure | What it must show now |
+- **Yellow** (the `[PENDING]` markers above): 5.1.6, 5.3, 5.7. 6.1 has your own `[PENDING]` marker; I don't know whether you coloured it.
+- **Green, this revision:**
+  - Chapter I: 1.1, 1.2, 1.3, 1.4, 1.6, 1.7.
+  - 2.1: "worked".
+  - Chapter III: intro, 3.1–3.1.5, 3.2.1, 3.3.1, 3.3.2, 3.3.3, 3.4, 3.4.2, 3.4.3, 3.5, 3.6, 3.7, 3.8, 3.8.1–3.8.7.
+  - 5.1.1 (four places), 5.1.7, and all of 5.7.
+  - Not highlighted, because they are table cells (the API gives no cell positions): **NFR1** in Table 4.2.2.1, and the detection row of the **4.4.4** table.
+- **Green, earlier passes (Stage 2, 15 Nov), probably still present:**
+  - 1.2, 1.3 RQ1, 1.5.2 SO1;
+  - 3.3.1, 3.3.3, 3.8.1;
+  - Tables 3.8.7, 4.1.1, 4.3.1.1 and the 4.4.4 table;
+  - 4.1.5, 4.4.5;
+  - Chapter V captions and text.
+  
+  The green in 6.1 and 6.2 went with your rewrite.
+- Remove the highlights before submission (Format › Text › Highlight colour › None).
+
+## 3. Figures and images
+
+| Figure | Status |
 |---|---|
-| **3.1** Agile phases | Phase 2: a starting model trained on six RDD2022 countries; the local dataset; fine-tuned YOLOv8 models and their weighted box fusion; threshold calibrated on the reviewed validation frames; cross-frame tracking and the fixed-spot filter. Remove "India subset", "YOLOv8m", "de-duplication" and "hyperparameter adjustment". |
-| **3.2.1** Conceptual framework (IPO) | Process: frames sampled at about 5 per second → near-zone crop of the road band → three YOLOv8 models + weighted box fusion (fused score ≥ 0.25) → cross-frame tracking and fixed-spot filter → advisory CLIP AI check → GPS synchronization, or control points → storage and annotated video. Output record includes the AI check score. |
-| **3.3.1** YOLOv8 architecture | Titled "YOLOv8" (the s and m sizes share it), not "YOLOv8m". Input: the 1920 × 432 near-zone crop plus 24 px of grey above and below, scaled to 1,024 or 1,280 px, not 640 × 640. Head with four classes (D00, D10, D20, D40). Optionally a side panel: three models → weighted box fusion → 0.25. |
-| **3.4** End-to-end pipeline | Upper lane: RDD2022 (six countries) teacher; 18 recordings → 9,590 frames → near zone; labelling (review tool, 1,066 frames; annotation website, 6,399); split by route group with the 50 m rule; v2b, v3, S5_v8m_1920; selection on the 270 reviewed validation frames; fusion + threshold 0.25 → deploy; one local test; members alone on the foreign test. Lower lane: phone records 590-s parts, server limit ten minutes (no "500 MB") → background thread → near zone → three models + fusion → tracking → fixed-spot filter → AI check → GPS or control points → ffmpeg → map, records, export. |
-| **3.4.1** Three-tier architecture | Application tier worker: frame sampler → near-zone crop → three YOLOv8 models + weighted box fusion → threshold, tracking, fixed-spot filter → CLIP AI check → positioning and annotation → ffmpeg. Data tier: SQLite, file storage, the three model weights with their settings file, and the CLIP model. No "YOLOv8m inference engine" or "de-duplication". |
-| **3.5.1** Use case diagram | The System Administrator connects to three use cases: managing user accounts, viewing the activity log, and correcting or deleting detection records. The administrator still inherits every Road Maintenance Personnel use case. |
+| 5.1.2 Normalized Confusion Matrices (5.1.4) | **No image**: a `[FILL]` note sits under the caption |
+| 5.1.3 Training Curves (5.1.5) | **No image**: `[FILL]` note. Mind the mAP panels (section 1). |
+| 3.5.1 Use Case Diagram | The paragraph under the caption holds two tab characters and possibly an image. Check visually that the diagram is there. |
+| 4.1.8.8–4.1.8.11 (records, repair stage, administrator, mobile recording screens) | The "[image]" lines above these captions disappeared during your edits today. Check that the screenshots are still in place. |
+| 3.1, 3.2.1, 3.3.1, 3.4, 3.4.1, 4.1.8.1–4.1.8.7, 4.1.8.12, 5.1.1 | An image paragraph follows or precedes the caption. The 15 Nov list of corrections for the Chapter III diagrams (old TODO, section 4) still applies if those images were not replaced. |
 
----
+## 4. Manual steps in Google Docs (the API cannot do these)
 
-## 5. Adviser items
+1. **Table of contents:** click it, then **Update table of contents**. Do this last, after the images. Heading 5.1.3 was renamed on 15 Nov, and Appendices A–G are new.
+2. **Table 2.3.1:**
+   - The row **Sarmiento & Reyes (2022)** is still in the table, although its paragraph and reference were removed. Delete the row.
+   - Optionally add rows for **Radford et al. (2021)** and **Arya et al. (2020)** (wording in the 12 Nov TODO, git history).
+3. **Equation (20)** (accuracy, typed in Cambria Math) and the typed equations (12), (21), (22), (26): for the same look as the others, retype them with Insert › Equation. Set a centre tab at 3 in and a right tab at 6 in so the numbers align.
+4. **5.7:** the numbered list was removed, but check that no list indent remains on the single paragraph (Format › Bullets & numbering › none).
+5. **Highlights:** remove them all before submission (section 2).
 
-1. **Approved wording changed** (highlighted in the draft, for the adviser's approval):
-   - **RQ1** (1.3): adds "and the classification accuracy of detected damage" to the measures.
-   - **Specific Objective 1** (1.5.2): "YOLOv8 object detection models", plus the same added measure.
-   - **Hypothesis** (1.4): "a fine-tuned YOLOv8m detection model" → "fine-tuned YOLOv8 detection models". Nothing else changed.
-   - **General Objective** (1.5.1): three YOLOv8 models fine-tuned on local imagery from RDD2022 starting weights, combined by weighted box fusion.
-2. **The acceptance criterion was not met.** The panel's requirement was mAP@50 ≥ 0.80 overall and per class on the local test subset (3.8.1, NFR1). The deployed fusion reached 0.173 on its single test run, with per-class AP@50 from 0.035 to 0.381. Chapter V and 6.1 state this plainly.
-3. **The hypothesis is undecided** until the UAT is done (5.6.7, 5.7, 6.1 are `[PENDING: UAT]`).
-4. **No online copy.** The remote evaluation described in Chapter III and IV assumed one. The UAT procedure must change (section 1), and the adviser should agree to the new procedure.
-5. **Chapter II was rewritten where the cited papers did not support the text** (reference audit, 2026-11-12). Claims about centralized GPU processing, mobile battery drain and thermal throttling, heat-map planning and timestamp synchronization were removed or reworded to what the papers report. Five entries now cite the actual authors: Nurcahyo, Khare, Kyem, Sahoo and Esther Priya. R. The adviser may want to see the revised 2.1, 2.2 and 2.3.
-6. **Disclosure of AI assistance.** Check the school's policy on disclosing AI-tool use in the manuscript, for example the use of an AI assistant to revise text and check consistency. If disclosure is required, add the required statement in the required place.
-7. **Partner office.** The draft now names the DPWH Cavite 2nd District Engineering Office as the partner office, replacing the Mendez-Nuñez Municipal Engineering Office. The annotation validator is now Engr. Carlo Almanzor of the same office (replacing the DPWH Batangas engineer); he may also be a respondent, with results reported with and without his responses. The 40 validation boxes were picked by hand, so the draft now treats the check as an expert review of the labeling criteria, not an agreement measure: percent agreement, Cohen's kappa, Equations (24)-(25), Table 4.4.5.3 and Landis & Koch (1977) were removed. Check that this matches the signed ethics and request letters, and that the adviser accepts the change.
+## 5. Consistency risks
 
----
-
-## Resolved on 2026-11-12 (kept for reference)
-
-- **Annotation labellers:** "the three researchers" (`tools/review_labels/annotate.py:39`; labels database).
-- **iOS version:** from the GPX metadata.
-- **Storage:** measured on the processing PC.
-- **ROG Strix G17:** "UI/UX development".
-- **4.2.5 end-to-end:** recordings made with the app and uploaded with `tools/upload_recording.py`.
-- **4.2.6:** online copy not deployed.
-- **References:** Solovyev volume, Zhang, Fortin and Abu Dabous author lists. Irsal → Nurcahyo, Yin → Khare, Busireddy → Esther Priya. R, Asamoah → Kyem, iWatchRoad Project → Sahoo. Albouchi venue, Bustria title and authors, ADB year, Jocher author order, Dacanay and Ramos pages, Alwahhab DOI.
-- **`tools/uat_analysis.py`:** written.
+1. **"0.80" in the high-confidence operating point** (3.8.1, "High-confidence operating point…"; 5.1.1, "A high-confidence operating point was also fixed in advance: … reaches 0.80"). It is a precision target fixed in advance, not an acceptance level. Removing it would change a pre-registered measure, so I left it. **Your decision.**
+2. **6.2 has three paragraphs, not two** (your text; section "Your edits").
+3. **mAP in Chapter II** (literature, 12 lines). Your decision is still open (L1–L13 in the change log):
+   - 2.1: Khare et al., Zeng & Zhong, Zhang et al., RDD2022 model cards;
+   - 2.2: Sarmiento, Manalo et al. ("average precision 95.43%"), Fortin et al.;
+   - Table 2.3.1: six cells.
+   
+   The model-card paragraph (2.1) is no longer referred to by Chapter V.
+4. **Record-level method text needs updating when you score.** I'll do it with "score it":
+   - **3.8.3** says duplicate candidates are "records of the same class … within 15 meters and a few seconds". The review page lists records of **any** class within 15 m and **5 s** of all 112 records, and adds a "real damage" question.
+   - **4.4.2** "Damage log checklist" and **4.4.4** ("the correctness of the damage type [was] not [measured]") also need updating.
+   - **5.3 / Table 5.3.1** still say "10 candidates in 5 pairs". That count compared same-class records inside the sample only. The new automatic check suggests that 22 of the 50 records have an earlier record of the survey within 15 m and 5 s. Your answers decide the final rate.
+   - **1.7** says the AI check's "accuracy is not part of the evaluation of this study". Once the flagged records are scored, 5.1.6 reports it, so this sentence needs one line.
+5. **Survey 3 was analysed again on 12 Nov (fusion + classifier) after the checklist was drawn on 11 Nov.**
+   - The 50 sampled detections are the same: same snapshots, boxes and confidences.
+   - They now have new record ids, and 3 of them have the classifier's type:
+     - item 13: D40 → D10;
+     - item 31: D10 → D40;
+     - item 32: D20 → D00.
+   - The review judges the current, deployed records. The old ids and types are kept in the CSV.
+   - 5.3 should say this in one sentence when it is filled.
+6. **Stored times are 1/30 s late.** `frame_number` counts from 1 (`backend/services/video_processor.py:526-535`), so a record's time is 0.033 s after its frame. 3.8.3's "within 0.05 seconds" still holds. Not changed in the code.
+7. **Past-tense statements that assert facts I could not check** (they were plans before). Please confirm:
+   - **3.7:** "the default administrator password was replaced before the system was used with respondents".
+   - **3.7:** "Raw uploaded videos are deleted from the server 30 days after upload". This conflicts with **NFR (4.2.2)**: "…by a task that will be scheduled on the server". `backend/purge_uploads.py` runs only by hand (dry-run unless `--apply`).
+   - **3.7:** "Recordings kept on the researchers' phones were deleted once their upload had been confirmed".
+   - **3.5:** "all of whom used the system under the Road Maintenance Personnel role during the evaluation". 4.4.2 says the respondents tested the deployed online copy with sample files; check the role they signed in with.
+   - **3.6:** "All personnel … who met the inclusion criteria were invited to participate".
+   - **3.1.5:** I added "that could be completed within the study period" and "planned activities". Its list still names field validation and a comparison of inspection time, which were not done.
+8. **"will" in Chapter IV** (outside the Part B scope, now out of step with Chapter III):
+   - NFR on raw-video deletion;
+   - 4.2.5 "will be used to list fixes";
+   - 4.4.2 field validation form ("the researcher will record");
+   - 4.4.3 data gathering steps (4 sentences, although the UAT is done);
+   - 4.4.5 "will be computed with Equation 25".
+9. **Numbers.** Every three-decimal value in 5.1 matches SL or `test_evaluation.md`, after rounding.
+   - **`results/uat_tables.md` does not exist** in the repository, so the UAT figures could not be checked against a file:
+     - 4.62, SD 0.22, t(51) = 39.83;
+     - section means 4.50, 4.71, 4.63, 4.60, 4.64;
+     - n = 52.
+   - Add the UAT output file if you have one.
+10. **1.6 Significance:** "…detection and classification results reported separately for foreign and local test subsets…". SO1 no longer requires the foreign subset. The sentence is still true, but optional.
+11. **Abstract:** the document still has none.

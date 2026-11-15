@@ -617,3 +617,163 @@ refers to it.
    markers; the existing automatic time and location results in 5.3 are unchanged. To be scored after the R07 review.
 6. **Not changed:** the high-confidence operating point (box-level precision ≥ 0.80, 3.8.1 and 5.1.1), the UAT results
    (4.62, hypothesis supported), and everything not listed above.
+
+---
+
+## Part B revision (2026-11-15): acceptance level removed, Chapters I–III in past tense, 5.7 / 6.1 / 6.2 condensed
+
+- **Document:** https://docs.google.com/document/d/1nn5vxNuuDDfNycLGlEwNVaJkqvsrUo4MOAzarpffXuw/edit (main tab `t.0` and the
+  sub-tab "System Performance (Plain Language)", `t.dulxisearlym`).
+- **Team edits respected.** Before any change, the main tab was compared with the last text written in Stage 2. Paragraphs that
+  differed are the team's and were not touched:
+  - the title-page date;
+  - 2.2 and 2.3;
+  - 3.3.1, 3.7, and the 3.8.1 classifier and model-selection paragraphs;
+  - 4.2.4 and 4.2.5;
+  - the hardware rows;
+  - 5.1.7 and the 5.1.8 list;
+  - four "[image]" items in 4.1.8.
+
+  No edit's find text fell inside them (checked).
+- **Concurrent team edits.** While this revision ran, the team rewrote the Chapter VI intro, **6.1** and **6.2**, and added
+  Appendices A–G. Their text replaced the 6.1 / 6.2 versions written here a few minutes earlier, and it was left as it is.
+  `docs/MANUSCRIPT_TODO.md` lists where it differs from the Part B instructions:
+  - 6.2 has three paragraphs;
+  - "Android validation" and "shadows, glare and wet roads" are not in it.
+- **Method.**
+  - 107 find/replace edits, each found exactly once in its tab before sending, applied with `match_case` and limited to their tab.
+  - The 5.7 / 6.1 / 6.2 rewrites were made by position: the first paragraph's text was replaced and the rest deleted.
+  - Afterwards the text was compared with the simulation. It matched, apart from the team's concurrent edits.
+  - Changed words are highlighted green, by position, read back after the edits. The read was checked to be unchanged before the
+    highlights were applied.
+  - Two table cells (NFR1, 4.4.4) are not highlighted.
+- **Numbers.** None changed. "0.80" was removed only where it was an acceptance level. It remains in the high-confidence operating
+  point (3.8.1, 5.1.1), a precision target fixed in advance; that one is for the team to decide. The "a system reporting nothing
+  would score 0.767" sentence is kept everywhere.
+
+### Rewritten sections
+
+| Section | Before | After |
+|---|---|---|
+| 5.7 Summary of Findings | An intro plus a five-item numbered list by research question; said "Only detection accuracy reached the acceptance level of 0.80" and "Classification meets the acceptance level" | One paragraph: frame-level detection results, classification, pretrained comparison, expert check, damage log (automatic checks; `[PENDING: R07 record review…]` in yellow), positional error not measured, UAT (4.62, hypothesis supported). Same numbers. |
+| 6.1 Conclusion | An intro, four objective paragraphs and an "Overall" paragraph; said "only detection accuracy reached 0.80", "Classification meets the acceptance level" and "below the level set for the system" | Written here as three paragraphs without a threshold, **then replaced by the team's own three paragraphs** ("The study achieved its general objective…"), which stand. |
+| 6.2 Recommendations | An intro plus six run-in paragraphs | Written here as two paragraphs covering every listed recommendation, **then replaced by the team's own three paragraphs** ("To improve detection…"), which stand. |
+
+### Text changes (in the order of the edit list)
+
+| # | Section | Kind | Old → new (abridged) |
+|---|---|---|---|
+| B1 | 3.8.1 run-in label | Acceptance level removed | “Acceptance criterion. As required by the panel” → “Adoption of the system-level measures. As required by the panel” |
+| B2 | 3.8.1 acceptance paragraph | Acceptance level removed | “As required by the panel, the system must reach a performance of at least 0.80 in accuracy, precision, recall, or F1-score on the local test subset, w … the system and is separate from the hypothesis of the study.” → “These system-level measures were adopted after the initial box-level evaluation, at the adviser’s recommendation, to reflect how the system is used. E … separately, by the user acceptance testing in Section 3.8.5.” |
+| B3 | 4.2.2 NFR1 (Table 4.2.2.1) | Acceptance level removed | “The system shall reach a performance of at least 0.80 in accuracy, precision, recall, or F1-score on the local test subset, for the detection and the classification of the four damage classes (Section 3.8.1).” → “The system shall detect and classify the four damage classes on the local test subset, with its frame-level accuracy, precision, recall, and F1-score and its classification accuracy reported as measured (Section 3.8.1).” |
+| B4 | 4.4.4 table, detection basis | Acceptance level removed | “with a comparison with pretrained models on the same frames; acceptance requires a performance of at least 0.80 in accuracy, precision, recall, or F1-score” → “with a comparison with pretrained models on the same frames” |
+| B5 | 5.1.1 detection paragraph | Acceptance level removed | “Detection accuracy is the only one of these measures that reached the acceptance level of 0.80 set in NFR1 (Section 3.8.1), and only just: because 207 … recision, recall, and F1-score for detection are below 0.80.” → “Accuracy is the highest of these measures, but it has to be read with care: because 207 of the 270 test frames have no damage, a system that reported  … r in ten of the frames in which it reported damage had none.” |
+| B6 | 5.1.1 correct type | Acceptance level removed | “and an F1-score of 0.418, all below 0.80.” → “and an F1-score of 0.418.” |
+| B7 | 5.1.1 classification accuracy | Acceptance level removed | “(95% CI 75.0% to 97.8%), which meets the acceptance level of 0.80.” → “(95% CI 75.0% to 97.8%).” |
+| B8 | 5.1.1 per class | Acceptance level removed | “The per-class accuracies of 0.896 to 0.944 meet the acceptance level, but” → “The per-class accuracies of 0.896 to 0.944 are high, but” |
+| B9 | 5.1.1 per class | Acceptance level removed | “Precision, recall, and F1-score are below 0.80 for every class, except the precision of alligator cracks (D20), 0.857” → “Precision, recall, and F1-score are lower for every class, most of them far lower; the highest is the precision of alligator cracks (D20), 0.857” |
+| B10 | 5.1.7 classifier test figure | Acceptance level removed | “a top-1 accuracy of 85.9% (95% CI 77.7% to 91.4%), which meets the acceptance level of 0.80.” → “a top-1 accuracy of 85.9% (95% CI 77.7% to 91.4%).” |
+| B11 | Ch I intro | Past tense | “This study aims to develop a web-based road damage detection” → “This study aimed to develop a web-based road damage detection” |
+| B12 | Ch I intro | Past tense | “The proposed system seeks to support more efficient” → “The proposed system was designed to support more efficient” |
+| B13 | Ch I intro | Past tense | “The study is intended to benefit” → “The study was intended to benefit” |
+| B14 | 1.1 | Past tense | “so that the detector is adapted to the road conditions in which it will be used.” → “so that the detector is adapted to the road conditions in which it is used.” |
+| B15 | 1.1 | Past tense | “the proposed study integrates YOLOv8-based road damage detection” → “the present study integrated YOLOv8-based road damage detection” |
+| B16 | 1.1 | Past tense | “The study specifically addresses the four road damage categories” → “The study specifically addressed the four road damage categories” |
+| B17 | 1.1 | Past tense | “the proposed system aims to automate the detection, localization, and mapping of road damage records” → “the proposed system was designed to automate the detection, localization, and mapping of road damage records” |
+| B18 | 1.2 | Past tense | “This study aims to develop OCULUBAK” → “This study aimed to develop OCULUBAK” |
+| B19 | 1.2 | Past tense | “Both parts are evaluated at the level at which the system is used” → “Both parts were evaluated at the level at which the system is used” |
+| B20 | 1.2 | Past tense | “the proposed system aims to improve the efficiency” → “the proposed system was designed to improve the efficiency” |
+| B21 | 1.2 | Past tense | “The study also seeks to provide” → “The study also sought to provide” |
+| B22 | 1.3 | Past tense | “This study addresses the following research questions:” → “This study addressed the following research questions:” |
+| B23 | 1.4 | Past tense | “It is hypothesized that the Web-Based” → “It was hypothesized that the Web-Based” |
+| B24 | 1.4 | Past tense | “timestamp synchronization, will be effective in improving” → “timestamp synchronization, would be effective in improving” |
+| B25 | 1.6 | Past tense | “The study focuses on the development of a web-based road damage detection and mapping system that integrates” → “The study focused on the development of a web-based road damage detection and mapping system that integrates” |
+| B26 | 1.6 | Past tense | “the system aims to provide a more organized” → “the system was designed to provide a more organized” |
+| B27 | 1.7 | Past tense | “This study focuses on the development of OCULUBAK” → “This study focused on the development of OCULUBAK” |
+| B28 | 1.7 | Past tense | “The study specifically covers the four road damage categories” → “The study specifically covered the four road damage categories” |
+| B29 | 1.7 | Past tense | “Survey data will be recorded with a companion mobile capture application on iPhones.” → “Survey data were recorded with a companion mobile capture application on iPhones.” |
+| B30 | 1.7 | Past tense | “no detection or analysis, and its behavior on Android devices is not evaluated in this study.” → “no detection or analysis, and its behavior on Android devices was not evaluated in this study.” |
+| B31 | 1.7 classifier (consistency) | Consistency | “was added after the test evaluation. It changes only the class label of a record, and it was evaluated on validation data only, so the test results of this study describe the fusion of the three detection models without it.” → “was added after the first test evaluation. It changes only the class label of a record; it is part of the deployed system, so the system-level test results of this study include it (Section 5.1.7).” |
+| B32 | 2.1 | Past tense | “The present study works instead from ordinary two-dimensional video” → “The present study worked instead from ordinary two-dimensional video” |
+| B33 | Ch III intro | Past tense | “the methods that the researchers will use to develop and evaluate” → “the methods that the researchers used to develop and evaluate” |
+| B34 | 3.1 | Past tense | “The researchers will follow the Agile methodology” → “The researchers followed the Agile methodology” |
+| B35 | 3.1 | Past tense | “The development of OCULUBAK is organized into five sprints” → “The development of OCULUBAK was organized into five sprints” |
+| B36 | 3.1 | Past tense | “Every sprint passes through the same five activities” → “Every sprint passed through the same five activities” |
+| B37 | 3.1 | Past tense | “Phase 1 will establish the system foundation and produce the first working prototype. Phase 2 will refine detection performance using the four-class d … view at the end of each sprint will determine the objectives” → “Phase 1 established the system foundation and produced the first working prototype. Phase 2 refined detection performance using the four-class dataset … e review at the end of each sprint determined the objectives” |
+| B38 | 3.1.1 | Past tense | “The first phase will establish the architecture and the core functions of the system and will produce a working prototype that can accept a road surve … n results. This phase will involve the following activities:” → “The first phase established the architecture and the core functions of the system and produced a working prototype that could accept a road survey video and return detection results. This phase involved the following activities:” |
+| B39 | 3.1.1 | Past tense | “The review of this phase will identify the detection and positioning limitations that the next phases must address.” → “The review of this phase identified the detection and positioning limitations that the next phases had to address.” |
+| B40 | 3.1.2 | Past tense | “The second phase will focus on the detection model. Its activities will be the following:” → “The second phase focused on the detection model. Its activities were the following:” |
+| B41 | 3.1.2 | Past tense | “which will begin only after ethics clearance has been obtained.” → “which began only after ethics clearance had been obtained.” |
+| B42 | 3.1.3 | Past tense | “The third phase will connect detection results with geographic locations. Its activities will be the following:” → “The third phase connected detection results with geographic locations. Its activities were the following:” |
+| B43 | 3.1.4 | Past tense | “The fourth phase will combine the separate modules into one application. Its activities will be the following:” → “The fourth phase combined the separate modules into one application. Its activities were the following:” |
+| B44 | 3.1.5 | Past tense | “The fifth phase will stabilize the system and carry out the evaluations described in Section 3.8. Its activities will be the following:” → “The fifth phase stabilized the system and carried out the evaluations described in Section 3.8 that could be completed within the study period. Its planned activities were the following:” |
+| B45 | 3.2.1 | Past tense | “In this study the two will be recorded concurrently by the mobile capture application” → “In this study the two were recorded concurrently by the mobile capture application” |
+| B46 | 3.3.1 | Past tense | “Algorithm 3.1 presents the procedure that OCULUBAK will apply to an uploaded survey video” → “Algorithm 3.1 presents the procedure that OCULUBAK applies to an uploaded survey video” |
+| B47 | 3.3.2 | Past tense | “The rate of duplicate records that remain will be measured in the damage log correctness check (Section 3.8.3).” → “The rate of duplicate records that remain is reported in the damage log correctness check (Section 3.8.3).” |
+| B48 | 3.3.3 | Past tense | “the formulas for processing throughput will be reported with the measured results in Chapter V.” → “the formulas for processing throughput are reported with the measured results in Chapter V.” |
+| B49 | 3.4 | Past tense | “how the concepts in Section 3.2 will be realized in the implemented system” → “how the concepts in Section 3.2 were realized in the implemented system” |
+| B50 | 3.4.2 | Past tense | “The application will be used on the researchers' iPhones for all survey data collected in this study.” → “The application was used on the researchers' iPhones for all survey data collected in this study.” |
+| B51 | 3.4.2 | Past tense | “and will not start a recording unless the phone has at least 2 GB” → “and does not start a recording unless the phone has at least 2 GB” |
+| B52 | 3.4.2 | Past tense | “the application will not start recording until it has a GPS fix” → “the application does not start recording until it has a GPS fix” |
+| B53 | 3.4.2 | Past tense | “recorded in each session's GPS file and will be reported as a measured value.” → “recorded in each session's GPS file and is reported as a measured value (Section 5.4).” |
+| B54 | 3.4.3 (consistency) | Consistency | “The foreign and local test subsets are kept separate so that performance can be reported for each, as required by the first specific objective.” → “The foreign and local test subsets were kept separate so that performance could be reported for each.” |
+| B55 | 3.5 | Past tense | “all of whom will use the system under the Road Maintenance Personnel role during evaluation.” → “all of whom used the system under the Road Maintenance Personnel role during the evaluation.” |
+| B56 | 3.6 | Past tense | “The respondents of this study will consist of personnel” → “The respondents of this study consisted of personnel” |
+| B57 | 3.6 | Past tense | “The respondents will be drawn from three groups:” → “The respondents were drawn from three groups:” |
+| B58 | 3.6 | Past tense | “All personnel of the partner office who meet the inclusion criteria will be invited to participate, so the number of respondents will equal the number … s do not involve road condition assessment will be excluded.” → “All personnel of the partner office who met the inclusion criteria were invited to participate, so the number of respondents was to equal the number o … ies did not involve road condition assessment were excluded.” |
+| B59 | 3.6 | Past tense | “The respondents will be chosen because they are the intended end-users” → “The respondents were chosen because they are the intended end-users” |
+| B60 | 3.6 | Past tense | “The study will use purposive sampling in selecting respondents, as only individuals directly involved in infrastructure management and road monitoring … uation of the system. The respondents will assess the system” → “The study used purposive sampling in selecting respondents, as only individuals directly involved in infrastructure management and road monitoring participated in the evaluation of the system. The respondents assessed the system” |
+| B61 | 3.6 | Past tense | “Information gathered from the respondents through the evaluation questionnaire will be used to analyze” → “Information gathered from the respondents through the evaluation questionnaire was used to analyze” |
+| B62 | 3.7 | Past tense | “The development and evaluation of OCULUBAK will be guided by ethical principles” → “The development and evaluation of OCULUBAK were guided by ethical principles” |
+| B63 | 3.7 | Past tense | “Institutional ethics review applies to the evaluation questionnaire” → “Institutional ethics review applied to the evaluation questionnaire” |
+| B64 | 3.7 | Past tense | “access to them will be restricted as described below, and they will not be published or shared” → “access to them was restricted as described below, and they were not published or shared” |
+| B65 | 3.7 | Past tense | “all surveys will be recorded by the researchers themselves, who consent to the collection of their own routes.” → “all surveys were recorded by the researchers themselves, who consented to the collection of their own routes.” |
+| B66 | 3.7 | Past tense | “Access to the system will require login with a signed JSON Web Token that expires after twelve hours. Accounts will be created only by a system admini … le detection records and the damage map will be shared among” → “Access to the system requires login with a signed JSON Web Token that expires after twelve hours. Accounts are created only by a system administrator, …  while detection records and the damage map are shared among” |
+| B67 | 3.7 | Past tense | “All respondents will be required to give written informed consent before taking part in the evaluation. Before signing, each respondent will receive a … e of road damage classification. The consent form will state” → “All respondents were required to give written informed consent before taking part in the evaluation. Before signing, each respondent received an expla … rpose of road damage classification. The consent form stated” |
+| B68 | 3.7 | Past tense | “Participation in the study is voluntary, with no coercion or obligation to give reasons for declining. Respondents may withdraw at any time without pe … spondents will face no professional or personal consequences” → “Participation in the study was voluntary, with no coercion or obligation to give reasons for declining. Respondents could withdraw at any time without … d respondents faced no professional or personal consequences” |
+| B69 | 3.7 | Past tense | “The study will involve no deception. Before the evaluation, respondents will be informed of the types” → “The study involved no deception. Before the evaluation, respondents were informed of the types” |
+| B70 | 3.7 | Past tense | “the purpose of the evaluation questionnaire; and how their feedback will be used.” → “the purpose of the evaluation questionnaire; and how their feedback would be used.” |
+| B71 | 3.7 | Past tense | “Survey videos, GPS tracks, detection records, and questionnaire responses will be stored on password-protected systems accessible only to the research … naire responses will be analyzed without respondents' names.” → “Survey videos, GPS tracks, detection records, and questionnaire responses were stored on password-protected systems accessible only to the research te … ionnaire responses were analyzed without respondents' names.” |
+| B72 | 3.8 | Past tense | “the statistical methods that will be used to analyze the data gathered” → “the statistical methods that were used to analyze the data gathered” |
+| B73 | 3.8 | Past tense | “because it states that the effectiveness of the system will be determined through evaluation” → “because it stated that the effectiveness of the system would be determined through evaluation” |
+| B74 | 3.8.1 | Past tense | “Detection performance is measured at the level at which the system is used” → “Detection performance was measured at the level at which the system is used” |
+| B75 | 3.8.1 | Past tense | “It is computed on the local test subset, 270 near-zone frames” → “It was computed on the local test subset, 270 near-zone frames” |
+| B76 | 3.8.1 | Past tense | “The same measures are computed for each of the four damage classes” → “The same measures were computed for each of the four damage classes” |
+| B77 | 3.8.1 | Past tense | “are reported beside them, and for each model alone on the foreign test subset” → “were reported beside them, and for each model alone on the foreign test subset” |
+| B78 | 3.8.1 | Past tense | “All four measures are reported at the deployed threshold of 0.25” → “All four measures were reported at the deployed threshold of 0.25” |
+| B79 | 3.8.1 | Past tense | “95 percent Wilson score intervals are given for accuracy, precision, and recall” → “95 percent Wilson score intervals were given for accuracy, precision, and recall” |
+| B80 | 3.8.1 | Past tense | “the class decision is also measured on its own. At the deployed threshold, each detection is paired” → “the class decision was also measured on its own. At the deployed threshold, each detection was paired” |
+| B81 | 3.8.1 | Past tense | “It is computed for the deployed system, whose damage types” → “It was computed for the deployed system, whose damage types” |
+| B82 | 3.8.1 | Past tense | “so it is always reported together with recall and the number of matched detections” → “so it was always reported together with recall and the number of matched detections” |
+| B83 | 3.8.1 | Past tense | “reaches at least 0.80 is also reported, with its precision and recall” → “reaches at least 0.80 was also reported, with its precision and recall” |
+| B84 | 3.8.1 | Past tense | “the confusion matrix of each model is produced by Ultralytics; for the local test subset, the 4 × 4 table of matched pairs described above serves this purpose.” → “the confusion matrix of each model was produced by Ultralytics; for the local test subset, the 4 × 4 table of matched pairs described above served this purpose.” |
+| B85 | 3.8.1 | Past tense | “The same frame-level measures are computed on the same 270 test frames” → “The same frame-level measures were computed on the same 270 test frames” |
+| B86 | 3.8.1 | Past tense | “Each runs with the system’s settings” → “Each was run with the system’s settings” |
+| B87 | 3.8.1 | Past tense | “The deployed system keeps its threshold of 0.25” → “The deployed system kept its threshold of 0.25” |
+| B88 | 3.8.2 | Past tense | “of the DPWH Cavite 2nd District Engineering Office will review the 40 boxes” → “of the DPWH Cavite 2nd District Engineering Office reviewed the 40 boxes” |
+| B89 | 3.8.2 | Past tense | “The sheet names the damage class of each group of boxes, and for each box he will mark whether it shows that class, list any boxes he finds incorrect, and sign the certification letter. The result is reported” → “The sheet named the damage class of each group of boxes, and for each box he marked whether it showed that class, listed any boxes he found incorrect, and signed the certification letter. The result was reported” |
+| B90 | 3.8.3 | Past tense | “the researchers will check 50 stored records drawn at random” → “the researchers checked 50 stored records drawn at random” |
+| B91 | 3.8.3 | Past tense | “For each record, the damage type will be checked against the snapshot, the timestamp will be checked by opening the video at that time, and the locati …  The correctness rate of each attribute will be computed as:” → “For each record, the damage type was checked against the snapshot, the timestamp was checked by opening the video at that time, and the location was c … ime. The correctness rate of each attribute was computed as:” |
+| B92 | 3.8.3 | Past tense | “will also be reported, since cross-frame tracking” → “was also reported, since cross-frame tracking” |
+| B93 | 3.8.3 | Past tense | “The time and the location are checked automatically.” → “The time and the location were checked automatically.” |
+| B94 | 3.8.3 | Past tense | “are listed as duplicate candidates. The damage type and the duplicate candidates are then judged by a researcher” → “were listed as duplicate candidates. The damage type and the duplicate candidates were then judged by a researcher” |
+| B95 | 3.8.4 | Past tense | “a sample of 20 to 30 detected damages from surveys recorded with a GPS track will be validated in the field. A researcher will stand beside each sampl … eld still for one minute, and the readings will be averaged.” → “a sample of 20 to 30 detected damages from surveys recorded with a GPS track was to be validated in the field. A researcher was to stand beside each s …  still for one minute, and the readings were to be averaged.” |
+| B96 | 3.8.4 | Past tense | “The error will be summarized with the mean, standard deviation, and maximum” → “The error was to be summarized with the mean, standard deviation, and maximum” |
+| B97 | 3.8.5 | Past tense | “The usability and effectiveness of the system will be evaluated through user acceptance testing” → “The usability and effectiveness of the system were evaluated through user acceptance testing” |
+| B98 | 3.8.5 | Past tense | “The evaluation questionnaire will use a five-point Likert scale” → “The evaluation questionnaire used a five-point Likert scale” |
+| B99 | 3.8.5 | Past tense | “The responses will be analyzed with the following statistics.” → “The responses were analyzed with the following statistics.” |
+| B100 | 3.8.5 | Past tense | “a one-tailed one-sample t-test will be applied at the 0.05 level of significance:” → “a one-tailed one-sample t-test was applied at the 0.05 level of significance:” |
+| B101 | 3.8.5 | Past tense | “The hypothesis will be supported if the overall weighted mean is at least 3.41 and the t-test shows it to be significantly greater than 3.41 at the 0.05 level. The results for each dimension will be reported” → “The hypothesis was to be considered supported if the overall weighted mean was at least 3.41 and the t-test showed it to be significantly greater than 3.41 at the 0.05 level. The results for each dimension were reported” |
+| B102 | 3.8.6 | Past tense | “Frequency and percentage distributions will be used to summarize” → “Frequency and percentage distributions were used to summarize” |
+| B103 | 3.8.7 | Past tense | “The following software tools will be used for training, evaluation, and statistical analysis.” → “The following software tools were used for training, evaluation, and statistical analysis.” |
+| B104 | Sub-tab heading (sub-tab) | Acceptance level removed | “Did the system reach the 0.80 goal?” → “Which scores are high, and which are low?” |
+| B105 | Sub-tab (sub-tab) | Acceptance level removed | “Reached: detection accuracy (0.804), but only just, and mostly because most frames have no damage.” → “Highest: detection accuracy (0.804), mostly because most frames have no damage.” |
+| B106 | Sub-tab (sub-tab) | Acceptance level removed | “Reached: naming the damage type (92% in the system, and 86% for the type checker on its own).” → “Also high: naming the damage type (92% in the system, and 86% for the type checker on its own).” |
+| B107 | Sub-tab (sub-tab) | Acceptance level removed | “Not reached: precision (0.586), recall (0.540), and F1-score (0.562) for finding damage.” → “Lower: precision (0.586), recall (0.540), and F1-score (0.562) for finding damage.” |
+
+### Not changed (listed in `docs/MANUSCRIPT_TODO.md`)
+
+- The one remaining future tense in Chapters I–III (3.7, "Upon completion of the study, … will be deleted"), which is still in the future.
+- "will" in Chapter IV (4.2.2 NFR on video deletion, 4.2.5, 4.4.2, 4.4.3, 4.4.5): outside the Chapters I–III scope.
+- The research questions (1.3) and the objectives (1.5): questions and infinitives have no tense to change.
+- System descriptions kept in the present tense as instructed ("the system stores…", 3.3, 3.4.1, the CLIP check in 2.1).
