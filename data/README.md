@@ -1,7 +1,7 @@
 # data/: OcuLubak dataset (local only)
 
 > **The data files are not in this repository.** The `data/` folder is 12.6 GB (117,624 files) and holds
-> frames taken from the team's road survey videos, which show people and licence plates. It is stored
+> frames taken from the team's road survey videos. It is stored
 > on the team's training PC and listed in `.gitignore`. Only this README is pushed, so that the folder
 > structure, split sizes and label counts can be checked without the images.
 >
