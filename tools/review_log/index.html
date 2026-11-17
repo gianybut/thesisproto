@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Damage log review</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --primary:#3B6FA8; --ink:#1c2733; --muted:#5b6876; --line:#d9dee5; --bg:#F6F8FB; --card:#fff;
+          --ok:#2f7d4a; --bad:#b23b3b; --warn:#9a6a00; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:10px 16px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; }
+  .tabs button, .nav button, .ans button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:6px; padding:6px 12px; cursor:pointer; }
+  .tabs button[aria-pressed=true] { border-color:var(--primary); color:var(--primary); font-weight:600; }
+  .muted { color:var(--muted); } .num { font-variant-numeric:tabular-nums; }
+  main { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:16px; padding:16px; max-width:1500px; margin:0 auto; }
+  @media (max-width:1000px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .card h2 { font-size:14px; margin:0 0 8px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+  img.snap { width:100%; display:block; border-radius:4px; }
+  canvas#close { width:100%; max-height:300px; object-fit:contain; background:#111; border-radius:4px; display:block; }
+  video { width:100%; border-radius:4px; background:#000; }
+  #map { height:300px; border-radius:4px; }
+  .stack > * + * { margin-top:12px; }
+  .q { border-top:1px solid var(--line); padding-top:12px; }
+  .q:first-child { border-top:0; padding-top:0; }
+  .q h3 { font-size:15px; margin:0 0 6px; }
+  .auto { font-size:13px; margin:0 0 8px; }
+  .auto b.yes { color:var(--ok); } .auto b.no { color:var(--bad); }
+  .ans { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .ans button[aria-pressed=true] { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .ans .how { font-size:12px; color:var(--muted); }
+  textarea, input[type=text] { font:inherit; width:100%; border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+  input.dupof { width:120px; }
+  .nav { display:flex; gap:8px; align-items:center; margin-left:auto; flex-wrap:wrap; }
+  .saved { font-size:13px; color:var(--ok); min-width:110px; }
+  .saved.err { color:var(--bad); }
+  .cands { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0; }
+  .cands figure { margin:0; width:180px; font-size:12px; }
+  .cands img { width:100%; border-radius:4px; }
+  .kbd { font-size:12px; color:var(--muted); }
+  .banner { background:#fff6db; border:1px solid #ecd58a; color:#5e4a00; padding:8px 12px; border-radius:6px; margin:0 16px; }
+  select { font:inherit; padding:5px; border-radius:6px; border:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Damage log review</h1>
+  <span class="muted" id="survey"></span>
+  <div class="tabs">
+    <button id="tab-log" aria-pressed="true">1 · Damage log (<span class="num" id="n-log"></span>)</button>
+    <button id="tab-flagged" aria-pressed="false">2 · AI-flagged (<span class="num" id="n-flagged"></span>)</button>
+  </div>
+  <div class="nav">
+    <button id="prev">← Previous</button>
+    <select id="jump" aria-label="Go to record"></select>
+    <button id="next">Next →</button>
+    <button id="next-open">Next unanswered</button>
+    <span class="saved" id="saved" aria-live="polite"></span>
+  </div>
+</header>
+<p class="banner" id="banner" hidden></p>
+<main>
+  <div class="stack">
+    <section class="card"><h2>Snapshot <span class="muted num" id="snapmeta"></span></h2><img class="snap" id="snap" alt="Saved frame of this record"></section>
+    <section class="card"><h2>Close-up</h2><canvas id="close" width="720" height="300"></canvas></section>
+  </div>
+  <div class="stack">
+    <section class="card"><h2>Video <span class="muted" id="vidnote"></span></h2>
+      <video id="video" src="/video" controls preload="metadata" muted></video>
+      <div class="ans" style="margin-top:8px"><button id="replay">Play from 2 s before</button><span class="muted num" id="vt"></span></div>
+    </section>
+    <section class="card"><h2>Map</h2><div id="map"></div><p class="muted num" id="pos" style="margin:6px 0 0;font-size:13px"></p></section>
+    <section class="card stack" id="questions"></section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let D, batch = 'log', idx = 0, map, trackLine, marker, candLayer;
+
+async function init() {
+  D = await (await fetch('/api/data')).json();
+  $('survey').textContent = `Survey ${D.survey.id} · ${D.survey.name}${D.survey.road ? ' · ' + D.survey.road : ''}`;
+  $('n-log').textContent = D.log.length; $('n-flagged').textContent = D.flagged.length;
+  $('vidnote').textContent = D.survey.annotated ? '(annotated video, boxes drawn)' : '(original video)';
+  if (D.log.some(i => i.auto.source !== 'database')) {
+    $('banner').hidden = false;
+    $('banner').textContent = 'The automatic checks were not computed from this database. Run tools/damage_log_auto.py here first, then restart this page.';
+  }
+  map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, maxNativeZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  trackLine = L.polyline(D.track, { color: '#1c2733', weight: 3, opacity: .7 }).addTo(map);
+  candLayer = L.layerGroup().addTo(map);
+  $('tab-log').onclick = () => setBatch('log'); $('tab-flagged').onclick = () => setBatch('flagged');
+  $('prev').onclick = () => go(idx - 1); $('next').onclick = () => go(idx + 1);
+  $('next-open').onclick = nextOpen;
+  $('jump').onchange = (e) => go(+e.target.value);
+  $('replay').onclick = () => { const v = $('video'); v.currentTime = Math.max(0, items()[idx].time_s - 2); v.play(); };
+  $('video').addEventListener('timeupdate', () => $('vt').textContent = `at ${$('video').currentTime.toFixed(1)} s`);
+  document.addEventListener('keydown', keys);
+  setBatch('log');
+}
+const items = () => D[batch];
+const st = (it) => (D.state[batch][String(it.id)] ||= {});
+const val = (it, f) => (st(it)[f] || {}).value || '';
+
+function done(it) {
+  return batch === 'log'
+    ? ['type_correct', 'time_correct', 'location_correct', 'duplicate'].every(f => val(it, f))
+    : !!val(it, 'real_damage');
+}
+function setBatch(b) {
+  batch = b; idx = 0;
+  $('tab-log').setAttribute('aria-pressed', b === 'log'); $('tab-flagged').setAttribute('aria-pressed', b === 'flagged');
+  fillJump(); show();
+}
+function fillJump() {
+  $('jump').innerHTML = items().map((it, i) =>
+    `<option value="${i}">${done(it) ? '✓' : '·'} ${batch === 'log' ? 'Item ' + it.item : '#' + (i + 1)} – record ${it.id} (${it.code})</option>`).join('');
+  $('jump').value = idx;
+}
+function go(i) { if (i < 0 || i >= items().length) return; idx = i; show(); }
+function nextOpen() {
+  const n = items().length;
+  for (let k = 1; k <= n; k++) { const j = (idx + k) % n; if (!done(items()[j])) return go(j); }
+  flash('All answered in this batch.');
+}
+
+function show() {
+  const it = items()[idx];
+  $('jump').value = idx;
+  $('snap').src = '/snap/' + encodeURIComponent(it.snapshot);
+  $('snapmeta').textContent = `record ${it.id} · frame ${it.frame} · ${it.time_s.toFixed(2)} s · confidence ${(it.confidence * 100).toFixed(0)}%` +
+    (it.ai != null ? ` · AI check ${(it.ai * 100).toFixed(0)}%` : '');
+  drawClose(it);
+  const v = $('video'); const seek = () => { v.pause(); v.currentTime = it.time_s; };
+  v.readyState >= 1 ? seek() : v.addEventListener('loadedmetadata', seek, { once: true });
+  candLayer.clearLayers();
+  if (marker) marker.remove();
+  if (it.lat != null) {
+    marker = L.circleMarker([it.lat, it.lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#b23b3b', fillOpacity: 1 }).addTo(map);
+    (it.candidates || []).forEach(c => c.lat != null && L.circleMarker([c.lat, c.lon], { radius: 6, color: '#3B6FA8', weight: 2,
+      fillColor: '#3B6FA8', fillOpacity: .35 }).bindTooltip('record ' + c.id).addTo(candLayer));
+    map.setView([it.lat, it.lon], 18);
+    $('pos').innerHTML = `${it.lat.toFixed(7)}, ${it.lon.toFixed(7)} · <a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lon}#map=19/${it.lat}/${it.lon}">open in OpenStreetMap</a>` +
+      ` · <a target="_blank" rel="noopener" href="http://localhost:5173/videos/${D.survey.id}?t=${it.time_s.toFixed(1)}">open in the web app</a>`;
+  } else { $('pos').textContent = 'No position stored.'; map.fitBounds(trackLine.getBounds()); }
+  renderQuestions(it);
+}
+
+function drawClose(it) {
+  const img = new Image();
+  img.onload = () => {
+    const c = $('close'), g = c.getContext('2d');
+    const [x1, y1, x2, y2] = it.box, w = x2 - x1, h = y2 - y1;
+    const side = Math.max(w, h, 120) * 1.6;
+    let cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    let sx = Math.max(0, Math.min(img.width - side * 2.4, cx - side * 1.2)), sy = Math.max(0, Math.min(img.height - side, cy - side / 2));
+    const sw = Math.min(img.width, side * 2.4), sh = Math.min(img.height, side);
+    g.fillStyle = '#111'; g.fillRect(0, 0, c.width, c.height);
+    const k = Math.min(c.width / sw, c.height / sh);
+    g.drawImage(img, sx, sy, sw, sh, (c.width - sw * k) / 2, (c.height - sh * k) / 2, sw * k, sh * k);
+  };
+  img.src = '/snap/' + encodeURIComponent(it.snapshot);
+}
+
+function btns(field, opts, autoVal) {
+  const it = items()[idx], cur = val(it, field), how = (st(it)[field] || {}).how;
+  return `<div class="ans" data-field="${field}">` + opts.map(([v, label]) =>
+    `<button data-v="${v}" aria-pressed="${cur === v}">${label}${autoVal === v ? ' (automatic)' : ''}</button>`).join('') +
+    (how ? `<span class="how">${how}</span>` : '') + '</div>';
+}
+function autoLine(v, detail) {
+  return `<p class="auto">Automatic: <b class="${v}">${v === 'yes' ? 'consistent' : v === 'no' ? 'not consistent' : 'not run'}</b> · <span class="num">${detail}</span></p>`;
+}
+
+function renderQuestions(it) {
+  const Q = $('questions');
+  if (batch === 'log') {
+    const a = it.auto;
+    Q.innerHTML = `
+      <div class="q"><h3>1. Is this damage a ${it.name} <span class="muted">(${it.code})</span>? <span class="kbd">keys Y / N / U</span></h3>
+        ${btns('type_correct', [['yes', 'Yes'], ['no', 'No (other type, or not damage)'], ['unsure', 'Unsure']])}</div>
+      <div class="q"><h3>2. Does the video show this damage at ${it.time_s.toFixed(1)} s?</h3>${autoLine(a.time, a.time_detail)}
+        ${btns('time_correct', [['yes', 'Yes'], ['no', 'No'], ['unsure', 'Unsure']], a.time)}</div>
+      <div class="q"><h3>3. Is the map point where this damage is on the road?</h3>
+        <p class="auto muted">The point is the phone's GPS position at that moment (the damage is a few metres ahead of the car). A few metres off is still yes.</p>
+        ${autoLine(a.location, a.location_detail)}
+        ${btns('location_correct', [['yes', 'Yes'], ['no', 'No'], ['unsure', 'Unsure']], a.location)}</div>
+      <div class="q"><h3>4. Is the same physical damage already another record?</h3>
+        <p class="auto">Automatic: <b class="${a.duplicate === 'yes' ? 'no' : 'yes'}">${a.duplicate === 'yes' ? 'candidate found' : 'no candidate'}</b> · ${a.duplicate_detail}</p>
+        ${(it.candidates || []).length ? '<div class="cands">' + it.candidates.map(c =>
+          `<figure><img src="/snap/${encodeURIComponent(c.snapshot)}" alt="Snapshot of record ${c.id}"><figcaption class="num">record ${c.id} · ${c.code} · ${c.time_s.toFixed(1)} s</figcaption></figure>`).join('') + '</div>' : ''}
+        ${btns('duplicate', [['yes', 'Yes, duplicate'], ['no', 'No'], ['unsure', 'Unsure']], a.duplicate)}
+        <p style="margin:8px 0 0">Duplicate of record: <input type="text" class="dupof num" id="dupof" value="${st(it).duplicate_of ?? (a.duplicate_of || '')}"></p></div>
+      <div class="q"><h3>Notes</h3><textarea id="notes" rows="2">${(st(it).notes || '').replace(/</g, '&lt;')}</textarea></div>`;
+  } else {
+    Q.innerHTML = `
+      <div class="q"><h3>Is this real road damage? <span class="kbd">keys Y / N / U</span></h3>
+        <p class="auto">Recorded as ${it.name} (${it.code}); the AI check scored it ${(it.ai * 100).toFixed(0)}% (flagged below ${(D.threshold * 100).toFixed(0)}%).</p>
+        ${btns('real_damage', [['yes', 'Yes, real damage'], ['no', 'No, not road damage'], ['unsure', 'Unsure']])}</div>
+      <div class="q"><h3>Notes</h3><textarea id="notes" rows="2" placeholder="e.g. lane marking, patch, shadow, manhole">${(st(it).notes || '').replace(/</g, '&lt;')}</textarea></div>`;
+  }
+  Q.querySelectorAll('.ans[data-field] button').forEach(b => b.onclick = () => answer(b.parentElement.dataset.field, b.dataset.v));
+  let t; const notes = $('notes');
+  notes.oninput = () => { clearTimeout(t); t = setTimeout(() => save('notes', notes.value), 500); };
+  const dup = $('dupof'); if (dup) dup.oninput = () => { clearTimeout(t); t = setTimeout(() => save('duplicate_of', dup.value.trim()), 500); };
+}
+
+async function answer(field, v) {
+  const it = items()[idx];
+  const cur = val(it, field);
+  await save(field, cur === v ? '' : v);
+  if (field === 'duplicate' && v === 'yes' && !(st(it).duplicate_of)) await save('duplicate_of', $('dupof').value.trim());
+  renderQuestions(it); fillJump();
+}
+async function save(field, value) {
+  const it = items()[idx];
+  try {
+    const r = await fetch('/api/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch, id: it.id, field, value }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    D.state[batch][String(it.id)] = j.record;
+    flash('Saved ' + j.saved.slice(11, 19));
+  } catch (e) { flash('Not saved: ' + e.message, true); }
+}
+function flash(msg, err) { const s = $('saved'); s.textContent = msg; s.classList.toggle('err', !!err); }
+
+function keys(e) {
+  if (e.target.matches('textarea, input')) return;
+  const k = e.key.toLowerCase(), f = batch === 'log' ? 'type_correct' : 'real_damage';
+  if (k === 'y') answer(f, 'yes'); else if (k === 'n') answer(f, 'no'); else if (k === 'u') answer(f, 'unsure');
+  else if (e.key === 'ArrowRight') go(idx + 1); else if (e.key === 'ArrowLeft') go(idx - 1);
+  else if (e.key === ' ') { e.preventDefault(); $('replay').click(); }
+}
+init();
+</script>
+</body>
+</html>

@@ -1,8 +1,11 @@
 """Build a YOLO classification dataset from reviewed YOLO detection labels.
 
-Each reviewed bounding box becomes one crop. The source lists are kept explicit so train,
-validation, and test frames retain the team's existing split and no frame is silently moved
-between evaluation sets.
+Each reviewed bounding box becomes one crop. The source lists are kept explicit so train and
+validation frames retain the team's existing split and no frame is silently moved between sets.
+
+The test frames are NOT cut into crops (2026-11-12): the test set was evaluated once, on 2026-11-11,
+with metrics fixed beforehand (results/metric_definitions.md), and is not used for anything new. The
+classifier is evaluated on validation only (results/classifier_metric_definitions.md).
 """
 
 import argparse
@@ -91,7 +94,6 @@ if __name__ == '__main__':
         {
             'train': root / 'local_train.txt',
             'val': root / 'val_reviewed.txt',
-            'test': root / 'test.txt',
         },
         args.padding,
     )
